@@ -1,0 +1,24 @@
+{
+  "dependencies": [
+    {
+      "name": "obs-studio-node",
+      "version": "0.26.29b21",
+      "url": "https://s3-us-west-2.amazonaws.com/obsstudionodes3.streamlabs.com/",
+      "archive": "osn-[VERSION]-release-[PLATFORM].tar.gz",
+      "platforms": ["osx-arm64", "osx", "win64"],
+      "sha256": {
+        "osx-arm64": "a35d0510fbfca7a2bdf39b17acff1eb100217a7da89daa75fa1d47687c5f1a2b"
+      }
+    },
+    {
+      "name": "node-window-rendering",
+      "version": "1.0.20",
+      "url": "https://slobs-node-window-rendering.s3-us-west-2.amazonaws.com/",
+      "archive": "node-window-rendering-[VERSION]-[PLATFORM].tar.gz",
+      "platforms": ["osx-arm64", "osx"],
+      "sha256": {
+        "osx-arm64": "efa1cf74a3d187c6af604a67f53dacfc4fa245c6b43ca6c65458cf1ea91d8916"
+      }
+    }
+  ]
+}

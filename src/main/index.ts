@@ -1,0 +1,134 @@
+import path from "node:path";
+import { app, BrowserWindow, ipcMain, nativeTheme, session, shell } from "electron";
+import { IPC, STUDIO_ERROR_PREFIX, STUDIO_METHODS, type StudioMethod } from "../shared/ipc";
+import { setVendorRoot } from "./engine/osn";
+import { errorKey, Studio, vendorRoot } from "./studio";
+
+let mainWindow: BrowserWindow | null = null;
+let studio: Studio | null = null;
+let quitting = false;
+let shutdownStarted = false;
+
+const DEV_URL = process.env.ELECTRON_RENDERER_URL;
+
+function createWindow(): BrowserWindow {
+  const window = new BrowserWindow({
+    width: 1440,
+    height: 900,
+    minWidth: 1100,
+    minHeight: 700,
+    show: false,
+    title: "SEENALYZE STUDIO",
+    backgroundColor: nativeTheme.shouldUseDarkColors ? "#000000" : "#ffffff",
+    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
+    webPreferences: {
+      preload: path.join(__dirname, "../preload/index.js"),
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+      webSecurity: true,
+      spellcheck: false,
+    },
+  });
+
+  window.once("ready-to-show", () => window.show());
+
+  // The app never navigates away from its own UI and never opens child windows.
+  window.webContents.on("will-navigate", (event, url) => {
+    if (!isAppUrl(url)) event.preventDefault();
+  });
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith("https://")) shell.openExternal(url).catch((error: unknown) => console.error(error));
+    return { action: "deny" };
+  });
+
+  if (DEV_URL) {
+    // Surface renderer logs in the terminal during development.
+    window.webContents.on("console-message", (event) => console.log(`[renderer] ${event.message}`));
+    window.loadURL(DEV_URL);
+  }
+  else window.loadFile(path.join(__dirname, "../renderer/index.html"));
+  return window;
+}
+
+function isAppUrl(url: string): boolean {
+  if (DEV_URL) return url.startsWith(DEV_URL);
+  return url.startsWith("file://");
+}
+
+function registerIpc(): void {
+  const allowed = new Set<string>(STUDIO_METHODS);
+  ipcMain.handle(IPC.invoke, async (event, method: unknown, args: unknown) => {
+    if (!mainWindow || event.sender !== mainWindow.webContents || !isAppUrl(event.senderFrame?.url ?? "")) {
+      throw new Error(`${STUDIO_ERROR_PREFIX}forbidden`);
+    }
+    if (typeof method !== "string" || !allowed.has(method) || !Array.isArray(args)) {
+      throw new Error(`${STUDIO_ERROR_PREFIX}invalid-request`);
+    }
+    if (!studio) throw new Error(`${STUDIO_ERROR_PREFIX}engine-not-ready`);
+    const handler = studio.api[method as StudioMethod] as (...params: unknown[]) => Promise<unknown>;
+    try {
+      return await handler(...args);
+    } catch (error) {
+      console.error(`[ipc] ${method} failed`, error);
+      throw new Error(`${STUDIO_ERROR_PREFIX}${errorKey(error)}`, { cause: error });
+    }
+  });
+}
+
+function lockDownPermissions(): void {
+  // Capture devices are opened by the engine, never by the web UI.
+  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+}
+
+// One app instance: a second launch focuses the existing window instead.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  });
+}
+
+app.whenReady().then(() => {
+  setVendorRoot(vendorRoot());
+  lockDownPermissions();
+  registerIpc();
+  mainWindow = createWindow();
+  studio = new Studio(mainWindow, () => {
+    quitting = true;
+    app.quit();
+  });
+  mainWindow.webContents.once("did-finish-load", () => void studio?.start());
+
+  mainWindow.on("close", (event) => {
+    if (quitting || !studio?.busy) return;
+    event.preventDefault();
+    studio.requestQuitConfirmation();
+  });
+});
+
+app.on("before-quit", (event) => {
+  if (!quitting && studio?.busy) {
+    event.preventDefault();
+    studio.requestQuitConfirmation();
+    return;
+  }
+  quitting = true;
+  if (!studio || shutdownStarted) return;
+  // Engine teardown is asynchronous; finish it (bounded) before exiting.
+  event.preventDefault();
+  shutdownStarted = true;
+  const current = studio;
+  studio = null;
+  current
+    .shutdown()
+    .catch((error: unknown) => console.error("[app] shutdown failed", error))
+    .finally(() => app.exit(0));
+});
+
+app.on("window-all-closed", () => {
+  app.quit();
+});

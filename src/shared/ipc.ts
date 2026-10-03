@@ -1,0 +1,177 @@
+// Typed contract between the renderer and the main process. The preload
+// bridge exposes exactly these methods; the main process validates every call.
+
+import type {
+  AudioLevel,
+  ChatEvent,
+  ChatState,
+  PermissionKind,
+  PermissionState,
+  BroadcastInfo,
+  CategoryOption,
+  DestinationDraft,
+  DeviceCodePrompt,
+  EngineStats,
+  PropertyDTO,
+  Rect,
+  SourceKind,
+  StudioSnapshot,
+  TransformPreset,
+  VideoSettings,
+} from "./types";
+
+export interface StudioApi {
+  getSnapshot(): Promise<StudioSnapshot>;
+
+  // Scenes
+  createScene(name: string): Promise<void>;
+  removeScene(name: string): Promise<void>;
+  renameScene(name: string, nextName: string): Promise<void>;
+  setActiveScene(name: string): Promise<void>;
+
+  // Sources
+  /** Resolves with the final (unique) source name. */
+  addSource(scene: string, kind: SourceKind, name: string): Promise<string>;
+  removeSceneItem(scene: string, itemId: number): Promise<void>;
+  setItemVisible(scene: string, itemId: number, visible: boolean): Promise<void>;
+  setItemLocked(scene: string, itemId: number, locked: boolean): Promise<void>;
+  moveSceneItem(scene: string, itemId: number, direction: "up" | "down"): Promise<void>;
+  applyTransform(scene: string, itemId: number, preset: TransformPreset): Promise<void>;
+  getSourceProperties(source: string): Promise<PropertyDTO[]>;
+  updateSourceSettings(source: string, settings: Record<string, unknown>): Promise<PropertyDTO[]>;
+  clickSourceButton(source: string, property: string): Promise<PropertyDTO[]>;
+  renameSource(source: string, nextName: string): Promise<void>;
+  pickFile(filter: string | undefined, directory: boolean): Promise<string | null>;
+
+  // Audio
+  setVolume(source: string, deflection: number): Promise<void>;
+  setMuted(source: string, muted: boolean): Promise<void>;
+
+  // Preview
+  setPreviewBounds(rect: Rect | null): Promise<void>;
+
+  // Settings
+  setVideoSettings(settings: VideoSettings): Promise<void>;
+  setEncoder(encoderId: string): Promise<void>;
+  chooseRecordingFolder(): Promise<string | null>;
+
+  // Destinations
+  saveDestination(draft: DestinationDraft): Promise<string>;
+  removeDestination(id: string): Promise<void>;
+  setDestinationEnabled(id: string, enabled: boolean): Promise<void>;
+
+  // Accounts
+  connectTwitch(): Promise<DeviceCodePrompt>;
+  connectYouTube(): Promise<void>;
+  disconnectAccount(accountId: string): Promise<void>;
+  getBroadcastInfo(destinationId: string): Promise<BroadcastInfo>;
+  setBroadcastInfo(destinationId: string, info: BroadcastInfo): Promise<void>;
+  searchCategories(accountId: string, query: string): Promise<CategoryOption[]>;
+  openExternal(url: string): Promise<void>;
+
+  // Go live / record
+  goLive(destinationIds: string[]): Promise<void>;
+  endStream(destinationIds: string[]): Promise<void>;
+  startRecording(): Promise<void>;
+  stopRecording(): Promise<void>;
+  revealRecording(): Promise<void>;
+  quitApp(): Promise<void>;
+  /** Starts the engine again after it stopped unexpectedly. */
+  restartEngine(): Promise<void>;
+
+  // Permissions
+  /** Asks the OS for access (shows the system prompt when possible). */
+  requestPermission(kind: PermissionKind): Promise<PermissionState>;
+  openPermissionSettings(kind: PermissionKind): Promise<void>;
+  relaunchApp(): Promise<void>;
+
+  // Chat
+  getChat(): Promise<ChatState>;
+  /** Chat connects only while the chat panel is shown. */
+  setChatActive(active: boolean): Promise<void>;
+
+  // Events
+  onSnapshot(listener: (snapshot: StudioSnapshot) => void): () => void;
+  onStats(listener: (stats: EngineStats) => void): () => void;
+  onAudioLevels(listener: (levels: AudioLevel[]) => void): () => void;
+  onNotice(listener: (notice: Notice) => void): () => void;
+  /** Fired when the user tries to close the window while live or recording. */
+  onQuitRequest(listener: () => void): () => void;
+  onChat(listener: (event: ChatEvent) => void): () => void;
+}
+
+export interface Notice {
+  kind: "success" | "error" | "info";
+  /** Translation key under `notices.*` or `errors.*`. */
+  key: string;
+  values?: Record<string, string | number>;
+}
+
+export const IPC = {
+  invoke: "studio:invoke",
+  snapshot: "studio:snapshot",
+  stats: "studio:stats",
+  audioLevels: "studio:audio-levels",
+  notice: "studio:notice",
+  quitRequest: "studio:quit-request",
+  chat: "studio:chat",
+} as const;
+
+export type StudioMethod = Exclude<keyof StudioApi, `on${string}`>;
+
+export const STUDIO_METHODS: readonly StudioMethod[] = [
+  "getSnapshot",
+  "createScene",
+  "removeScene",
+  "renameScene",
+  "setActiveScene",
+  "addSource",
+  "removeSceneItem",
+  "setItemVisible",
+  "setItemLocked",
+  "moveSceneItem",
+  "applyTransform",
+  "getSourceProperties",
+  "updateSourceSettings",
+  "clickSourceButton",
+  "renameSource",
+  "pickFile",
+  "setVolume",
+  "setMuted",
+  "setPreviewBounds",
+  "setVideoSettings",
+  "setEncoder",
+  "chooseRecordingFolder",
+  "saveDestination",
+  "removeDestination",
+  "setDestinationEnabled",
+  "connectTwitch",
+  "connectYouTube",
+  "disconnectAccount",
+  "getBroadcastInfo",
+  "setBroadcastInfo",
+  "searchCategories",
+  "openExternal",
+  "goLive",
+  "endStream",
+  "startRecording",
+  "stopRecording",
+  "revealRecording",
+  "quitApp",
+  "restartEngine",
+  "requestPermission",
+  "openPermissionSettings",
+  "relaunchApp",
+  "getChat",
+  "setChatActive",
+];
+
+/** Errors crossing IPC carry a translation key instead of English text. */
+export class StudioError extends Error {
+  constructor(public readonly key: string) {
+    super(key);
+    this.name = "StudioError";
+  }
+}
+
+export const STUDIO_ERROR_PREFIX = "studio-error:";

@@ -1,0 +1,57 @@
+{
+  "name": "seenalyze-studio",
+  "productName": "SEENALYZE STUDIO",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop live-streaming studio with native multistreaming",
+  "license": "GPL-2.0-or-later",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "postinstall": "node scripts/fetch-native-deps.mjs",
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "lint": "eslint .",
+    "test": "bun test src",
+    "dist:mac": "electron-vite build && electron-builder --mac --arm64",
+    "dist:win": "electron-vite build && electron-builder --win --x64",
+    "check:multistream": "esbuild scripts/multistream-check.ts --bundle --platform=node --format=cjs --external:electron --log-level=warning --outfile=.multistream-check.cjs && electron .multistream-check.cjs; status=$?; rm -f .multistream-check.cjs; exit $status",
+    "check:responsiveness": "esbuild src/main/engine/worker.ts --bundle --platform=node --format=cjs --external:electron --log-level=warning --outfile=engine-worker.js && esbuild scripts/responsiveness-check.ts --bundle --platform=node --format=cjs --external:electron --log-level=warning --outfile=.responsiveness-check.cjs && electron .responsiveness-check.cjs; status=$?; rm -f engine-worker.js .responsiveness-check.cjs; exit $status"
+  },
+  "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.50.0",
+    "radix-ui": "^1.6.7",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "sonner": "^2.0.8",
+    "tailwind-merge": "^3.7.0",
+    "use-intl": "^4.14.9",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/bun": "^1.4.2",
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "5",
+    "electron": "44",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "5",
+    "eslint": "^10.12.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "5.9",
+    "typescript-eslint": "^8.71.0",
+    "vite": "7"
+  },
+  "trustedDependencies": [
+    "electron",
+    "esbuild"
+  ]
+}

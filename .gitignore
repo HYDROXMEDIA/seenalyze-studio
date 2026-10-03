@@ -1,0 +1,13 @@
+node_modules/
+out/
+dist/
+release/
+vendor/
+*.log
+.DS_Store
+.env*
+!.env.example
+config/studio.config.json
+.multistream-check.cjs
+engine-worker.js
+.responsiveness-check.cjs

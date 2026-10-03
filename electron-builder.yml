@@ -1,0 +1,30 @@
+appId: ai.seenalyze.studio
+productName: SEENALYZE STUDIO
+copyright: Copyright (c) SEENALYZE
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+extraResources:
+  - from: vendor
+    to: vendor
+    filter: ["**/*", "!**/.seenalyze-version"]
+  - from: LICENSE
+    to: LICENSE
+asar: true
+mac:
+  category: public.app-category.video
+  target: [dmg, zip]
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    NSCameraUsageDescription: SEENALYZE STUDIO uses your camera when you add it as a source.
+    NSMicrophoneUsageDescription: SEENALYZE STUDIO uses your microphone when you add it as a source.
+win:
+  target: [nsis]
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

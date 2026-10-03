@@ -1,0 +1,141 @@
+/* Design tokens mirror the SEENALYZE web dashboard (globals.css / tailwind-theme.css). */
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-live: var(--live);
+  --color-brand: #00ffde;
+  --color-brand-muted: #5eead4;
+  --color-brand-green: #00df6a;
+  --color-brand-purple: #b0a0ff;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.16 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.16 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.16 0 0);
+  --primary: oklch(0 0 0);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.96 0 0);
+  --secondary-foreground: oklch(0.28 0 0);
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: oklch(0.55 0 0);
+  --accent: oklch(0.96 0 0);
+  --accent-foreground: oklch(0.28 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.92 0 0);
+  --input: oklch(0.92 0 0);
+  --ring: oklch(0.62 0 0);
+  --live: oklch(0.63 0.24 25);
+  --surface: oklch(0.985 0 0);
+}
+
+.dark {
+  --background: #000000;
+  --foreground: oklch(1 0 0);
+  --card: oklch(0 0 0);
+  --card-foreground: oklch(1 0 0);
+  --popover: oklch(0.1 0 0);
+  --popover-foreground: oklch(1 0 0);
+  --primary: oklch(1 0 0);
+  --primary-foreground: oklch(0 0 0);
+  --secondary: oklch(0.12 0 0);
+  --secondary-foreground: oklch(1 0 0);
+  --muted: oklch(0.12 0 0);
+  --muted-foreground: oklch(0.75 0 0);
+  --accent: oklch(0.12 0 0);
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(1 0 0 / 16%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.551 0.027 264.364);
+  --live: oklch(0.65 0.24 25);
+  --surface: oklch(0.07 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  html {
+    color-scheme: light dark;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    overflow: hidden;
+    user-select: none;
+  }
+
+  input,
+  textarea {
+    user-select: text;
+  }
+}
+
+/* macOS: leave room for the inset traffic lights and let the header drag the window. */
+.app-drag {
+  -webkit-app-region: drag;
+}
+
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Chat: new messages ease in from below. */
+@keyframes chat-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-chat-in {
+  animation: chat-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-chat-in {
+    animation: none;
+  }
+}

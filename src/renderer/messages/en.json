@@ -1,0 +1,334 @@
+{
+  "common": {
+    "add": "Add",
+    "cancel": "Cancel",
+    "close": "Close",
+    "done": "Done",
+    "edit": "Edit",
+    "loading": "Loading",
+    "more": "More options",
+    "name": "Name",
+    "remove": "Remove",
+    "rename": "Rename",
+    "save": "Save"
+  },
+  "header": {
+    "appName": "SEENALYZE STUDIO",
+    "live": "Live",
+    "connecting": "Connecting…",
+    "recording": "Recording",
+    "cpu": "CPU {value}%",
+    "fps": "{value} FPS",
+    "lagged": "{value} lagged frames",
+    "chat": "Chat"
+  },
+  "engine": {
+    "failedTitle": "The studio couldn't start",
+    "restart": "Restart"
+  },
+  "preview": {
+    "label": "Program preview"
+  },
+  "scenes": {
+    "title": "Scenes",
+    "add": "Add scene",
+    "defaultName": "Scene",
+    "empty": "No scenes yet",
+    "removeTitle": "Remove \"{name}\"?",
+    "removeDescription": "The scene and its layout are removed. Sources used in other scenes stay."
+  },
+  "sources": {
+    "title": "Sources",
+    "add": "Add source",
+    "type": "Source type",
+    "empty": "Add your screen, camera or microphone",
+    "lock": "Lock",
+    "unlock": "Unlock",
+    "hide": "Hide",
+    "show": "Show",
+    "properties": "Properties",
+    "fit": "Fit to screen",
+    "stretch": "Stretch to screen",
+    "center": "Center",
+    "resetTransform": "Reset size and position",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "removeTitle": "Remove \"{name}\"?",
+    "removeDescription": "The source is removed from this scene.",
+    "kinds": {
+      "display": "Screen",
+      "window": "Window",
+      "camera": "Camera",
+      "microphone": "Microphone",
+      "desktopAudio": "Desktop audio",
+      "image": "Image",
+      "media": "Video file",
+      "text": "Text",
+      "color": "Color",
+      "browser": "Web page",
+      "chatOverlay": "Chat overlay"
+    }
+  },
+  "properties": {
+    "title": "{name} properties",
+    "none": "This source has no settings",
+    "browse": "Browse",
+    "choose": "Choose…"
+  },
+  "mixer": {
+    "title": "Audio",
+    "empty": "No audio sources",
+    "muted": "Muted",
+    "volume": "{name} volume",
+    "mute": "Mute {name}",
+    "unmute": "Unmute {name}"
+  },
+  "destinations": {
+    "title": "Destinations",
+    "add": "Add destination",
+    "empty": "Add where you want to go live",
+    "platforms": {
+      "youtube": "YouTube",
+      "twitch": "Twitch"
+    },
+    "states": {
+      "idle": "Ready",
+      "preparing": "Preparing…",
+      "connecting": "Connecting…",
+      "live": "Live",
+      "reconnecting": "Reconnecting…",
+      "stopping": "Ending…",
+      "error": "Failed"
+    },
+    "liveStats": "Live · {kbps} kbps · {dropped} dropped",
+    "include": "Include {name} when going live",
+    "goLiveOne": "Go live here",
+    "endOne": "End stream here",
+    "streamInfo": "Stream title",
+    "summary": "{encodes, plural, one {# encode} other {# encodes}} · needs about {upload} Mbps upload",
+    "removeTitle": "Remove \"{name}\"?",
+    "removeDescription": "Its saved stream key is deleted from this computer.",
+    "addTitle": "Add {platform}",
+    "editTitle": "Edit destination",
+    "connection": "Connection",
+    "modes": {
+      "account": "Account",
+      "manual": "Stream key"
+    },
+    "account": "Account",
+    "connectAccount": "Connect {platform}",
+    "accountUnavailable": "Account sign-in isn't available in this build. Use a stream key instead.",
+    "browserSignIn": "Finish signing in in your browser",
+    "server": "Server",
+    "streamKey": "Stream key",
+    "streamKeySaved": "Saved — leave empty to keep it",
+    "resolution": "Resolution",
+    "resolutionOption": "{height}p",
+    "bitrate": "Video bitrate (kbps)",
+    "bitrateCapped": "This platform accepts up to {max} kbps; the bitrate will be lowered."
+  },
+  "twitchCode": {
+    "title": "Connect Twitch",
+    "description": "Open Twitch and enter this code to connect your channel.",
+    "open": "Open Twitch"
+  },
+  "streamInfo": {
+    "title": "Stream title",
+    "streamTitle": "Title",
+    "category": "Category",
+    "searchCategory": "Search categories",
+    "privacy": "Visibility",
+    "privacyOptions": {
+      "public": "Public",
+      "unlisted": "Unlisted",
+      "private": "Private"
+    }
+  },
+  "controls": {
+    "title": "Controls",
+    "goLive": "Go live",
+    "goLiveMany": "Go live on {count}",
+    "endStream": "End stream",
+    "liveFor": "Live for {time}",
+    "startRecording": "Record",
+    "stopRecording": "Stop",
+    "showRecording": "Show recording",
+    "settings": "Settings",
+    "endTitle": "End the stream?",
+    "endDescription": "{count, plural, one {Your stream ends now.} other {All # streams end now.}}"
+  },
+  "settings": {
+    "title": "Settings",
+    "saved": "Settings saved",
+    "video": "Video",
+    "lockedWhileLive": "End your stream and recording to change video settings.",
+    "canvas": "Canvas",
+    "resolutionValue": "{width} × {height}",
+    "fps": "Frame rate",
+    "encoder": "Encoder",
+    "encoders": {
+      "apple_h264": "Apple hardware (H.264)",
+      "nvenc": "NVIDIA hardware (H.264)",
+      "amd": "AMD hardware (H.264)",
+      "qsv": "Intel hardware (H.264)",
+      "x264": "Software (x264)"
+    },
+    "recording": "Recording",
+    "recordingFolder": "Save recordings to",
+    "chooseFolder": "Choose folder",
+    "accounts": "Connected accounts",
+    "noAccounts": "No accounts connected",
+    "disconnect": "Disconnect",
+    "disconnectTitle": "Disconnect {name}?",
+    "disconnectDescription": "Destinations using this account switch to stream key mode and are turned off.",
+    "appearance": "Appearance",
+    "themes": {
+      "dark": "Dark",
+      "light": "Light",
+      "system": "System"
+    },
+    "back": "Back to studio",
+    "discardTitle": "Discard your changes?",
+    "discardDescription": "Your video and encoder changes haven't been saved.",
+    "keepEditing": "Keep editing",
+    "discard": "Discard",
+    "permissions": "Permissions"
+  },
+  "quit": {
+    "title": "Quit while live?",
+    "description": "Your streams and recording stop when the app closes.",
+    "confirm": "Quit"
+  },
+  "notices": {
+    "accountConnected": "{name} connected"
+  },
+  "errors": {
+    "output": {
+      "badPath": "{name}: the server address is invalid.",
+      "connectFailed": "{name}: couldn't connect. Check your internet connection and server.",
+      "invalidStream": "{name}: the stream key was rejected.",
+      "disconnected": "{name}: the connection was lost.",
+      "unsupported": "{name}: these video settings aren't supported.",
+      "noSpace": "Your disk is full.",
+      "encoder": "{name}: the encoder stopped. Try another encoder in Settings.",
+      "startFailed": "{name}: the stream couldn't start.",
+      "recordingFailed": "The recording stopped unexpectedly.",
+      "generic": "{name}: the stream stopped unexpectedly."
+    },
+    "codes": {
+      "generic": "Something went wrong. Please try again.",
+      "engine-init-failed": "Your graphics drivers may be out of date or unsupported. Update them and restart the app.",
+      "engine-graphics-missing": "Required graphics components are missing. Update your system and restart the app.",
+      "engine-not-ready": "The studio is still starting. Try again in a moment.",
+      "forbidden": "That action isn't allowed.",
+      "invalid-request": "That action isn't allowed.",
+      "last-scene": "You need at least one scene.",
+      "scene-not-found": "That scene no longer exists.",
+      "item-not-found": "That source no longer exists.",
+      "source-not-found": "That source no longer exists.",
+      "source-unavailable": "This source type isn't available on this computer.",
+      "name-taken": "That name is already used.",
+      "item-locked": "Unlock the source first.",
+      "settings-locked-live": "End your stream and recording to change this.",
+      "encoder-unavailable": "That encoder isn't available on this computer.",
+      "recording-folder-missing": "The recording folder doesn't exist. Choose another in Settings.",
+      "destination-live": "End the stream on this destination first.",
+      "destination-not-found": "That destination no longer exists.",
+      "invalid-platform": "That platform isn't supported.",
+      "invalid-server": "Enter a server address starting with rtmp:// or rtmps://.",
+      "stream-key-missing": "Add a stream key for this destination.",
+      "twitch-not-configured": "Twitch sign-in isn't available in this build.",
+      "youtube-not-configured": "YouTube sign-in isn't available in this build.",
+      "youtube-no-channel": "This Google account has no YouTube channel.",
+      "youtube-live-not-enabled": "Live streaming isn't enabled on this YouTube channel yet.",
+      "account-signed-out": "Your account was signed out. Connect it again.",
+      "platform-request-failed": "The platform didn't respond. Try again.",
+      "sign-in-expired": "Sign-in timed out. Try again.",
+      "sign-in-cancelled": "Sign-in was cancelled.",
+      "secure-storage-unavailable": "Secure storage isn't available, so the key can't be saved.",
+      "invalid-url": "That link can't be opened.",
+      "engine-stopped": "The studio engine stopped unexpectedly. Your streams have ended.",
+      "engine-timeout": "The studio is taking too long to respond. Try again.",
+      "permission-camera-denied": "Camera access is off. Allow it in System Settings.",
+      "permission-microphone-denied": "Microphone access is off. Allow it in System Settings.",
+      "account-in-use": "This account is already used by another destination.",
+      "permission-screen-denied": "Screen recording access is off. Allow it in System Settings, then restart the app.",
+      "youtube-quota-exceeded": "YouTube's daily request limit for this app was reached. Try again tomorrow.",
+      "youtube-chat-ended": "This YouTube live chat has ended.",
+      "youtube-chat-disabled": "Live chat is turned off for this YouTube stream.",
+      "twitch-scope-missing": "Reconnect Twitch to allow follower alerts and channel point rewards.",
+      "seenalyze-origin-invalid": "The SEENALYZE address in this build is not valid.",
+      "seenalyze-signed-out": "Sign in to your SEENALYZE account to continue.",
+      "seenalyze-sign-in-failed": "Signing in to SEENALYZE didn't work. Try again.",
+      "overlay-not-found": "That overlay no longer exists.",
+      "insufficient-credits": "You don't have enough SEENALYZE credits for this design.",
+      "designer-not-allowed": "The overlay designer isn't available on this account yet.",
+      "design-duplicate": "This design request was already sent.",
+      "design-rate-limited": "Too many designs in a row. Wait a minute and try again.",
+      "design-invalid": "The design couldn't be used, so your credits were refunded. Try describing it differently.",
+      "design-refund-pending": "The design failed. Your credits will be refunded shortly.",
+      "design-unavailable": "The designer is unavailable right now. Your credits were not used."
+    }
+  },
+  "permissions": {
+    "allow": "Allow",
+    "openSettings": "Open System Settings",
+    "restart": "Restart app",
+    "noneNeeded": "This computer doesn't need any extra permissions.",
+    "states": {
+      "granted": "Allowed",
+      "denied": "Blocked",
+      "not-determined": "Not asked yet",
+      "restricted": "Restricted",
+      "unsupported": "Not needed"
+    },
+    "camera": {
+      "label": "Camera",
+      "title": "Allow camera access",
+      "description": "SEENALYZE STUDIO needs camera access to show your camera. Turn it on in System Settings, then add the source again."
+    },
+    "microphone": {
+      "label": "Microphone",
+      "title": "Allow microphone access",
+      "description": "SEENALYZE STUDIO needs microphone access to capture your voice. Turn it on in System Settings, then add the source again."
+    },
+    "screen": {
+      "label": "Screen recording",
+      "title": "Allow screen recording",
+      "description": "Screen, window and desktop audio capture need screen recording access. Turn on SEENALYZE STUDIO in System Settings, then restart the app."
+    }
+  },
+  "chat": {
+    "title": "Chat",
+    "all": "All",
+    "messages": "Chat messages",
+    "empty": "No messages yet",
+    "noAccounts": "Connect YouTube or Twitch in Destinations to see your chat here.",
+    "newMessages": "{count, plural, one {# new message} other {# new messages}}",
+    "platforms": {
+      "youtube": "YouTube",
+      "twitch": "Twitch"
+    },
+    "states": {
+      "connecting": "Connecting…",
+      "connected": "Connected",
+      "waiting": "Chat appears when you're live",
+      "offline": "Disconnected",
+      "error": "Chat is unavailable"
+    },
+    "errors": {
+      "quota": "YouTube's daily request limit was reached. Chat resumes tomorrow.",
+      "disabled": "Live chat is turned off for this stream.",
+      "signedOut": "Signed out. Connect the account again.",
+      "unavailable": "Chat is unavailable right now. Retrying…"
+    },
+    "badges": {
+      "owner": "Channel owner",
+      "moderator": "Moderator",
+      "vip": "VIP",
+      "member": "Member",
+      "subscriber": "Subscriber",
+      "verified": "Verified"
+    }
+  }
+}
