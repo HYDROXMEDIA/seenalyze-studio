@@ -30,6 +30,13 @@ import {
 import { useState } from "react";
 import { useTranslations } from "use-intl";
 import type { SceneItemDTO, SourceKind } from "../../shared/types";
+import cameraImage from "@/assets/icons/camera.png";
+import chatImage from "@/assets/icons/chat.png";
+import imageImage from "@/assets/icons/image.png";
+import microphoneImage from "@/assets/icons/microphone.png";
+import overlayImage from "@/assets/icons/overlay.png";
+import screenImage from "@/assets/icons/screen.png";
+import textImage from "@/assets/icons/text.png";
 import videoIcon from "@/assets/icons/video_post.png";
 import { Dock, DockEmpty, ListRow } from "@/components/Dock";
 import { NameDialog } from "@/components/NameDialog";
@@ -72,6 +79,24 @@ export const SOURCE_ICONS: Record<SourceKind | "other", LucideIcon> = {
   other: ScanIcon,
 };
 
+/** Illustrated icons for the main source kinds; the rest use a glyph. */
+const SOURCE_IMAGES: Partial<Record<SourceKind | "other", string>> = {
+  display: screenImage,
+  camera: cameraImage,
+  microphone: microphoneImage,
+  image: imageImage,
+  text: textImage,
+  chatOverlay: chatImage,
+  overlay: overlayImage,
+};
+
+export function SourceIcon({ kind, className }: { kind: SourceKind | "other"; className?: string }) {
+  const image = SOURCE_IMAGES[kind];
+  if (image) return <img src={image} alt="" draggable={false} className={cn("shrink-0 object-contain", className)} />;
+  const Icon = SOURCE_ICONS[kind];
+  return <Icon className={className} />;
+}
+
 export function SourcesDock() {
   const t = useTranslations("sources");
   const tc = useTranslations("common");
@@ -108,10 +133,9 @@ export function SourcesDock() {
         />
       ) : (
         scene.items.map((item, index) => {
-          const Icon = SOURCE_ICONS[item.kind];
           return (
             <ListRow key={item.id} active={item.id === selectedItemId} onClick={() => selectItem(item.id)}>
-              <Icon className={cn("size-4 shrink-0 text-muted-foreground", !item.visible && "opacity-40")} />
+              <SourceIcon kind={item.kind} className={cn("size-4 shrink-0 text-muted-foreground", !item.visible && "opacity-40")} />
               <span className={cn("min-w-0 flex-1 truncate", !item.visible && "text-muted-foreground")}>{item.sourceName}</span>
               <Button
                 variant="ghost"

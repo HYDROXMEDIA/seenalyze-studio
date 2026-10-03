@@ -1,7 +1,6 @@
 import {
   ArrowLeftIcon,
   CopyIcon,
-  LayersIcon,
   Loader2Icon,
   LogInIcon,
   PlusIcon,
@@ -12,6 +11,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import aiDesignerIcon from "@/assets/icons/ai-designer.png";
+import overlayIcon from "@/assets/icons/overlay.png";
 import { useTranslations } from "use-intl";
 import {
   OVERLAY_KINDS,
@@ -254,7 +255,7 @@ export function OverlaysPage() {
                         selection?.type === "overlay" && selection.id === entry.id && "bg-accent",
                       )}
                     >
-                      {entry.origin === "ai" ? <WandSparklesIcon className="size-4 shrink-0 text-violet-500" /> : <LayersIcon className="size-4 shrink-0 text-muted-foreground" />}
+                      <img src={entry.origin === "ai" ? aiDesignerIcon : overlayIcon} alt="" draggable={false} className="size-5 shrink-0" />
                       <span className="min-w-0 flex-1 truncate">{entry.name}</span>
                       <span className="text-xs text-muted-foreground">{t(`kinds.${entry.kind}`)}</span>
                     </button>
@@ -302,7 +303,7 @@ export function OverlaysPage() {
             />
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
-              <LayersIcon className="size-10 text-muted-foreground" />
+              <img src={overlayIcon} alt="" draggable={false} className="size-16" />
               <p className="text-sm text-muted-foreground">{t("pick")}</p>
             </div>
           )}

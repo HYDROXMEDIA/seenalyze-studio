@@ -8,7 +8,7 @@ import { Field, Input } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/overlays";
 import { errorCode, studio } from "@/lib/studio";
 import { cn } from "@/lib/utils";
-import { SOURCE_ICONS } from "./SourcesDock";
+import { SourceIcon } from "./SourcesDock";
 
 const KINDS: SourceKind[] = ["display", "window", "camera", "microphone", "desktopAudio", "image", "media", "text", "color", "browser", "chatOverlay"];
 /** Kinds that need a choice (device, file, URL…) right after being added. */
@@ -66,7 +66,6 @@ function AddSourceForm({ scene, onClose, onAdded }: { scene: string; onClose: ()
       </DialogHeader>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5" role="radiogroup" aria-label={t("type")}>
         {KINDS.map((entry) => {
-          const Icon = SOURCE_ICONS[entry];
           const selected = entry === kind;
           return (
             <button
@@ -80,7 +79,7 @@ function AddSourceForm({ scene, onClose, onAdded }: { scene: string; onClose: ()
                 selected && "border-primary bg-accent",
               )}
             >
-              <Icon className="size-5" />
+              <SourceIcon kind={entry} className="size-7" />
               <span className="text-center leading-tight">{t(`kinds.${entry}`)}</span>
             </button>
           );
