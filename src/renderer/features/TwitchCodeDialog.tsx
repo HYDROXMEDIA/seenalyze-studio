@@ -28,6 +28,9 @@ function CodeBody({ prompt, onClose }: { prompt: DeviceCodePrompt; onClose: () =
     if (twitchAccounts > initialCount) onClose();
   }, [twitchAccounts, initialCount, onClose]);
 
+  // A reconnect replaces an existing account, so also close on the success notice.
+  useEffect(() => studio.onNotice((notice) => notice.key === "notices.accountConnected" && onClose()), [onClose]);
+
   return (
     <DialogContent className="sm:max-w-sm">
       <DialogHeader>

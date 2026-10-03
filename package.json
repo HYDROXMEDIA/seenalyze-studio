@@ -17,7 +17,8 @@
     "dist:mac": "electron-vite build && electron-builder --mac --arm64",
     "dist:win": "electron-vite build && electron-builder --win --x64",
     "check:multistream": "esbuild scripts/multistream-check.ts --bundle --platform=node --format=cjs --external:electron --log-level=warning --outfile=.multistream-check.cjs && electron .multistream-check.cjs; status=$?; rm -f .multistream-check.cjs; exit $status",
-    "check:responsiveness": "esbuild src/main/engine/worker.ts --bundle --platform=node --format=cjs --external:electron --log-level=warning --outfile=engine-worker.js && esbuild scripts/responsiveness-check.ts --bundle --platform=node --format=cjs --external:electron --log-level=warning --outfile=.responsiveness-check.cjs && electron .responsiveness-check.cjs; status=$?; rm -f engine-worker.js .responsiveness-check.cjs; exit $status"
+    "check:responsiveness": "esbuild src/main/engine/worker.ts --bundle --platform=node --format=cjs --external:electron --log-level=warning --outfile=engine-worker.js && esbuild scripts/responsiveness-check.ts --bundle --platform=node --format=cjs --external:electron --log-level=warning --outfile=.responsiveness-check.cjs && electron .responsiveness-check.cjs; status=$?; rm -f engine-worker.js .responsiveness-check.cjs; exit $status",
+    "check:presets": "esbuild scripts/presets-check.ts --bundle --platform=node --format=cjs --external:electron --log-level=warning --outfile=.presets-check.cjs && electron .presets-check.cjs; status=$?; rm -f .presets-check.cjs; exit $status"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

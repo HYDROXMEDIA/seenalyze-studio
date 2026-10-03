@@ -178,6 +178,8 @@ export interface StudioSnapshot {
   accounts: AccountDTO[];
   platformsConfigured: Record<Platform, boolean>;
   permissions: Record<PermissionKind, PermissionState>;
+  /** Twitch follower alerts need a reconnect when the sign-in predates their permission. */
+  overlayData: { twitchFollows: "connecting" | "connected" | "needsReconnect" | "offline" | "unavailable" };
 }
 
 // ----- permissions -----------------------------------------------------------

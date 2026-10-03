@@ -2,6 +2,7 @@ import path from "node:path";
 import { app, BrowserWindow, ipcMain, nativeTheme, session, shell } from "electron";
 import { IPC, STUDIO_ERROR_PREFIX, STUDIO_METHODS, type StudioMethod } from "../shared/ipc";
 import { setVendorRoot } from "./engine/osn";
+import { STUDIO_SCHEME } from "./seenalyze/account";
 import { errorKey, Studio, vendorRoot } from "./studio";
 
 let mainWindow: BrowserWindow | null = null;
@@ -82,10 +83,33 @@ function lockDownPermissions(): void {
 }
 
 // One app instance: a second launch focuses the existing window instead.
+// App links (seenalyze-studio://…) bring account sign-in back from the browser.
+// In development the Electron binary needs the app path to relaunch correctly.
+if (process.defaultApp && process.argv[1]) app.setAsDefaultProtocolClient(STUDIO_SCHEME, process.execPath, [path.resolve(process.argv[1])]);
+else app.setAsDefaultProtocolClient(STUDIO_SCHEME);
+
+const pendingLinks: string[] = [];
+function handleAppLink(link: string): void {
+  if (!studio) {
+    pendingLinks.push(link);
+    return;
+  }
+  studio.account.handleCallback(link);
+}
+
+// macOS delivers links through open-url (also before the app is ready).
+app.on("open-url", (event, link) => {
+  event.preventDefault();
+  handleAppLink(link);
+});
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
+  // Windows delivers links as an argument to a second launch.
+  app.on("second-instance", (_event, argv) => {
+    const link = argv.find((arg) => arg.startsWith(`${STUDIO_SCHEME}://`));
+    if (link) handleAppLink(link);
     if (!mainWindow) return;
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();
@@ -102,6 +126,7 @@ app.whenReady().then(() => {
     app.quit();
   });
   mainWindow.webContents.once("did-finish-load", () => void studio?.start());
+  for (const link of pendingLinks.splice(0)) handleAppLink(link);
 
   mainWindow.on("close", (event) => {
     if (quitting || !studio?.busy) return;

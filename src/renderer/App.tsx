@@ -21,6 +21,7 @@ import { MixerDock } from "@/features/MixerDock";
 import { Preview } from "@/features/Preview";
 import { ScenesDock } from "@/features/ScenesDock";
 import { SettingsPage } from "@/features/SettingsPage";
+import { OverlaysPage } from "@/features/overlays/OverlaysPage";
 import { SourcesDock } from "@/features/SourcesDock";
 import { studio } from "@/lib/studio";
 import { useChat } from "@/store/chat";
@@ -94,6 +95,8 @@ export function App() {
         </div>
       ) : view === "settings" ? (
         <SettingsPage />
+      ) : view === "overlays" ? (
+        <OverlaysPage />
       ) : (
         <main className="flex min-h-0 flex-1 flex-col gap-3 p-3">
           <div className="flex min-h-0 flex-1 gap-3">

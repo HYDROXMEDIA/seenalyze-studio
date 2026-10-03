@@ -11,3 +11,4 @@ config/studio.config.json
 .multistream-check.cjs
 engine-worker.js
 .responsiveness-check.cjs
+.presets-check.cjs

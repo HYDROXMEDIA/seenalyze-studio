@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { parseIrcLine, twitchSegments } from "./twitch-chat";
-import { youtubeItemToMessage } from "./youtube-map";
+import { parseIrcLine, twitchNoticeEvent, twitchSegments } from "./twitch-chat";
+import { eventSubToStreamEvent } from "./twitch-eventsub-map";
+import { youtubeItemToEvent, youtubeItemToMessage } from "./youtube-map";
 
 describe("Twitch IRC parsing", () => {
   test("parses tags, prefix, command and trailing text", () => {
@@ -69,5 +70,26 @@ describe("YouTube chat mapping", () => {
 
   test("returns null for events that are not messages", () => {
     expect(youtubeItemToMessage({ id: "m3", snippet: { type: "pollEvent", publishedAt: "2026-10-03T10:00:00Z" } }, "youtube:UC0")).toBeNull();
+  });
+});
+
+describe("stream events", () => {
+  test("Twitch resub, gift bombs and raids become events", () => {
+    const resub = twitchNoticeEvent({ tags: { "msg-id": "resub", "display-name": "Viewer", "msg-param-cumulative-months": "14", id: "1" }, params: ["#c", "love it"] });
+    expect(resub).toMatchObject({ type: "resub", months: 14, userName: "Viewer", message: "love it" });
+    expect(twitchNoticeEvent({ tags: { "msg-id": "submysterygift", "display-name": "Gifter", "msg-param-mass-gift-count": "5", id: "2" }, params: ["#c"] })).toMatchObject({ type: "giftSub", count: 5 });
+    // Individual gifts that belong to a gift bomb are not counted twice.
+    expect(twitchNoticeEvent({ tags: { "msg-id": "subgift", "msg-param-community-gift-id": "x", id: "3" }, params: ["#c"] })).toBeNull();
+    expect(twitchNoticeEvent({ tags: { "msg-id": "raid", "msg-param-displayName": "Raider", "msg-param-viewerCount": "42", id: "4" }, params: ["#c"] })).toMatchObject({ type: "raid", count: 42, userName: "Raider" });
+  });
+
+  test("Twitch follows and redemptions from EventSub", () => {
+    expect(eventSubToStreamEvent("channel.follow", "m1", { user_name: "Fan" })).toMatchObject({ type: "follow", userName: "Fan", platform: "twitch" });
+    expect(eventSubToStreamEvent("channel.channel_points_custom_reward_redemption.add", "m2", { user_name: "Fan", reward: { title: "Hydrate" } })).toMatchObject({ type: "redemption", message: "Hydrate" });
+  });
+
+  test("YouTube Super Chats carry the amount", () => {
+    const event = youtubeItemToEvent({ id: "s1", snippet: { type: "superChatEvent", publishedAt: "2026-10-03T10:00:00Z", superChatDetails: { amountMicros: "5000000", amountDisplayString: "$5.00" } }, authorDetails: { channelId: "UC1", displayName: "Fan" } });
+    expect(event).toMatchObject({ type: "superChat", amount: 5, amountLabel: "$5.00", userName: "Fan" });
   });
 });

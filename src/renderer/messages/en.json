@@ -20,7 +20,8 @@
     "cpu": "CPU {value}%",
     "fps": "{value} FPS",
     "lagged": "{value} lagged frames",
-    "chat": "Chat"
+    "chat": "Chat",
+    "overlays": "Overlays"
   },
   "engine": {
     "failedTitle": "The studio couldn't start",
@@ -192,7 +193,12 @@
     "discardDescription": "Your video and encoder changes haven't been saved.",
     "keepEditing": "Keep editing",
     "discard": "Discard",
-    "permissions": "Permissions"
+    "permissions": "Permissions",
+    "reconnect": "Reconnect",
+    "seenalyzeAccount": "SEENALYZE account",
+    "seenalyzeSignedOut": "Sign in to design overlays with AI using your credits.",
+    "signIn": "Sign in",
+    "signOut": "Sign out"
   },
   "quit": {
     "title": "Quit while live?",
@@ -329,6 +335,101 @@
       "member": "Member",
       "subscriber": "Subscriber",
       "verified": "Verified"
+    }
+  },
+  "overlays": {
+    "title": "Overlays",
+    "back": "Back to studio",
+    "filter": "Filter by type",
+    "tabs": {
+      "mine": "My overlays",
+      "presets": "Presets"
+    },
+    "kinds": {
+      "all": "All types",
+      "chat": "Chat",
+      "alert": "Alerts",
+      "goal": "Goals",
+      "eventList": "Recent events",
+      "viewerCount": "Viewer count",
+      "label": "Lower thirds",
+      "ticker": "Tickers",
+      "countdown": "Countdowns",
+      "timer": "Timers",
+      "socials": "Socials",
+      "scene": "Full screens",
+      "custom": "Custom"
+    },
+    "groups": {
+      "Content": "Content",
+      "Layout": "Layout",
+      "Colors": "Colors",
+      "Typography": "Text",
+      "Animation": "Animation",
+      "Behavior": "Behavior"
+    },
+    "emptyMine": "You haven't added any overlays yet.",
+    "browsePresets": "Browse presets",
+    "pick": "Pick an overlay or a preset to preview it.",
+    "usePreset": "Use this preset",
+    "added": "{name} added to your overlays",
+    "addedToScene": "{name} added to {scene}",
+    "twitchReconnect": "Reconnect Twitch to show follower alerts and channel point rewards.",
+    "openAccounts": "Open accounts",
+    "preview": {
+      "label": "Overlay preview",
+      "test": "Test:",
+      "lightBackground": "Light background",
+      "darkBackground": "Dark background",
+      "size": "{width} × {height} · {scale}%",
+      "tests": {
+        "chat": "Chat",
+        "follow": "Follow",
+        "subscription": "Sub",
+        "superChat": "Super Chat",
+        "cheer": "Bits",
+        "raid": "Raid",
+        "membership": "Member"
+      }
+    },
+    "editor": {
+      "width": "Width",
+      "height": "Height",
+      "addTo": "Add to scene",
+      "scene": "Scene",
+      "duplicate": "Duplicate",
+      "reset": "Reset",
+      "noSettings": "This overlay has no settings.",
+      "choose": "Choose…",
+      "pickColor": "Pick a color",
+      "colorValue": "Color value",
+      "opacity": "Opacity",
+      "deleteTitle": "Delete \"{name}\"?",
+      "deleteDescription": "Sources using it in your scenes will go blank.",
+      "deleteConfirm": "Delete",
+      "resetTitle": "Reset \"{name}\"?",
+      "resetDescription": "Every setting goes back to its default.",
+      "resetConfirm": "Reset"
+    },
+    "ai": {
+      "title": "Design with AI",
+      "kind": "Overlay type",
+      "placeholder": "Describe the overlay you want, e.g. a neon alert with a glitch effect…",
+      "changePlaceholder": "Describe what to change…",
+      "modes": {
+        "new": "New overlay",
+        "change": "Change this one"
+      },
+      "create": "Design it",
+      "change": "Apply change",
+      "designing": "Designing… this can take a minute",
+      "creditsNote": "Each design uses SEENALYZE credits from your account.",
+      "signIn": "Sign in to SEENALYZE",
+      "waitingForBrowser": "Finish signing in in your browser…",
+      "signInHint": "Sign in with your SEENALYZE account to design overlays by describing them.",
+      "notAvailable": "The AI designer isn't available on this account yet.",
+      "done": "{name} is ready",
+      "doneWithCredits": "{name} is ready · {credits} credits used"
     }
   }
 }

@@ -2,6 +2,15 @@
 // bridge exposes exactly these methods; the main process validates every call.
 
 import type {
+  DesignRequest,
+  DesignResult,
+  OverlayDefinition,
+  OverlayPatch,
+  OverlaySummary,
+  PresetSummary,
+  SeenalyzeAccount,
+} from "./overlays";
+import type {
   AudioLevel,
   ChatEvent,
   ChatState,
@@ -90,6 +99,28 @@ export interface StudioApi {
   /** Chat connects only while the chat panel is shown. */
   setChatActive(active: boolean): Promise<void>;
 
+  // Overlays
+  listOverlays(): Promise<OverlaySummary[]>;
+  listOverlayPresets(): Promise<PresetSummary[]>;
+  getOverlay(id: string): Promise<OverlayDefinition>;
+  createOverlayFromPreset(presetId: string): Promise<OverlaySummary>;
+  updateOverlay(id: string, patch: OverlayPatch): Promise<OverlayDefinition>;
+  resetOverlay(id: string): Promise<OverlayDefinition>;
+  duplicateOverlay(id: string): Promise<OverlaySummary>;
+  deleteOverlay(id: string): Promise<void>;
+  /** Adds the overlay to a scene as a source; resolves with the source name. */
+  addOverlayToScene(id: string, scene: string): Promise<string>;
+  /** Live editor preview URL (demo data) for a library overlay or a preset. */
+  overlayPreviewUrl(target: { overlayId?: string; presetId?: string }): Promise<string>;
+  designOverlay(request: DesignRequest): Promise<DesignResult>;
+  /** Clears this stream's follow/sub/bits counters used by goals. */
+  resetStreamSession(): Promise<void>;
+
+  // SEENALYZE account
+  getSeenalyzeAccount(): Promise<SeenalyzeAccount | null>;
+  signInSeenalyze(): Promise<SeenalyzeAccount>;
+  signOutSeenalyze(): Promise<void>;
+
   // Events
   onSnapshot(listener: (snapshot: StudioSnapshot) => void): () => void;
   onStats(listener: (stats: EngineStats) => void): () => void;
@@ -164,6 +195,21 @@ export const STUDIO_METHODS: readonly StudioMethod[] = [
   "relaunchApp",
   "getChat",
   "setChatActive",
+  "listOverlays",
+  "listOverlayPresets",
+  "getOverlay",
+  "createOverlayFromPreset",
+  "updateOverlay",
+  "resetOverlay",
+  "duplicateOverlay",
+  "deleteOverlay",
+  "addOverlayToScene",
+  "overlayPreviewUrl",
+  "designOverlay",
+  "resetStreamSession",
+  "getSeenalyzeAccount",
+  "signInSeenalyze",
+  "signOutSeenalyze",
 ];
 
 /** Errors crossing IPC carry a translation key instead of English text. */

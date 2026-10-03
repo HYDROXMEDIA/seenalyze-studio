@@ -8,6 +8,7 @@ import path from "node:path";
 import { app, dialog, screen, shell, type BrowserWindow } from "electron";
 import type { Notice, StudioApi, StudioMethod } from "../shared/ipc";
 import { IPC } from "../shared/ipc";
+import { OVERLAY_KINDS, type DesignRequest, type DesignResult, type OverlayKind } from "../shared/overlays";
 import { clampProfile, PLATFORM_SPECS } from "../shared/platforms";
 import type {
   AccountDTO,
@@ -27,7 +28,12 @@ import type { EngineEvent, EngineState } from "./engine/worker";
 import { ChatHub, type ChatAccount } from "./chat/hub";
 import { openPermissionSettings, permissionSnapshot, requestPermission } from "./permissions";
 import { DEFAULT_OVERLAY_PORT, OverlayServer } from "./overlay/server";
+import { validateDesign } from "./overlay/design";
+import { StreamDataHub } from "./overlay/data";
+import { OverlayLibrary, summarize } from "./overlay/library";
+import { findPreset, OVERLAY_PRESETS } from "./overlay/presets";
 import { MacPreviewView } from "./preview-mac";
+import { SeenalyzeAccountService } from "./seenalyze/account";
 import * as twitch from "./platforms/twitch";
 import { forgetToken, readToken } from "./platforms/tokens";
 import * as youtube from "./platforms/youtube";
@@ -57,6 +63,22 @@ interface YouTubeBroadcast {
 }
 
 const STATE_FILE = "studio.json";
+
+/** Starting size for AI-designed overlays of each kind (1080p canvas pixels). */
+const DESIGN_SIZES: Record<OverlayKind, { width: number; height: number }> = {
+  chat: { width: 440, height: 720 },
+  alert: { width: 900, height: 400 },
+  goal: { width: 760, height: 140 },
+  eventList: { width: 420, height: 400 },
+  viewerCount: { width: 420, height: 100 },
+  label: { width: 900, height: 220 },
+  ticker: { width: 1920, height: 80 },
+  countdown: { width: 480, height: 200 },
+  timer: { width: 360, height: 100 },
+  socials: { width: 520, height: 100 },
+  scene: { width: 1920, height: 1080 },
+  custom: { width: 800, height: 600 },
+};
 const IS_MAC = process.platform === "darwin";
 
 const DEFAULT_VIDEO: VideoSettings = {
@@ -93,7 +115,14 @@ export class Studio {
     },
     emit: (event) => this.send(IPC.chat, event),
   });
-  private readonly overlay = new OverlayServer(this.chat);
+  private readonly library = new OverlayLibrary(path.join(app.getPath("userData"), "overlays"));
+  private readonly overlayData = new StreamDataHub(this.chat, () => this.state.accounts as ChatAccount[], () => this.pushSnapshot());
+  private readonly overlay = new OverlayServer(this.chat, {
+    get: (id) => this.library.get(id),
+    preset: (id) => findPreset(id),
+    subscribe: (listener) => this.overlayData.subscribe(listener),
+  });
+  readonly account = new SeenalyzeAccountService();
   private shuttingDown = false;
   private readonly persist = debounced(() => {
     if (this.shuttingDown) return;
@@ -151,6 +180,7 @@ export class Studio {
   async shutdown(): Promise<void> {
     this.shuttingDown = true;
     this.overlay.stop();
+    this.overlayData.stopAll();
     this.chat.stopAll();
     try {
       await this.saveNow();
@@ -298,6 +328,7 @@ export class Studio {
         destination.enabled = false;
       }
       this.chat.sync();
+    this.overlayData.sync();
       this.persist();
       this.pushSnapshot();
     },
@@ -362,6 +393,58 @@ export class Studio {
       this.quit();
     },
     getChat: async () => this.chat.state(),
+
+    listOverlays: async () => this.library.list(),
+    listOverlayPresets: async () =>
+      OVERLAY_PRESETS.map(({ id, name, kind, description, accent, width, height }) => ({ id, name, kind, description, accent, width, height })),
+    getOverlay: async (id) => this.library.require(String(id)),
+    createOverlayFromPreset: async (presetId) => summarize(this.library.createFromPreset(String(presetId))),
+    updateOverlay: async (id, patch) => {
+      const before = this.library.require(String(id));
+      const overlay = this.library.update(before.id, patch ?? {});
+      if (patch?.values) this.overlay.pushSettings(overlay);
+      if (overlay.width !== before.width || overlay.height !== before.height) {
+        await this.engine.call("resizeOverlaySources", overlay.id, overlay.width, overlay.height);
+      }
+      return overlay;
+    },
+    resetOverlay: async (id) => {
+      const overlay = this.library.reset(String(id));
+      this.overlay.pushSettings(overlay);
+      return overlay;
+    },
+    duplicateOverlay: async (id) => summarize(this.library.duplicate(String(id))),
+    deleteOverlay: async (id) => this.library.remove(String(id)),
+    addOverlayToScene: async (id, scene) => {
+      const overlay = this.library.require(String(id));
+      const settings = { url: this.overlay.overlayUrl(overlay.id), width: overlay.width, height: overlay.height, shutdown: false, restart_when_active: false };
+      return this.mutate(() => this.engine.call("addSource", scene, "overlay", overlay.name, settings));
+    },
+    overlayPreviewUrl: async (target) => {
+      if (target?.overlayId) return this.overlay.overlayUrl(this.library.require(target.overlayId).id, true);
+      if (target?.presetId && findPreset(target.presetId)) return this.overlay.presetUrl(target.presetId);
+      throw new Error("overlay-not-found");
+    },
+    designOverlay: async (request) => this.designOverlay(request),
+    resetStreamSession: async () => this.overlayData.resetSession(),
+
+    getSeenalyzeAccount: async () => {
+      if (!this.account.signedIn) return null;
+      try {
+        return await this.account.refreshProfile();
+      } catch (error) {
+        if (errorKey(error) === "seenalyze-signed-out") return null;
+        // Offline: fall back to the last known profile.
+        return this.account.cachedProfile();
+      }
+    },
+    signInSeenalyze: async () => {
+      const profile = await this.account.signIn();
+      this.window.show();
+      this.window.focus();
+      return profile;
+    },
+    signOutSeenalyze: async () => this.account.signOut(),
     setChatActive: async (active) => this.chat.setActive(Boolean(active)),
     restartEngine: async () => {
       if (this.engine.running && this.engineState) return;
@@ -373,6 +456,26 @@ export class Studio {
       this.applyPreview(this.previewRect);
     },
   };
+
+  // ----- overlay designer ---------------------------------------------------
+
+  private async designOverlay(request: DesignRequest): Promise<DesignResult> {
+    const prompt = String(request?.prompt ?? "").trim();
+    if (!prompt || prompt.length > 2000) throw new Error("invalid-request");
+    const kind = OVERLAY_KINDS.includes(request.kind) ? request.kind : "custom";
+    const existing = request.overlayId ? this.library.require(request.overlayId) : undefined;
+    const { design, creditsCharged } = await this.account.design({ prompt, kind, overlayId: existing?.id }, existing);
+    // The dashboard validates too; never trust a design without checking it here.
+    const valid = validateDesign(design);
+    if (!valid) throw new Error("design-invalid");
+    if (existing) {
+      const overlay = this.library.replaceDesign(existing.id, valid);
+      this.overlay.reloadOverlay(overlay.id);
+      return { overlay: summarize(overlay), creditsCharged };
+    }
+    const size = DESIGN_SIZES[kind];
+    return { overlay: summarize(this.library.createFromDesign(valid, kind, size)), creditsCharged };
+  }
 
   // ----- go live ------------------------------------------------------------
 
@@ -572,6 +675,7 @@ export class Studio {
     if (index >= 0) this.state.accounts[index] = { ...this.state.accounts[index], ...account } as AccountRecord;
     else this.state.accounts.push(account);
     this.chat.sync();
+    this.overlayData.sync();
     this.persist();
     this.pushSnapshot();
   }
@@ -616,6 +720,7 @@ export class Studio {
       accounts,
       platformsConfigured: { twitch: twitch.twitchConfigured(), youtube: youtube.youtubeConfigured() },
       permissions: permissionSnapshot(),
+      overlayData: this.overlayData.status(),
     };
   }
 

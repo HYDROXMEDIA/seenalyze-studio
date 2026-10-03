@@ -14,6 +14,9 @@ extraResources:
   - from: LICENSE
     to: LICENSE
 asar: true
+protocols:
+  - name: SEENALYZE STUDIO
+    schemes: [seenalyze-studio]
 mac:
   category: public.app-category.video
   target: [dmg, zip]

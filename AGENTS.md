@@ -12,7 +12,9 @@ Desktop live-streaming studio (Electron, macOS + Windows) with native multistrea
 - `src/main/` — Electron main process: window, IPC, persisted state, secrets, platform APIs (`platforms/`), and `studio.ts`, which implements the IPC API. It never calls libobs directly.
 - `src/main/engine/` — libobs, running in a **separate utility process** (`worker.ts`, driven from main by `client.ts`). `osn.ts` loader, `engine.ts` canvas/encoders/teardown, `scenes.ts`, `audio.ts`, `preview.ts` (engine side of the preview), `outputs.ts` multistream, `orphans.ts` leftover-host cleanup. `src/main/preview-mac.ts` shows the macOS preview surface in the window's own process.
 - `src/main/chat/` — read-only live chat: `twitch-chat.ts` (anonymous IRC WebSocket, no token), `youtube-chat.ts` (polls the active broadcast's chat at YouTube's requested interval; every call costs API quota), `hub.ts` merges both and batches events to the renderer. Chat connects only while the chat panel is visible.
-- `src/main/overlay/` — local overlay server (127.0.0.1 only, default port 47821, falls back to nearby ports and retargets saved overlay sources) serving the on-stream chat overlay page (`chat-page.ts`, self-contained, text inserted as text nodes only) and its event stream. The "Chat overlay" source is a browser source pointing at it.
+- `src/main/overlay/` — overlay system. `presets/` (20 built-in designs; shared helpers in `presets/fields.ts`), `library.ts` (user overlays as JSON in app data), `runtime.ts` (the `window.SEENALYZE` API every overlay uses — keep it in sync with the dashboard designer prompt `STUDIO_OVERLAY_RUNTIME_API` in `dashboard_app/src/lib/server/studio-overlay-contract.ts`), `document.ts` (CSP + settings CSS + runtime injection), `design.ts` (validation of AI designs), `data.ts` (chat/events/stats feed; runs only while an overlay is on screen), and `server.ts`: local overlay server (127.0.0.1 only, default port 47821, falls back to nearby ports and retargets saved overlay sources) serving the on-stream chat overlay page (`chat-page.ts`, self-contained, text inserted as text nodes only) and its event stream. The "Chat overlay" source is a browser source pointing at it.
+- `src/main/seenalyze/account.ts` — SEENALYZE account sign-in (PKCE via the dashboard, `seenalyze-studio://` app link) and the AI overlay designer call (`/api/studio/overlays/generate`, charges the user's credits server-side; the dashboard owns the model, key and allowlist).
+- `src/main/chat/twitch-eventsub.ts` — follows and channel point redemptions (needs the follower/redemption scopes; older sign-ins must reconnect).
 - `src/main/permissions.ts` — camera/microphone/screen-recording access. Capture sources must request access before the engine creates them; otherwise capture silently produces black frames or silence.
 - `src/preload/` — exposes exactly the `StudioApi` contract on `window.studio`.
 - `src/shared/` — IPC contract (`ipc.ts`), domain types, encoder planner, platform specs. No Electron/Node/libobs imports.
@@ -28,6 +30,7 @@ bun run lint
 bun test src                # planner + translation coverage tests
 bun run check:multistream      # shared-encoder multistream check against local RTMP receivers (see script header)
 bun run check:responsiveness   # hidden-window check: main thread never blocks, quit is fast, no leftover engine
+bun run check:presets          # renders all overlay presets with demo data; fails on script errors
 bun run dist:mac | dist:win
 ```
 
@@ -41,6 +44,7 @@ bun run dist:mac | dist:win
 - Stream keys and OAuth tokens: only through `src/main/secrets.ts` (Electron safeStorage). Never log, persist in JSON, or send them to the renderer.
 - OAuth client IDs come from `config/studio.config.json` (gitignored; see the example). Never read `.env` files.
 - All UI text goes through `use-intl` with keys in `src/renderer/messages/en.json`; main-process errors are kebab-case codes mapped under `errors.codes.*`. `messages.test.ts` enforces coverage.
+- Overlays are untrusted code (AI-generated). They run only inside the overlay CSP (no external scripts or network except images) and the editor previews them in a sandboxed frame. User content must be inserted as text (`SEENALYZE.renderSegments` / `textContent`); only `SEENALYZE.platformLogo()` output may use `innerHTML`.
 - To add a Windows engine build, pin its SHA-256 in `native-deps.json` after verifying the archive.
 
 ## Verification

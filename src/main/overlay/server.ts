@@ -182,6 +182,8 @@ export class OverlayServer {
       "Access-Control-Allow-Origin": "*",
     });
     const send = (payload: unknown) => response.write(`data: ${JSON.stringify(payload)}\n\n`);
+    // Flush headers now so clients connect even before the first update.
+    response.write(": connected\n\n");
     let pages = this.pages.get(id);
     if (!pages) {
       pages = new Set();

@@ -1,8 +1,9 @@
-import { ArrowLeftIcon, FolderOpenIcon, LogOutIcon } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { ArrowLeftIcon, FolderOpenIcon, Loader2Icon, LogInIcon, LogOutIcon, RefreshCwIcon } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useTranslations } from "use-intl";
-import type { VideoSettings } from "../../shared/types";
+import type { SeenalyzeAccount } from "../../shared/overlays";
+import type { DeviceCodePrompt, VideoSettings } from "../../shared/types";
 import darkIcon from "@/assets/icons/dark.png";
 import lightIcon from "@/assets/icons/light.png";
 import systemIcon from "@/assets/icons/system_desktop.png";
@@ -24,12 +25,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/overlays";
-import { studio } from "@/lib/studio";
+import { errorCode, studio } from "@/lib/studio";
 import { readTheme, saveTheme, type ThemePreference } from "@/lib/theme";
 import { useAction } from "@/lib/use-action";
 import { cn } from "@/lib/utils";
 import { useStudio } from "@/store/studio";
 import { isActive } from "./DestinationsDock";
+import { TwitchCodeDialog } from "./TwitchCodeDialog";
 
 const CANVAS_PRESETS = [
   { width: 1920, height: 1080 },
@@ -55,6 +57,7 @@ export function SettingsPage() {
   const [theme, setTheme] = useState<ThemePreference>(readTheme);
   const [pending, setPending] = useState(false);
   const [disconnecting, setDisconnecting] = useState<{ id: string; name: string } | null>(null);
+  const [twitchPrompt, setTwitchPrompt] = useState<DeviceCodePrompt | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
 
   if (!snapshot || !video) return null;
@@ -195,6 +198,7 @@ export function SettingsPage() {
 
             {section === "accounts" && (
               <SettingsCard title={t("accounts")}>
+                <SeenalyzeAccountRow />
                 {snapshot.accounts.length === 0 ? (
                   <p className="text-sm text-muted-foreground">{t("noAccounts")}</p>
                 ) : (
@@ -203,6 +207,19 @@ export function SettingsPage() {
                       <li key={account.id} className="flex items-center gap-3 rounded-lg border px-3 py-2">
                         <PlatformIcon platform={account.platform} />
                         <span className="min-w-0 flex-1 truncate text-sm">{account.displayName}</span>
+                        {account.platform === "twitch" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              const prompt = await run(() => studio.connectTwitch());
+                              if (prompt) setTwitchPrompt(prompt);
+                            }}
+                          >
+                            <RefreshCwIcon />
+                            {t("reconnect")}
+                          </Button>
+                        )}
                         <Button variant="ghost" size="sm" onClick={() => setDisconnecting({ id: account.id, name: account.displayName })}>
                           <LogOutIcon />
                           {t("disconnect")}
@@ -279,6 +296,7 @@ export function SettingsPage() {
         </div>
       </div>
 
+      <TwitchCodeDialog prompt={twitchPrompt} onClose={() => setTwitchPrompt(null)} />
       <AlertDialog open={confirmLeave} onOpenChange={setConfirmLeave}>
         {confirmLeave && (
           <AlertDialogContent>
@@ -318,5 +336,65 @@ function SettingsCard({ title, children }: { title: string; children: ReactNode 
       <h3 className="text-xl font-bold text-neutral-900 dark:text-white">{title}</h3>
       {children}
     </section>
+  );
+}
+
+/** The SEENALYZE account used for the AI overlay designer and credits. */
+function SeenalyzeAccountRow() {
+  const t = useTranslations("settings");
+  const te = useTranslations("errors.codes");
+  const [account, setAccount] = useState<SeenalyzeAccount | null | undefined>(undefined);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    studio
+      .getSeenalyzeAccount()
+      .then((result) => {
+        if (!cancelled) setAccount(result);
+      })
+      .catch((error: unknown) => {
+        console.error(error);
+        if (!cancelled) setAccount(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const act = async (call: () => Promise<SeenalyzeAccount | null>) => {
+    setBusy(true);
+    try {
+      setAccount(await call());
+    } catch (error) {
+      const code = errorCode(error);
+      toast.error(te.has(code) ? te(code) : te("generic"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg border px-3 py-2">
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium">{t("seenalyzeAccount")}</span>
+        <span className="block truncate text-xs text-muted-foreground">
+          {account === undefined ? "" : account ? (account.email ?? account.displayName ?? "") : t("seenalyzeSignedOut")}
+        </span>
+      </span>
+      {account === undefined ? (
+        <Loader2Icon className="size-4 animate-spin text-muted-foreground" />
+      ) : account ? (
+        <Button variant="ghost" size="sm" disabled={busy} onClick={() => void act(async () => (await studio.signOutSeenalyze(), null))}>
+          <LogOutIcon />
+          {t("signOut")}
+        </Button>
+      ) : (
+        <Button variant="outline" size="sm" disabled={busy} onClick={() => void act(() => studio.signInSeenalyze())}>
+          {busy ? <Loader2Icon className="animate-spin" /> : <LogInIcon />}
+          {t("signIn")}
+        </Button>
+      )}
+    </div>
   );
 }

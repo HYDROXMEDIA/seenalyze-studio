@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { create } from "zustand";
 import type { AudioLevel, EngineStats, StudioSnapshot } from "../../shared/types";
 
-export type View = "studio" | "settings";
+export type View = "studio" | "settings" | "overlays";
 
 interface StudioStore {
   view: View;

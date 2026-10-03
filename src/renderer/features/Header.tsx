@@ -1,4 +1,4 @@
-import { MessageSquareIcon } from "lucide-react";
+import { LayersIcon, MessageSquareIcon } from "lucide-react";
 import { useTranslations } from "use-intl";
 import { Button } from "@/components/ui/button";
 import { useChat } from "@/store/chat";
@@ -15,6 +15,7 @@ export function Header() {
   const connecting = useStudio((state) => state.snapshot?.destinationStatus.some((status) => isActive(status) && status.state !== "live") ?? false);
   const recording = useStudio((state) => state.snapshot?.recording.active ?? false);
   const view = useStudio((state) => state.view);
+  const setView = useStudio((state) => state.setView);
   const chatOpen = useChat((state) => state.open);
   const setChatOpen = useChat((state) => state.setOpen);
 
@@ -44,6 +45,12 @@ export function Header() {
             <span>{t("fps", { value: stats.fps.toFixed(0) })}</span>
             <span className={cn(stats.renderLagFrames > 0 && "text-yellow-500")}>{t("lagged", { value: stats.renderLagFrames })}</span>
           </>
+        )}
+        {view === "studio" && (
+          <Button variant="ghost" size="sm" className="app-no-drag" onClick={() => setView("overlays")}>
+            <LayersIcon />
+            {t("overlays")}
+          </Button>
         )}
         {view === "studio" && (
           <Button

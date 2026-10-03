@@ -62,12 +62,15 @@ describe("en messages", () => {
     const missing: string[] = [];
     for (const file of sourceFiles(RENDERER)) {
       const source = readFileSync(file, "utf8");
-      const namespaces = new Map<string, string>();
-      for (const match of source.matchAll(/const (\w+) = useTranslations\(("([^"]*)")?\)/gu)) namespaces.set(match[1], match[3] ?? "");
-      for (const [name, namespace] of namespaces) {
+      // Several components in one file may bind the same name to different namespaces.
+      const namespaces = new Map<string, string[]>();
+      for (const match of source.matchAll(/const (\w+) = useTranslations\(("([^"]*)")?\)/gu)) {
+        namespaces.set(match[1], [...(namespaces.get(match[1]) ?? []), match[3] ?? ""]);
+      }
+      for (const [name, options] of namespaces) {
         for (const match of source.matchAll(new RegExp(`\\b${name}\\("([^"]+)"`, "gu"))) {
-          const key = namespace ? `${namespace}.${match[1]}` : match[1];
-          if (!has(en as Tree, key)) missing.push(`${path.basename(file)}: ${key}`);
+          const keys = options.map((namespace) => (namespace ? `${namespace}.${match[1]}` : match[1]));
+          if (!keys.some((key) => has(en as Tree, key))) missing.push(`${path.basename(file)}: ${keys.join(" | ")}`);
         }
       }
     }
