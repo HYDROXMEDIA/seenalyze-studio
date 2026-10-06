@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title data-i18n="capture.windowTitle">Record screen</title>
+    <link rel="stylesheet" href="./capture.css" />
+  </head>
+  <body data-mode="area" data-phase="select" data-has-selection="false">
+    <div class="dim" id="dim" aria-hidden="true"></div>
+
+    <div class="selection" id="selection" hidden>
+      <span class="handle" data-handle="nw"></span>
+      <span class="handle" data-handle="n"></span>
+      <span class="handle" data-handle="ne"></span>
+      <span class="handle" data-handle="e"></span>
+      <span class="handle" data-handle="se"></span>
+      <span class="handle" data-handle="s"></span>
+      <span class="handle" data-handle="sw"></span>
+      <span class="handle" data-handle="w"></span>
+      <span class="selection-size" id="selection-size"></span>
+    </div>
+
+    <div class="target-highlight" id="target-highlight" hidden>
+      <span class="target-label" id="target-label"></span>
+    </div>
+
+    <div class="window-picker" id="window-picker" role="listbox" aria-label="Windows" data-i18n-attr="aria-label:capture.picker.label" hidden></div>
+
+    <div class="crosshair-hint" id="crosshair-hint" data-i18n="capture.hints.dragArea" hidden>Drag to select an area</div>
+
+    <div class="toolbar" id="toolbar" role="toolbar" aria-label="Recording options" data-i18n-attr="aria-label:capture.toolbar.label" hidden>
+      <label class="system-audio-control"><input id="system-audio" type="checkbox" /><span data-i18n="capture.systemAudio">System audio</span></label><label class="system-audio-control"><span data-i18n="capture.audioApp">Audio from</span><select id="system-audio-app"><option value="" data-i18n="capture.allApps">All apps</option></select></label><button class="toolbar-close" id="capture-cancel" type="button" aria-label="Cancel" title="Cancel (Esc)" data-i18n-attr="aria-label:capture.toolbar.cancel;title:capture.toolbar.cancelTitle">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7m0-7-7 7" /></svg>
+      </button>
+      <span class="toolbar-divider" aria-hidden="true"></span>
+      <div class="mode-group" role="radiogroup" aria-label="Capture" data-i18n-attr="aria-label:capture.mode.label">
+        <button class="mode-button" type="button" role="radio" data-mode="window" title="Capture a window" data-i18n-attr="title:capture.mode.windowTitle">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2.2" /><path d="M3.5 9h17" /><circle cx="6.5" cy="7" r=".6" /><circle cx="8.6" cy="7" r=".6" /></svg>
+          <span data-i18n="capture.mode.window">Window</span>
+        </button>
+        <button class="mode-button" type="button" role="radio" data-mode="area" title="Capture a selected area" data-i18n-attr="title:capture.mode.areaTitle">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16" /><rect x="8.5" y="8.5" width="7" height="7" rx="1" /></svg>
+          <span data-i18n="capture.mode.area">Area</span>
+        </button>
+        <button class="mode-button" type="button" role="radio" data-mode="screen" title="Capture the entire screen" data-i18n-attr="title:capture.mode.screenTitle">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="12.5" rx="2" /><path d="M9 20h6M12 17v3" /></svg>
+          <span data-i18n="capture.mode.screen">Full Screen</span>
+        </button>
+      </div>
+      <div class="record-options" id="record-options">
+        <span class="toolbar-divider" aria-hidden="true"></span>
+        <label class="record-option">
+          <span data-i18n="capture.record.format">Format</span>
+          <select id="record-format">
+            <option value="mp4">MP4</option>
+            <option value="webm">WebM</option>
+          </select>
+        </label>
+        <label class="record-option">
+          <span data-i18n="capture.record.resolution">Resolution</span>
+          <select id="record-resolution">
+            <option value="native" data-i18n="capture.record.native">Native</option>
+            <option value="2160">4K</option>
+            <option value="1440">1440p</option>
+            <option value="1080">1080p</option>
+            <option value="720">720p</option>
+          </select>
+        </label>
+        <div class="record-option">
+          <span id="record-folder-label" data-i18n="capture.record.saveTo">Save to</span>
+          <button class="record-folder" id="record-folder" type="button" aria-labelledby="record-folder-label record-folder" title="Choose where recordings are saved" data-i18n-attr="title:capture.record.chooseFolder">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5Z" /></svg>
+            <span id="record-folder-name"></span>
+          </button>
+        </div>
+        <label class="record-option">
+          <span data-i18n="capture.record.fps">FPS</span>
+          <select id="record-fps">
+            <option value="60">60</option>
+            <option value="30">30</option>
+            <option value="24">24</option>
+          </select>
+        </label>
+        <button class="record-more" id="record-more" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="device-menu" aria-label="Microphone and camera" title="Microphone and camera" data-i18n-attr="aria-label:capture.record.devices;title:capture.record.devices">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3.5" cy="8" r="1.25" /><circle cx="8" cy="8" r="1.25" /><circle cx="12.5" cy="8" r="1.25" /></svg>
+        </button>
+      </div>
+      <span class="toolbar-divider" aria-hidden="true"></span>
+      <button class="capture-button" id="capture-button" type="button"></button>
+    </div>
+
+    <div class="device-menu" id="device-menu" role="dialog" aria-label="Microphone and camera" data-i18n-attr="aria-label:capture.record.devices" hidden>
+      <label class="record-option">
+        <span data-i18n="capture.record.microphone">Microphone</span>
+        <select id="record-mic">
+          <option value="" data-i18n="capture.record.micOff">Off</option>
+          <option value="default" data-i18n="capture.record.micDefault">Default</option>
+        </select>
+      </label>
+      <label class="record-option">
+        <span data-i18n="capture.record.camera">Camera</span>
+        <select id="record-camera">
+          <option value="" data-i18n="capture.record.cameraOff">Off</option>
+          <option value="default" data-i18n="capture.record.cameraDefault">Default</option>
+        </select>
+      </label>
+    </div>
+
+    <p class="toolbar-hint" id="toolbar-hint" hidden></p>
+
+
+    <script src="./capture.js" type="module"></script>
+  </body>
+</html>

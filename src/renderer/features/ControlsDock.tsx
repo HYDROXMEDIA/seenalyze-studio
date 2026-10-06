@@ -1,4 +1,4 @@
-import { CircleIcon, FolderOpenIcon, RadioIcon, Settings2Icon, SquareIcon } from "lucide-react";
+import { CircleIcon, ClapperboardIcon, FolderOpenIcon, MonitorIcon, RadioIcon, Settings2Icon, SquareIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslations } from "use-intl";
 import { Dock } from "@/components/Dock";
@@ -18,6 +18,7 @@ import { useAction } from "@/lib/use-action";
 import { formatDuration } from "@/lib/utils";
 import { useStudio } from "@/store/studio";
 import { isActive } from "./DestinationsDock";
+import { useGoLive } from "./use-go-live";
 
 function useNow(active: boolean): number {
   const [now, setNow] = useState(() => Date.now());
@@ -36,8 +37,10 @@ export function ControlsDock() {
   const destinations = useStudio((state) => state.snapshot?.destinations ?? []);
   const statuses = useStudio((state) => state.snapshot?.destinationStatus ?? []);
   const recording = useStudio((state) => state.snapshot?.recording ?? { active: false });
+  const screenRecording = useStudio((state) => state.snapshot?.screenRecording.active ?? false);
   const setView = useStudio((state) => state.setView);
   const [confirmEnd, setConfirmEnd] = useState(false);
+  const { goLive, pending, dialog } = useGoLive();
 
   const activeIds = statuses.filter((status) => isActive(status)).map((status) => status.id);
   const live = activeIds.length > 0;
@@ -54,7 +57,7 @@ export function ControlsDock() {
             {t("endStream")}
           </Button>
         ) : (
-          <Button variant="live" size="lg" disabled={enabledIds.length === 0} onClick={() => void run(() => studio.goLive(enabledIds))}>
+          <Button variant="live" size="lg" disabled={enabledIds.length === 0 || pending} onClick={() => void goLive(enabledIds)}>
             <RadioIcon />
             {enabledIds.length > 1 ? t("goLiveMany", { count: enabledIds.length }) : t("goLive")}
           </Button>
@@ -82,11 +85,21 @@ export function ControlsDock() {
           </Button>
         )}
 
+        <Button variant="outline" onClick={() => void run(() => studio.toggleScreenRecording())}>
+          {screenRecording ? <SquareIcon className="fill-red-500 text-red-500" /> : <MonitorIcon />}
+          {screenRecording ? t("stopScreenRecording") : t("recordScreen")}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => void run(() => studio.openRecordingEditor())}>
+          <ClapperboardIcon />
+          {t("editRecording")}
+        </Button>
+
         <Button variant="secondary" onClick={() => setView("settings")}>
           <Settings2Icon />
           {t("settings")}
         </Button>
       </div>
+      {dialog}
 
       <AlertDialog open={confirmEnd} onOpenChange={setConfirmEnd}>
         {confirmEnd && (

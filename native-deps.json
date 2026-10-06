@@ -7,7 +7,8 @@
       "archive": "osn-[VERSION]-release-[PLATFORM].tar.gz",
       "platforms": ["osx-arm64", "osx", "win64"],
       "sha256": {
-        "osx-arm64": "a35d0510fbfca7a2bdf39b17acff1eb100217a7da89daa75fa1d47687c5f1a2b"
+        "osx-arm64": "a35d0510fbfca7a2bdf39b17acff1eb100217a7da89daa75fa1d47687c5f1a2b",
+        "win64": "ad5cb088004d0951a95c11352552b421baa2cc201544cc84a909f98cf8500724"
       }
     },
     {

@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: recording-media:; media-src 'self' data: blob: recording-media:; connect-src 'self' recording-media:; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title data-i18n="editor.window.title">Edit Recording</title>
+    <link rel="stylesheet" href="./editor.css" />
+  </head>
+  <body data-theme="dark" data-state="loading">
+    <header class="toolbar">
+      <span class="title" id="title"></span>
+      <span class="spacer"></span>
+      <button class="icon-button" type="button" id="undo" aria-label="Undo" title="Undo (⌘Z)" data-i18n-attr="aria-label:editor.edit.undo;title:editor.edit.undoShortcut">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 5 3.8 8.7l3.7 3.7" /><path d="M4 8.7h7.8a4.2 4.2 0 0 1 0 8.4H9" /></svg>
+      </button>
+      <button class="icon-button" type="button" id="redo" aria-label="Redo" title="Redo (⇧⌘Z)" data-i18n-attr="aria-label:editor.edit.redo;title:editor.edit.redoShortcut">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m12.5 5 3.7 3.7-3.7 3.7" /><path d="M16 8.7H8.2a4.2 4.2 0 0 0 0 8.4H11" /></svg>
+      </button>
+      <span class="export-progress" id="export-progress" hidden>
+        <span class="progress-track"><span class="progress-fill" id="progress-fill"></span></span>
+        <span class="progress-value" id="progress-value"></span>
+        <button class="text-button" type="button" id="export-cancel" data-i18n="editor.export.cancel">Cancel</button>
+      </span>
+      <button class="text-button" type="button" id="discard" data-i18n="editor.discard.button">Discard</button>
+      <button class="primary-button" type="button" id="export" data-i18n="editor.export.button">Export</button>
+    </header>
+
+    <div class="load-error" id="load-error" role="alert" hidden>
+      <p data-i18n="editor.loadFailed">This recording could not be opened.</p>
+      <button class="primary-button" type="button" id="load-error-close" data-i18n="editor.close">Close</button>
+    </div>
+
+    <main class="workspace">
+      <section class="preview">
+        <div class="stage" id="stage">
+          <canvas id="canvas" aria-label="Preview" data-i18n-attr="aria-label:editor.preview"></canvas>
+          <div class="spinner" id="spinner" role="status" aria-label="Loading" data-i18n-attr="aria-label:editor.loading"></div>
+        </div>
+
+        <div class="transport">
+          <button class="icon-button" type="button" id="play" aria-label="Play" data-i18n-attr="aria-label:editor.play;title:editor.play" title="Play">
+            <svg class="icon-play" viewBox="0 0 20 20" aria-hidden="true"><path class="solid" d="M6 4.5v11l9-5.5Z" /></svg>
+            <svg class="icon-pause" viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 4.5v11M13.5 4.5v11" /></svg>
+          </button>
+          <span class="time" id="time" dir="ltr">0:00 / 0:00</span>
+          <span class="spacer"></span>
+          <div class="tools" role="toolbar" aria-label="Edit" data-i18n-attr="aria-label:editor.edit.title">
+            <button class="tool-button" type="button" id="split" title="Split (S)" data-i18n-attr="title:editor.edit.splitShortcut">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v14M6 6.5 3.5 10 6 13.5M14 6.5l2.5 3.5-2.5 3.5" /></svg>
+              <span data-i18n="editor.edit.split">Split</span>
+            </button>
+            <label class="speed" id="speed-control" hidden>
+              <span class="visually-hidden" data-i18n="editor.edit.speed">Speed</span>
+              <select id="speed"></select>
+            </label>
+            <button class="tool-button" type="button" id="add-zoom" title="Add zoom (Z)" data-i18n-attr="title:editor.edit.addZoomShortcut">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5" /><path d="m12.5 12.5 4 4M8.5 6.5v4M6.5 8.5h4" /></svg>
+              <span data-i18n="editor.edit.addZoom">Zoom</span>
+            </button>
+            <button class="tool-button" type="button" id="delete" title="Delete (⌫)" data-i18n-attr="title:editor.edit.deleteShortcut" disabled>
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 6h11M8 6V4.5h4V6M6 6l.7 9.3a1.3 1.3 0 0 0 1.3 1.2h4a1.3 1.3 0 0 0 1.3-1.2L14 6" /></svg>
+              <span data-i18n="editor.edit.delete">Delete</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="timeline" id="timeline">
+          <div class="ruler"></div>
+          <div class="track" data-track="clips" role="group" aria-label="Clips" data-i18n-attr="aria-label:editor.edit.clips"></div>
+          <div class="track track--zooms" data-track="zooms" role="group" aria-label="Zooms" data-i18n-attr="aria-label:editor.edit.zooms"></div>
+          <div class="playhead" aria-hidden="true"></div>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <section class="group"><h2 data-i18n="editor.presets.title">Style presets</h2><label><span data-i18n="editor.presets.choose">Choose a preset</span><select id="style-presets"></select></label><label><span data-i18n="editor.presets.name">Preset name</span><input id="preset-name" maxlength="120" /></label><label><input id="preset-default" type="checkbox" /><span data-i18n="editor.presets.default">Use for new recordings</span></label><div class="actions"><button class="text-button" id="save-preset" data-i18n="editor.presets.save">Save style</button><button class="text-button" id="delete-preset" data-i18n="editor.presets.remove">Remove preset</button></div></section>
+<section class="group"><h2 data-i18n="editor.captions.title">Captions</h2><label><input id="captions-enabled" type="checkbox" /><span data-i18n="editor.captions.show">Show captions</span></label><div class="actions"><button class="text-button" id="generate-captions" data-i18n="editor.captions.generate">Generate locally</button><button class="text-button" id="cancel-captions" hidden data-i18n="editor.captions.cancel">Cancel</button><span id="caption-progress" role="status"></span></div><div id="caption-rows"></div><div class="actions"><button class="text-button" id="export-srt" data-i18n="editor.captions.srt">Export SRT</button><button class="text-button" id="export-vtt" data-i18n="editor.captions.vtt">Export VTT</button></div></section>
+<section class="group" id="zoom-inspector" hidden>
+          <h2 data-i18n="editor.zoom.selected">Selected zoom</h2>
+          <label class="row">
+            <span data-i18n="editor.zoom.level">Zoom level</span>
+            <input type="range" id="zoom-level" min="1.1" max="4" step="0.05" />
+          </label>
+          <label class="row">
+            <span data-i18n="editor.zoom.follow">Follow pointer</span>
+            <input class="switch" type="checkbox" id="zoom-follow" />
+          </label>
+        </section>
+
+        <section class="group">
+          <h2 data-i18n="editor.background.title">Background</h2>
+          <div class="swatches" id="backgrounds" role="radiogroup" aria-label="Background" data-i18n-attr="aria-label:editor.background.title"></div>
+          <button class="text-button text-button--small" type="button" id="remove-background" hidden data-i18n="editor.background.removeImage">Remove image</button>
+          <label class="row">
+            <span data-i18n="editor.background.padding">Padding</span>
+            <input type="range" id="padding" min="0" max="0.2" step="0.005" />
+          </label>
+          <label class="row">
+            <span data-i18n="editor.background.corners">Corners</span>
+            <input type="range" id="radius" min="0" max="0.06" step="0.002" />
+          </label>
+          <label class="row">
+            <span data-i18n="editor.background.shadow">Shadow</span>
+            <input class="switch" type="checkbox" id="shadow" />
+          </label>
+        </section>
+
+        <section class="group">
+          <h2 data-i18n="editor.frame.title">Frame</h2>
+          <div class="segmented segmented--three" id="aspects" role="radiogroup" aria-label="Frame" data-i18n-attr="aria-label:editor.frame.title"></div>
+        </section>
+
+        <section class="group">
+          <h2 data-i18n="editor.zoom.title">Auto zoom</h2>
+          <label class="row">
+            <span data-i18n="editor.zoom.enabled">Zoom on clicks and typing</span>
+            <input class="switch" type="checkbox" id="auto-zoom" />
+          </label>
+          <label class="row">
+            <span data-i18n="editor.zoom.maxLevel">Maximum zoom</span>
+            <input type="range" id="zoom-scale" min="1.2" max="3.5" step="0.05" />
+          </label>
+          <label class="row">
+            <span data-i18n="editor.zoom.smoothness">Smoothness</span>
+            <input type="range" id="smoothness" min="0" max="1" step="0.05" />
+          </label>
+          <button class="text-button text-button--small" type="button" id="replan" data-i18n="editor.zoom.replan">Suggest zooms again</button>
+          <p class="note" id="no-cursor" hidden data-i18n="editor.zoom.unavailable">This video has no cursor data, so auto zoom is off.</p>
+        </section>
+
+        <section class="group" id="cursor-group" hidden>
+          <h2 data-i18n="editor.cursor.title">Pointer</h2>
+          <label class="row">
+            <span data-i18n="editor.cursor.size">Size</span>
+            <input type="range" id="cursor-size" min="0.6" max="3" step="0.05" />
+          </label>
+          <label class="row">
+            <span data-i18n="editor.cursor.smoothing">Smoothing</span>
+            <input type="range" id="cursor-smoothing" min="0" max="1" step="0.05" />
+          </label>
+          <label class="row">
+            <span data-i18n="editor.cursor.hideIdle">Hide when still</span>
+            <input class="switch" type="checkbox" id="hide-idle-cursor" />
+          </label>
+        </section>
+
+        <section class="group" id="camera-group" hidden>
+          <label class="row row--title">
+            <h2 data-i18n="editor.camera.title">Camera</h2>
+            <input class="switch" type="checkbox" id="show-camera" aria-label="Show camera" data-i18n-attr="aria-label:editor.camera.show" />
+          </label>
+          <div class="segmented segmented--three" id="camera-shapes" role="radiogroup" aria-label="Shape" data-i18n-attr="aria-label:editor.camera.shape"></div>
+          <div class="segmented" id="camera-positions" role="radiogroup" aria-label="Position" data-i18n-attr="aria-label:editor.camera.position"></div>
+          <label class="row">
+            <span data-i18n="editor.camera.size">Size</span>
+            <input type="range" id="camera-size" min="0.01" max="1" step="0.01" />
+          </label>
+          <label class="row" hidden>
+            <span data-i18n="editor.camera.shrink">Smaller while zoomed</span>
+            <input class="switch" type="checkbox" id="camera-shrink" />
+          </label>
+          <label class="row">
+            <span data-i18n="editor.camera.mirror">Mirror</span>
+            <input class="switch" type="checkbox" id="camera-mirror" />
+          </label>
+        </section>
+
+        <section class="group">
+          <h2 data-i18n="editor.effects.title">Effects</h2>
+          <label class="row">
+            <span data-i18n="editor.zoom.clicks">Click effects</span>
+            <input class="switch" type="checkbox" id="click-effects" />
+          </label>
+          <label class="row">
+            <span data-i18n="editor.motionBlur">Motion blur</span>
+            <input class="switch" type="checkbox" id="motion-blur" />
+          </label>
+        </section>
+
+        <section class="group">
+          <h2 data-i18n="editor.sounds.title">Sounds</h2>
+          <label class="row">
+            <span data-i18n="editor.sounds.clicks">Clicks</span>
+            <select class="select" id="click-sound"></select>
+          </label>
+          <label class="row">
+            <span data-i18n="editor.sounds.clickVolume">Click volume</span>
+            <input type="range" id="click-volume" min="0" max="1" step="0.05" />
+          </label>
+          <label class="row">
+            <span data-i18n="editor.sounds.typing">Typing</span>
+            <select class="select" id="typing-sound"></select>
+          </label>
+          <label class="row">
+            <span data-i18n="editor.sounds.typingVolume">Typing volume</span>
+            <input type="range" id="typing-volume" min="0" max="1" step="0.05" />
+          </label>
+        </section>
+
+        <section class="group">
+          <label class="row row--title">
+            <h2 data-i18n="editor.keys.title">Shortcut keys</h2>
+            <input class="switch" type="checkbox" id="show-shortcuts" aria-label="Show shortcuts" data-i18n-attr="aria-label:editor.effects.shortcuts" />
+          </label>
+          <div class="swatches" id="key-colors" role="radiogroup" aria-label="Key color" data-i18n-attr="aria-label:editor.keys.color"></div>
+          <div class="segmented segmented--three" id="key-sizes" role="radiogroup" aria-label="Key size" data-i18n-attr="aria-label:editor.keys.size"></div>
+          <div class="segmented segmented--two" id="key-positions" role="radiogroup" aria-label="Key position" data-i18n-attr="aria-label:editor.keys.position"></div>
+        </section>
+
+        <section class="group group--end">
+          <label class="row">
+            <span data-i18n="editor.openAfterRecording">Open after each recording</span>
+            <input class="switch" type="checkbox" id="open-after" />
+          </label>
+        </section>
+      </aside>
+    </main>
+
+    <dialog class="export-dialog" id="export-dialog" aria-labelledby="export-title">
+      <form method="dialog" id="export-form">
+        <h2 id="export-title" data-i18n="editor.export.title">Export video</h2>
+        <div class="field">
+          <span class="field-label" data-i18n="editor.export.resolution">Resolution</span>
+          <div class="segmented segmented--five" id="export-resolution" role="radiogroup" aria-label="Resolution" data-i18n-attr="aria-label:editor.export.resolution"></div>
+        </div>
+        <div class="field">
+          <span class="field-label" data-i18n="editor.export.frameRate">Frame rate</span>
+          <div class="segmented segmented--two" id="export-fps" role="radiogroup" aria-label="Frame rate" data-i18n-attr="aria-label:editor.export.frameRate"></div>
+        </div>
+        <div class="field">
+          <span class="field-label" data-i18n="editor.export.quality">Quality</span>
+          <div class="segmented segmented--three" id="export-quality" role="radiogroup" aria-label="Quality" data-i18n-attr="aria-label:editor.export.quality"></div>
+        </div>
+        <p class="export-summary" id="export-summary"></p>
+        <div class="dialog-actions">
+          <button class="text-button" type="submit" value="cancel" data-i18n="editor.export.cancel">Cancel</button>
+          <button class="primary-button" type="submit" value="export" id="export-confirm" autofocus data-i18n="editor.export.button">Export</button>
+        </div>
+      </form>
+    </dialog>
+
+    <span class="toast" id="toast" role="status" aria-live="polite">
+      <span id="toast-text"></span>
+      <button class="link-button" type="button" id="toast-reveal" hidden data-i18n="editor.export.reveal">Show in Finder</button>
+    </span>
+
+    <script src="./editor.js" type="module"></script>
+  </body>
+</html>

@@ -7,7 +7,7 @@ import type { AddressInfo } from "node:net";
 import { shell } from "electron";
 import type { BroadcastInfo } from "../../shared/types";
 import { studioConfig } from "../config";
-import { postForm, storeToken, validAccessToken, type StoredToken, type TokenResponse } from "./tokens";
+import { fetchPlatform, platformJson, postForm, storeToken, validAccessToken, type StoredToken, type TokenResponse } from "./tokens";
 
 const SCOPE = "https://www.googleapis.com/auth/youtube";
 const API = "https://www.googleapis.com/youtube/v3";
@@ -61,8 +61,12 @@ export async function signInYouTube(callbackHtml: (ok: boolean) => string): Prom
         response.writeHead(404).end();
         return;
       }
+      if (url.searchParams.get("state") !== state) {
+        response.writeHead(400).end(callbackHtml(false));
+        return;
+      }
       const returnedCode = url.searchParams.get("code");
-      const ok = Boolean(returnedCode) && url.searchParams.get("state") === state;
+      const ok = Boolean(returnedCode);
       response.writeHead(ok ? 200 : 400, { "Content-Type": "text/html; charset=utf-8" }).end(callbackHtml(ok));
       clearTimeout(timer);
       server.close();
@@ -74,6 +78,12 @@ export async function signInYouTube(callbackHtml: (ok: boolean) => string): Prom
       reject(new Error("sign-in-expired"));
     }, SIGN_IN_TIMEOUT_MS);
     let redirectUri = "";
+    const fail = () => {
+      clearTimeout(timer);
+      server.close();
+      reject(new Error("platform-request-failed"));
+    };
+    server.on("error", fail);
     server.listen(0, "127.0.0.1", () => {
       const { port } = server.address() as AddressInfo;
       redirectUri = `http://127.0.0.1:${port}/callback`;
@@ -89,7 +99,7 @@ export async function signInYouTube(callbackHtml: (ok: boolean) => string): Prom
         access_type: "offline",
         prompt: "consent",
       }).toString();
-      shell.openExternal(auth.toString()).catch(reject);
+      shell.openExternal(auth.toString()).catch(fail);
     });
   });
 
@@ -116,18 +126,18 @@ function refreshToken(token: StoredToken): Promise<TokenResponse> {
 }
 
 async function youtubeRequest<T>(accessToken: string, pathAndQuery: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API}${pathAndQuery}`, {
+  const response = await fetchPlatform(`${API}${pathAndQuery}`, {
     ...init,
     headers: { ...init.headers, Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
   });
   if (response.status === 401) throw new Error("account-signed-out");
   if (response.status === 403 || response.status === 404) {
-    const body = (await response.json().catch(() => ({}))) as { error?: { errors?: { reason?: string }[] } };
+    const body = await platformJson<{ error?: { errors?: { reason?: string }[] } }>(response);
     throw new Error(youtubeErrorCode(body.error?.errors?.[0]?.reason));
   }
   if (!response.ok) throw new Error("platform-request-failed");
   if (response.status === 204) return undefined as T;
-  return (await response.json()) as T;
+  return platformJson<T>(response);
 }
 
 function youtubeErrorCode(reason: string | undefined): string {
@@ -191,11 +201,20 @@ export async function createYouTubeBroadcast(account: YouTubeAccount, streamId: 
       contentDetails: { enableAutoStart: true, enableAutoStop: true, latencyPreference: "normal" },
     }),
   });
-  await api(
-    account.id,
-    `/liveBroadcasts/bind?part=id&id=${encodeURIComponent(broadcast.id)}&streamId=${encodeURIComponent(streamId)}`,
-    { method: "POST" },
-  );
+  try {
+    await api(
+      account.id,
+      `/liveBroadcasts/bind?part=id&id=${encodeURIComponent(broadcast.id)}&streamId=${encodeURIComponent(streamId)}`,
+      { method: "POST" },
+    );
+  } catch (error) {
+    try {
+      await deleteYouTubeBroadcast(account, broadcast.id);
+    } catch {
+      console.error("[youtube] could not remove an unbound broadcast");
+    }
+    throw error;
+  }
   return broadcast.id;
 }
 
@@ -213,7 +232,7 @@ export async function deleteYouTubeBroadcast(account: YouTubeAccount, broadcastI
 }
 
 export async function revokeYouTube(accessToken: string): Promise<void> {
-  await postForm("https://oauth2.googleapis.com/revoke", { token: accessToken });
+  await postForm("https://oauth2.googleapis.com/revoke", { token: accessToken }, false);
 }
 
 // ----- live chat -------------------------------------------------------------

@@ -2,6 +2,7 @@ import path from "node:path";
 import { app, BrowserWindow, ipcMain, nativeTheme, session, shell } from "electron";
 import { IPC, STUDIO_ERROR_PREFIX, STUDIO_METHODS, type StudioMethod } from "../shared/ipc";
 import { setVendorRoot } from "./engine/osn";
+import { registerMediaScheme } from "./screen-recording";
 import { STUDIO_SCHEME } from "./seenalyze/account";
 import { errorKey, Studio, vendorRoot } from "./studio";
 
@@ -78,9 +79,16 @@ function registerIpc(): void {
 }
 
 function lockDownPermissions(): void {
-  // Capture devices are opened by the engine, never by the web UI.
-  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+  // Capture devices are opened by the engine, never by the studio UI. The
+  // screen-recording picker, camera bubble and built-in recorder are the only
+  // pages that may use the camera, microphone or screen directly.
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    callback(permission === "media" && studio?.screenRecorder.allowsMedia(webContents) === true);
+  });
 }
+
+// The recording editor reads its videos through a private scheme.
+registerMediaScheme();
 
 // One app instance: a second launch focuses the existing window instead.
 // App links (seenalyze-studio://…) bring account sign-in back from the browser.
@@ -133,6 +141,8 @@ app.whenReady().then(() => {
     event.preventDefault();
     studio.requestQuitConfirmation();
   });
+  // Recording editors may still be open; the studio window going away ends the app.
+  mainWindow.on("closed", () => app.quit());
 });
 
 app.on("before-quit", (event) => {

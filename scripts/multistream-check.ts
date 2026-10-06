@@ -6,6 +6,7 @@
 //   ffmpeg -listen 1 -i rtmp://127.0.0.1:1936/live/test-b -c copy -f flv b.flv
 
 import { app } from "electron";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import type { DestinationConfig, DestinationStatus } from "../src/shared/types";
 import { EngineSession } from "../src/main/engine/engine";
 import { setVendorRoot } from "../src/main/engine/osn";
@@ -14,6 +15,21 @@ import { OutputManager } from "../src/main/engine/outputs";
 import { SceneGraph } from "../src/main/engine/scenes";
 
 const PROFILE = { width: 1280, height: 720, fps: 30, videoBitrateKbps: 2500, audioBitrateKbps: 160, keyframeSec: 2, codec: "h264" as const };
+const testData = path.join(app.getAppPath(), ".multistream-check-data");
+mkdirSync(testData, { recursive: true });
+app.setPath("userData", testData);
+const toneFile = path.join(testData, "tone.wav");
+const samples = 48000 * 3;
+const wave = Buffer.alloc(44 + samples * 4);
+wave.write("RIFF"); wave.writeUInt32LE(wave.length - 8, 4); wave.write("WAVEfmt ", 8);
+wave.writeUInt32LE(16, 16); wave.writeUInt16LE(1, 20); wave.writeUInt16LE(2, 22);
+wave.writeUInt32LE(48000, 24); wave.writeUInt32LE(192000, 28); wave.writeUInt16LE(4, 32); wave.writeUInt16LE(16, 34);
+wave.write("data", 36); wave.writeUInt32LE(samples * 4, 40);
+for (let i = 0; i < samples; i += 1) {
+  const sample = Math.round(Math.sin(i * 2 * Math.PI * 440 / 48000) * 2000);
+  wave.writeInt16LE(sample, 44 + i * 4); wave.writeInt16LE(sample, 46 + i * 4);
+}
+writeFileSync(toneFile, wave);
 
 function destination(id: string, port: number): { config: DestinationConfig; server: string; streamKey: string } {
   return {
@@ -35,8 +51,10 @@ app.whenReady().then(async () => {
   try {
     engine.start();
     const scenes = new SceneGraph(engine);
-    scenes.load(null);
+    scenes.createScene("Scene");
     scenes.addSource("Scene", "color", "Background");
+    // Synthetic audio only: checks must not open the user's microphone.
+    scenes.addSource("Scene", "media", "Test tone", { is_local_file: true, local_file: toneFile, looping: true, close_when_inactive: false });
     const outputs = new OutputManager(engine);
     const log: string[] = [];
     outputs.on("status", (status: DestinationStatus) => log.push(`${status.id}:${status.state}${status.errorKey ? `(${status.errorKey})` : ""}`));
@@ -82,6 +100,7 @@ app.whenReady().then(async () => {
     // Never let a stuck engine shutdown keep the check alive.
     setTimeout(() => app.exit(failed ? 1 : 0), 10_000).unref();
     engine.shutdown();
+    rmSync(testData, { recursive: true, force: true });
   }
   console.log(failed ? "[check] RESULT: FAIL" : "[check] RESULT: PASS");
   app.exit(failed ? 1 : 0);

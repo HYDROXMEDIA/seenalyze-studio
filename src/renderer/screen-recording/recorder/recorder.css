@@ -1,0 +1,104 @@
+:root {
+  color-scheme: dark;
+  --accent: #ffffff;
+  --record: #ff453a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+  user-select: none;
+}
+
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 100%;
+  padding: 0 6px 0 14px;
+  color: #fff;
+  background: rgba(10, 10, 10, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  -webkit-app-region: drag;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  background: var(--record);
+  border-radius: 50%;
+}
+
+body[data-state='recording'] .dot {
+  animation: blink 1.2s ease-in-out infinite;
+}
+
+body[data-state='starting'] .dot,
+body[data-state='saving'] .dot {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+@keyframes blink {
+  50% { opacity: 0.35; }
+}
+
+.time {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.stop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  -webkit-app-region: no-drag;
+}
+
+.stop:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.stop:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.stop:disabled {
+  opacity: 0.5;
+}
+
+.stop-square {
+  width: 10px;
+  height: 10px;
+  background: var(--record);
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-state='recording'] .dot {
+    animation: none;
+  }
+}

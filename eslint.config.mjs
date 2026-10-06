@@ -8,8 +8,13 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ["src/main/**/*.ts", "src/preload/**/*.ts", "scripts/**/*.mjs", "*.ts", "*.mjs"],
+    files: ["src/main/**/*.{ts,mjs}", "src/preload/**/*.ts", "scripts/**/*.mjs", "*.ts", "*.mjs"],
     languageOptions: { globals: globals.node },
+  },
+  {
+    // The screen-recording windows are plain browser modules.
+    files: ["src/renderer/**/*.js"],
+    languageOptions: { globals: globals.browser },
   },
   {
     files: ["src/renderer/**/*.{ts,tsx}"],

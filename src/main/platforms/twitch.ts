@@ -3,7 +3,7 @@
 
 import type { BroadcastInfo, CategoryOption, DeviceCodePrompt } from "../../shared/types";
 import { studioConfig } from "../config";
-import { OAuthError, postForm, storeToken, validAccessToken, type StoredToken, type TokenResponse } from "./tokens";
+import { fetchPlatform, platformJson, OAuthError, postForm, storeToken, validAccessToken, type StoredToken, type TokenResponse } from "./tokens";
 
 // Read-only extras power overlay alerts: follower events/counts and channel point redemptions.
 export const SCOPES = "channel:read:stream_key channel:manage:broadcast moderator:read:followers channel:read:redemptions";
@@ -93,7 +93,7 @@ async function helix<T>(accountId: string, pathAndQuery: string, init: RequestIn
 }
 
 async function helixWithToken<T>(accessToken: string, pathAndQuery: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${HELIX}${pathAndQuery}`, {
+  const response = await fetchPlatform(`${HELIX}${pathAndQuery}`, {
     ...init,
     headers: {
       ...init.headers,
@@ -107,7 +107,7 @@ async function helixWithToken<T>(accessToken: string, pathAndQuery: string, init
   if (response.status === 403) throw new Error("twitch-scope-missing");
   if (!response.ok) throw new Error("platform-request-failed");
   if (response.status === 204) return undefined as T;
-  return (await response.json()) as T;
+  return platformJson<T>(response);
 }
 
 async function helixUser(accessToken: string): Promise<{ id: string; display_name: string }> {
@@ -155,7 +155,7 @@ export async function searchTwitchCategories(accountId: string, query: string): 
 }
 
 export async function revokeTwitch(accessToken: string): Promise<void> {
-  await postForm("https://id.twitch.tv/oauth2/revoke", { client_id: clientId(), token: accessToken });
+  await postForm("https://id.twitch.tv/oauth2/revoke", { client_id: clientId(), token: accessToken }, false);
 }
 
 /** The channel's login name, which chat uses to identify the room. */

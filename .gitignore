@@ -3,6 +3,7 @@ out/
 dist/
 release/
 vendor/
+bin/
 *.log
 .DS_Store
 .env*
@@ -12,3 +13,9 @@ config/studio.config.json
 engine-worker.js
 .responsiveness-check.cjs
 .presets-check.cjs
+.sources-check.cjs
+.sources-check-data/
+.platforms-check.cjs
+.platforms-check-data/
+.multistream-check-data/
+.responsiveness-check-data/

@@ -49,16 +49,18 @@ function DestinationForm({ state, onClose }: { state: DestinationDialogState; on
   const { platform } = state;
   const spec = PLATFORM_SPECS[platform];
   const existing = state.mode === "edit" ? state.destination : undefined;
-  const accounts = useStudio((store) => store.snapshot?.accounts.filter((account) => account.platform === platform) ?? []);
+  const snapshot = useStudio((store) => store.snapshot);
+  const accounts = snapshot?.accounts.filter((account) => account.platform === platform) ?? [];
   const configured = useStudio((store) => store.snapshot?.platformsConfigured[platform] ?? false);
 
   const [name, setName] = useState(existing?.name ?? t(`platforms.${platform}`));
-  const [mode, setMode] = useState<ConnectionMode>(existing?.mode ?? (accounts.length > 0 ? "account" : "manual"));
+  const [mode, setMode] = useState<ConnectionMode>(existing?.mode ?? (accounts.length > 0 || configured ? "account" : "manual"));
   const [accountId, setAccountId] = useState(existing?.accountId ?? accounts[0]?.id ?? "");
   const [server, setServer] = useState(existing?.server ?? spec.defaultServer);
   const [streamKey, setStreamKey] = useState("");
   const [profile, setProfile] = useState<DestinationProfile>(existing?.profile ?? spec.defaultProfile);
   const [pending, setPending] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const [twitchPrompt, setTwitchPrompt] = useState<DeviceCodePrompt | null>(null);
 
   // A freshly connected account is used automatically until the user picks one.
@@ -69,13 +71,19 @@ function DestinationForm({ state, onClose }: { state: DestinationDialogState; on
   const canSave = !pending && name.trim().length > 0 && (accountSelected || (mode === "manual" && (!needsKey || streamKey.trim().length > 0)));
 
   const connect = async () => {
-    if (platform === "twitch") {
-      const prompt = await run(() => studio.connectTwitch());
-      if (prompt) setTwitchPrompt(prompt);
-      return;
+    if (connecting) return;
+    setConnecting(true);
+    try {
+      if (platform === "twitch") {
+        const prompt = await run(() => studio.connectTwitch());
+        if (prompt) setTwitchPrompt(prompt);
+        return;
+      }
+      toast.info(t("browserSignIn"));
+      await run(() => studio.connectYouTube());
+    } finally {
+      setConnecting(false);
     }
-    toast.info(t("browserSignIn"));
-    await run(() => studio.connectYouTube());
   };
 
   const save = async () => {
@@ -149,7 +157,7 @@ function DestinationForm({ state, onClose }: { state: DestinationDialogState; on
               </Select>
             </Field>
           ) : configured ? (
-            <Button variant="outline" onClick={() => void connect()}>
+            <Button variant="outline" disabled={connecting} onClick={() => void connect()}>
               <PlatformIcon platform={platform} className="size-4" />
               {t("connectAccount", { platform: t(`platforms.${platform}`) })}
             </Button>

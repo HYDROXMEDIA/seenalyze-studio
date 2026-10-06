@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title data-i18n="controls.title">Recording</title>
+    <link rel="stylesheet" href="./controls.css" />
+  </head>
+  <body data-state="recording">
+    <div class="pill" role="group" aria-label="Screen recording" data-i18n-attr="aria-label:controls.title">
+      <span class="dot" aria-hidden="true"></span>
+      <span class="time" id="time" role="timer" aria-live="off" dir="ltr">0:00</span>
+      <button class="control" id="pause" type="button" aria-label="Pause" title="Pause" data-i18n-attr="aria-label:controls.pause;title:controls.pause">
+        <svg class="icon-pause" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 3.5v9M10.5 3.5v9" /></svg>
+        <svg class="icon-resume" viewBox="0 0 16 16" aria-hidden="true"><path class="solid" d="M5 3.5v9l7.5-4.5Z" /></svg>
+      </button>
+      <button class="control stop" id="stop" type="button" aria-label="Stop recording" title="Stop recording" data-i18n-attr="aria-label:controls.stop;title:controls.stop">
+        <span class="stop-square" aria-hidden="true"></span>
+      </button>
+    </div>
+    <script src="./controls.js" type="module"></script>
+  </body>
+</html>

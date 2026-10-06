@@ -3,7 +3,7 @@
 Inherits `~/Desktop/dev/AGENTS.md` and all system/user rules; this file only adds project detail and never weakens them.
 
 ## Purpose and boundaries
-Desktop live-streaming studio (Electron, macOS + Windows) with native multistreaming: one encode is shared by every destination with identical video settings, and each destination has its own connection, reconnect loop and statistics. Video goes straight from the user's machine to each platform — never through a relay.
+Desktop live-streaming studio (Electron, macOS + Windows) with native multistreaming, plus screen recording with an editor (automatic zooms, redrawn pointer, camera, backgrounds, cuts, captions, export): one encode is shared by every destination with identical video settings, and each destination has its own connection, reconnect loop and statistics. Video goes straight from the user's machine to each platform — never through a relay.
 - **This repository is public and GPL-2.0-or-later** because it links libobs. Never add proprietary code, secrets, server credentials or private dashboard source here.
 - The private service (accounts, billing, OAuth brokering where a platform requires a client secret) lives in `../backend` — a separate repository. Never import between them.
 - Platforms in scope: **YouTube and Twitch only**. Do not add others unless the maintainer asks.
@@ -16,6 +16,8 @@ Desktop live-streaming studio (Electron, macOS + Windows) with native multistrea
 - `src/main/seenalyze/account.ts` — SEENALYZE account sign-in (PKCE via the dashboard, `seenalyze-studio://` app link) and the AI overlay designer call (`/api/studio/overlays/generate`, charges the user's credits server-side; the dashboard owns the model, key and allowlist).
 - `src/main/chat/twitch-eventsub.ts` — follows and channel point redemptions (needs the follower/redemption scopes; older sign-ins must reconnect).
 - `src/main/permissions.ts` — camera/microphone/screen-recording access. Capture sources must request access before the engine creates them; otherwise capture silently produces black frames or silence.
+- `src/main/screen-recording/` — screen recording and the recording editor, separate from the streaming engine. `index.ts` (`ScreenRecorder`, used by `studio.ts`), `capture.ts` (area/window/screen picker, one panel per display), `recording.ts` (native recorder on macOS, built-in browser recorder elsewhere), `interactions.ts` (pointer, clicks, typing timing; never which keys), `facecam.ts` (live camera bubble, recorded as its own track), `controls.ts` (floating pause/stop bar, kept out of the video), `editor.ts` (editor windows, edits saved per recording, export), `media-protocol.ts` (the `recording-media:` scheme serving only registered files, with byte ranges), `speech.ts` + `windows-speech.ts` (local caption recognition: WhisperKit built from source on macOS, checksum-verified whisper.cpp on Windows; started on demand, stopped when idle), `recording-data.ts` (per-recording data in app data, never next to the video). Pages live in `src/renderer/screen-recording/<page>/` as plain browser modules; their text comes from `en.json` → `screenRecording` through `shared/i18n.js` (use-intl core). Preloads are `src/preload/recording-<page>.ts`.
+- `native/` — screen-recording helpers: Swift sources built into `bin/` (gitignored) by `scripts/build-native.mjs` (`screen-recorder`, `video-muxer`, `media-tools`, `window-list`), and PowerShell scripts used as-is on Windows.
 - `src/preload/` — exposes exactly the `StudioApi` contract on `window.studio`.
 - `src/shared/` — IPC contract (`ipc.ts`), domain types, encoder planner, platform specs. No Electron/Node/libobs imports.
 - `src/renderer/` — Vite + React 19 + Tailwind 4 + shadcn-style components. Design tokens mirror the SEENALYZE web dashboard; icons in `assets/icons` are copies of dashboard compact PNGs.
@@ -31,6 +33,8 @@ bun test src                # planner + translation coverage tests
 bun run check:multistream      # shared-encoder multistream check against local RTMP receivers (see script header)
 bun run check:responsiveness   # hidden-window check: main thread never blocks, quit is fast, no leftover engine
 bun run check:presets          # renders all overlay presets with demo data; fails on script errors
+bun run check:screen-recording # hidden-window editor check on a generated video: load, save, export (needs ffmpeg)
+bun run build:native           # macOS screen-recording helpers into bin/ (dev and build run it; skips up-to-date helpers)
 bun run dist:mac | dist:win
 ```
 
@@ -46,6 +50,7 @@ bun run dist:mac | dist:win
 - All UI text goes through `use-intl` with keys in `src/renderer/messages/en.json`; main-process errors are kebab-case codes mapped under `errors.codes.*`. `messages.test.ts` enforces coverage.
 - Overlays are untrusted code (AI-generated). They run only inside the overlay CSP (no external scripts or network except images) and the editor previews them in a sandboxed frame. User content must be inserted as text (`SEENALYZE.renderSegments` / `textContent`); only `SEENALYZE.platformLogo()` output may use `innerHTML`.
 - To add a Windows engine build, pin its SHA-256 in `native-deps.json` after verifying the archive.
+- Screen recording: only the picker, camera bubble and built-in recorder pages may use camera/microphone/screen in the renderer (`ScreenRecorder.allowsMedia`); the studio UI never does. Editor pages read files only through `recording-media:` URLs handed out by `media-protocol.ts`. Every editor/recorder IPC handler checks that the sender is its own window. Exports go to a temporary file and are renamed into place; a failed export never replaces a file.
 
 ## Verification
-Run `bun run typecheck`, `bun run lint`, `bun test src` after changes. For engine/output changes, also run `bun run check:multistream` and `bun run check:responsiveness`. Do not drive the user's screen to verify; use these headless checks. Windows behaviour has not been verified on hardware yet — say so when reporting.
+Run `bun run typecheck`, `bun run lint`, `bun test src` after changes. For engine/output changes, also run `bun run check:multistream` and `bun run check:responsiveness`. For screen-recording changes, run `bun run check:screen-recording`; live capture, camera, system audio and caption model setup need a manual pass because they require device access or large downloads. Do not drive the user's screen to verify; use these headless checks. Windows behaviour has not been verified on hardware yet — say so when reporting.

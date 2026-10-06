@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import en from "./en.json";
+import { INPUT_IDS } from "../../main/engine/source-types";
+import { TRANSFORM_ANCHORS } from "../../shared/transforms";
 
 type Tree = { [key: string]: string | Tree };
 
@@ -27,7 +29,7 @@ function sourceFiles(dir: string): string[] {
 describe("en messages", () => {
   test("keys built from runtime values exist", () => {
     const dynamic = [
-      ...["display", "window", "camera", "microphone", "desktopAudio", "image", "media", "text", "color", "browser", "chatOverlay"].map((k) => `sources.kinds.${k}`),
+      ...[...Object.keys(INPUT_IDS).filter((kind) => kind !== "overlay"), "scene"].map((k) => `sources.kinds.${k}`),
       ...["idle", "preparing", "connecting", "live", "reconnecting", "stopping", "error"].map((k) => `destinations.states.${k}`),
       ...["youtube", "twitch"].map((k) => `destinations.platforms.${k}`),
       ...["account", "manual"].map((k) => `destinations.modes.${k}`),
@@ -43,6 +45,10 @@ describe("en messages", () => {
       ...["camera", "microphone", "screen"].flatMap((k) => ["label", "title", "description"].map((f) => `permissions.${k}.${f}`)),
       ...["camera", "microphone", "screen"].map((k) => `errors.codes.permission-${k}-denied`),
       "settings.permissions",
+      ...Object.keys(TRANSFORM_ANCHORS).map((key) => `transformEditor.anchorOptions.${key}`),
+      ...["fit", "stretch", "scale"].map((key) => `transformEditor.sizingOptions.${key}`),
+      ...["left", "top", "right", "bottom"].map((key) => `transformEditor.cropEdges.${key}`),
+      ...["noPicture", "waitingSources", "noSound", "missingSources"].map((key) => `streamCheck.${key}`),
     ];
     const missing = dynamic.filter((key) => !has(en as Tree, key));
     expect(missing).toEqual([]);

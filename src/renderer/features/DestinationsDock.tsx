@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { useStudio } from "@/store/studio";
 import { BroadcastInfoDialog } from "./BroadcastInfoDialog";
 import { DestinationDialog, type DestinationDialogState } from "./DestinationDialog";
+import { useGoLive } from "./use-go-live";
 
 const ACTIVE_STATES: OutputState[] = ["preparing", "connecting", "live", "reconnecting", "stopping"];
 
@@ -56,6 +57,8 @@ export function DestinationsDock() {
   const [dialog, setDialog] = useState<DestinationDialogState | null>(null);
   const [infoFor, setInfoFor] = useState<DestinationConfig | null>(null);
   const [removing, setRemoving] = useState<DestinationConfig | null>(null);
+  const [ending, setEnding] = useState<DestinationConfig | null>(null);
+  const { goLive, pending, dialog: streamDialog } = useGoLive();
 
   const enabled = destinations.filter((destination) => destination.enabled);
   const encodes = planEncoders(enabled).groups.length;
@@ -140,12 +143,12 @@ export function DestinationsDock() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       {active ? (
-                        <DropdownMenuItem onSelect={() => void run(() => studio.endStream([destination.id]))}>
+                        <DropdownMenuItem onSelect={() => setEnding(destination)}>
                           <SquareIcon />
                           {t("endOne")}
                         </DropdownMenuItem>
                       ) : (
-                        <DropdownMenuItem onSelect={() => void run(() => studio.goLive([destination.id]))}>
+                        <DropdownMenuItem disabled={pending} onSelect={() => void goLive([destination.id])}>
                           <PlayIcon />
                           {t("goLiveOne")}
                         </DropdownMenuItem>
@@ -177,6 +180,13 @@ export function DestinationsDock() {
 
       <DestinationDialog state={dialog} onClose={() => setDialog(null)} />
       <BroadcastInfoDialog destination={infoFor} onClose={() => setInfoFor(null)} />
+      {streamDialog}
+      <AlertDialog open={ending !== null} onOpenChange={(open) => { if (!open) setEnding(null); }}>
+        {ending && <AlertDialogContent>
+          <DialogHeader><AlertDialogTitle>{t("endOneTitle", { name: ending.name })}</AlertDialogTitle><AlertDialogDescription>{t("endOneDescription")}</AlertDialogDescription></DialogHeader>
+          <DialogFooter><AlertDialogCancel>{tc("cancel")}</AlertDialogCancel><AlertDialogAction onClick={() => void run(() => studio.endStream([ending.id]))}>{t("endOne")}</AlertDialogAction></DialogFooter>
+        </AlertDialogContent>}
+      </AlertDialog>
       <AlertDialog open={removing !== null} onOpenChange={(open) => !open && setRemoving(null)}>
         {removing !== null && (
           <AlertDialogContent>

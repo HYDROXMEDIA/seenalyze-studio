@@ -19,6 +19,8 @@ const REFRESH_MARGIN_MS = 60_000;
 const refreshing = new Map<string, Promise<StoredToken>>();
 
 export function storeToken(accountId: string, response: TokenResponse, previous?: StoredToken): StoredToken {
+  if (typeof response.access_token !== "string" || !response.access_token) throw new Error("platform-request-failed");
+  if (response.expires_in !== undefined && (typeof response.expires_in !== "number" || !Number.isFinite(response.expires_in) || response.expires_in <= 0)) throw new Error("platform-request-failed");
   const token: StoredToken = {
     accessToken: response.access_token,
     refreshToken: response.refresh_token ?? previous?.refreshToken,
@@ -51,20 +53,46 @@ export async function validAccessToken(
   if (!pending) {
     pending = refresh(token)
       .then((response) => storeToken(accountId, response, token))
+      .catch((error: unknown) => {
+        if (error instanceof OAuthError && (error.code === "invalid_grant" || error.status === 401)) throw new Error("account-signed-out");
+        throw error;
+      })
       .finally(() => refreshing.delete(accountId));
     refreshing.set(accountId, pending);
   }
   return (await pending).accessToken;
 }
 
-export async function postForm<T>(url: string, body: Record<string, string>): Promise<T> {
-  const response = await fetch(url, {
+/** Bounded requests keep account preparation and cancellation recoverable. */
+export async function fetchPlatform(url: string, init: RequestInit = {}): Promise<Response> {
+  try {
+    const deadline = AbortSignal.timeout(30_000);
+    return await fetch(url, { ...init, signal: init.signal ? AbortSignal.any([init.signal, deadline]) : deadline });
+  } catch (error) {
+    if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) throw new Error("platform-timeout", { cause: error });
+    throw new Error("platform-request-failed", { cause: error });
+  }
+}
+
+export async function platformJson<T>(response: Response): Promise<T> {
+  try { return await response.json() as T; }
+  catch (error) {
+    // JSON parser messages can quote a response containing credentials.
+    if (error instanceof SyntaxError) { error.message = "Invalid platform response"; error.stack = undefined; }
+    if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) throw new Error("platform-timeout", { cause: error });
+    throw new Error("platform-request-failed", { cause: error });
+  }
+}
+
+export async function postForm<T>(url: string, body: Record<string, string>, expectJson = true): Promise<T> {
+  const response = await fetchPlatform(url, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(body),
   });
-  const json = (await response.json().catch(() => ({}))) as T & { error?: string; message?: string };
-  if (!response.ok) throw new OAuthError(response.status, json.error ?? json.message ?? "request-failed");
+  if (response.ok && !expectJson) return undefined as T;
+  const json = await platformJson<T & { error?: string }>(response);
+  if (!response.ok) throw new OAuthError(response.status, typeof json.error === "string" && /^[a-z][a-z0-9_-]*$/u.test(json.error) ? json.error : "request-failed");
   return json;
 }
 
