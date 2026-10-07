@@ -38,6 +38,8 @@ export function ControlsDock() {
   const recording = useStudio((state) => state.snapshot?.recording ?? { active: false });
   const setView = useStudio((state) => state.setView);
   const [confirmEnd, setConfirmEnd] = useState(false);
+  const [confirmStart, setConfirmStart] = useState(false);
+  const askBeforeLive = useStudio((state) => state.snapshot?.preferences.confirmGoLive ?? false);
 
   const activeIds = statuses.filter((status) => isActive(status)).map((status) => status.id);
   const live = activeIds.length > 0;
@@ -54,7 +56,12 @@ export function ControlsDock() {
             {t("endStream")}
           </Button>
         ) : (
-          <Button variant="live" size="lg" disabled={enabledIds.length === 0} onClick={() => void run(() => studio.goLive(enabledIds))}>
+          <Button
+            variant="live"
+            size="lg"
+            disabled={enabledIds.length === 0}
+            onClick={() => (askBeforeLive ? setConfirmStart(true) : void run(() => studio.goLive(enabledIds)))}
+          >
             <RadioIcon />
             {enabledIds.length > 1 ? t("goLiveMany", { count: enabledIds.length }) : t("goLive")}
           </Button>
@@ -87,6 +94,21 @@ export function ControlsDock() {
           {t("settings")}
         </Button>
       </div>
+
+      <AlertDialog open={confirmStart} onOpenChange={setConfirmStart}>
+        {confirmStart && (
+          <AlertDialogContent>
+            <DialogHeader>
+              <AlertDialogTitle>{t("startTitle")}</AlertDialogTitle>
+              <AlertDialogDescription>{t("startDescription", { count: enabledIds.length })}</AlertDialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <AlertDialogCancel>{tc("cancel")}</AlertDialogCancel>
+              <AlertDialogAction onClick={() => void run(() => studio.goLive(enabledIds))}>{t("goLive")}</AlertDialogAction>
+            </DialogFooter>
+          </AlertDialogContent>
+        )}
+      </AlertDialog>
 
       <AlertDialog open={confirmEnd} onOpenChange={setConfirmEnd}>
         {confirmEnd && (

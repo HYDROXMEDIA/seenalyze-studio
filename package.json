@@ -16,9 +16,12 @@
     "test": "bun test src",
     "dist:mac": "electron-vite build && electron-builder --mac --arm64",
     "dist:win": "electron-vite build && electron-builder --win --x64",
+    "check:audio": "esbuild src/main/engine/worker.ts --bundle --platform=node --format=cjs --external:electron --log-level=warning --outfile=engine-worker.js && esbuild scripts/audio-levels-check.ts --bundle --platform=node --format=cjs --external:electron --log-level=warning --outfile=.audio-levels-check.cjs && electron .audio-levels-check.cjs; status=$?; rm -f engine-worker.js .audio-levels-check.cjs; exit $status",
     "check:multistream": "esbuild scripts/multistream-check.ts --bundle --platform=node --format=cjs --external:electron --log-level=warning --outfile=.multistream-check.cjs && electron .multistream-check.cjs; status=$?; rm -f .multistream-check.cjs; exit $status",
     "check:responsiveness": "esbuild src/main/engine/worker.ts --bundle --platform=node --format=cjs --external:electron --log-level=warning --outfile=engine-worker.js && esbuild scripts/responsiveness-check.ts --bundle --platform=node --format=cjs --external:electron --log-level=warning --outfile=.responsiveness-check.cjs && electron .responsiveness-check.cjs; status=$?; rm -f engine-worker.js .responsiveness-check.cjs; exit $status",
-    "check:presets": "esbuild scripts/presets-check.ts --bundle --platform=node --format=cjs --external:electron --log-level=warning --outfile=.presets-check.cjs && electron .presets-check.cjs; status=$?; rm -f .presets-check.cjs; exit $status"
+    "check:presets": "esbuild scripts/presets-check.ts --bundle --platform=node --format=cjs --external:electron --log-level=warning --outfile=.presets-check.cjs && electron .presets-check.cjs; status=$?; rm -f .presets-check.cjs; exit $status",
+    "check:remove-source": "esbuild src/main/engine/worker.ts --bundle --platform=node --format=cjs --external:electron --log-level=warning --outfile=engine-worker.js && esbuild scripts/remove-source-ui-check.ts --bundle --platform=node --format=cjs --external:electron --log-level=warning --outfile=.remove-source-check.cjs && electron .remove-source-check.cjs; status=$?; rm -f engine-worker.js .remove-source-check.cjs; exit $status",
+    "check:transitions": "esbuild src/main/engine/worker.ts --bundle --platform=node --format=cjs --external:electron --log-level=warning --outfile=engine-worker.js && esbuild scripts/transitions-check.ts --bundle --platform=node --format=cjs --external:electron --log-level=warning --outfile=.transitions-check.cjs && electron .transitions-check.cjs; status=$?; rm -f engine-worker.js .transitions-check.cjs; exit $status"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

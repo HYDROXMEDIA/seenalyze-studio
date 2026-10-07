@@ -7,17 +7,22 @@ import { CheckIcon, ChevronDownIcon, XIcon } from "lucide-react";
 import { useState, type ComponentProps } from "react";
 import { useTranslations } from "use-intl";
 import { cn } from "@/lib/utils";
-import { usePreviewOcclusion } from "@/store/studio";
+import { usePreviewOcclusion, type OcclusionKind } from "@/store/studio";
 import { Button } from "./button";
 
 /**
  * Wraps a Radix root so the native preview is hidden exactly while it is open.
  * Works for controlled (open prop) and uncontrolled roots.
  */
-function useTrackedOpen(open: boolean | undefined, defaultOpen: boolean | undefined, onOpenChange?: (open: boolean) => void) {
+function useTrackedOpen(
+  open: boolean | undefined,
+  defaultOpen: boolean | undefined,
+  onOpenChange?: (open: boolean) => void,
+  kind: OcclusionKind = "modal",
+) {
   const [internal, setInternal] = useState(defaultOpen ?? false);
   const current = open ?? internal;
-  usePreviewOcclusion(current);
+  usePreviewOcclusion(current, kind);
   return {
     open: current,
     onOpenChange: (next: boolean) => {
@@ -36,9 +41,9 @@ export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
 
 const overlayClass =
-  "fixed inset-0 z-50 bg-black/60";
+  "fixed inset-0 z-50 bg-black/60 animate-ui-fade";
 const contentClass =
-  "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border bg-popover p-6 text-popover-foreground shadow-lg";
+  "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border bg-popover p-6 text-popover-foreground shadow-lg animate-ui-pop";
 
 export function DialogContent({ className, children, ...props }: ComponentProps<typeof DialogPrimitive.Content>) {
   const t = useTranslations("common");
@@ -87,7 +92,11 @@ export function AlertDialogContent({ className, ...props }: ComponentProps<typeo
   );
 }
 
-export const AlertDialogTitle = DialogTitle as typeof AlertPrimitive.Title;
+// Must use the alert primitive's own Title: Radix scopes the alert dialog's
+// context, so a plain Dialog title throws "must be used within Dialog" here.
+export function AlertDialogTitle({ className, ...props }: ComponentProps<typeof AlertPrimitive.Title>) {
+  return <AlertPrimitive.Title className={cn("text-lg leading-none font-semibold", className)} {...props} />;
+}
 
 export function AlertDialogDescription({ className, ...props }: ComponentProps<typeof AlertPrimitive.Description>) {
   return <AlertPrimitive.Description className={cn("text-sm text-muted-foreground", className)} {...props} />;
@@ -112,7 +121,8 @@ export function AlertDialogCancel(props: ComponentProps<typeof AlertPrimitive.Ca
 // ----- Dropdown menu ---------------------------------------------------------
 
 export function DropdownMenu({ open, defaultOpen, onOpenChange, ...props }: ComponentProps<typeof MenuPrimitive.Root>) {
-  return <MenuPrimitive.Root {...props} {...useTrackedOpen(open, defaultOpen, onOpenChange)} />;
+  // Anchored popup: the preview hides only while the menu actually overlaps it.
+  return <MenuPrimitive.Root {...props} {...useTrackedOpen(open, defaultOpen, onOpenChange, "popper")} />;
 }
 export const DropdownMenuTrigger = MenuPrimitive.Trigger;
 
@@ -121,7 +131,7 @@ export function DropdownMenuContent({ className, sideOffset = 4, ...props }: Com
     <MenuPrimitive.Portal>
       <MenuPrimitive.Content
         sideOffset={sideOffset}
-        className={cn("z-50 min-w-[10rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md", className)}
+        className={cn("z-50 min-w-[10rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-ui-pop", className)}
         {...props}
       />
     </MenuPrimitive.Portal>
@@ -152,7 +162,7 @@ export function DropdownMenuSeparator({ className, ...props }: ComponentProps<ty
 // ----- Select ----------------------------------------------------------------
 
 export function Select({ open, defaultOpen, onOpenChange, ...props }: ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root {...props} {...useTrackedOpen(open, defaultOpen, onOpenChange)} />;
+  return <SelectPrimitive.Root {...props} {...useTrackedOpen(open, defaultOpen, onOpenChange, "popper")} />;
 }
 export const SelectValue = SelectPrimitive.Value;
 
@@ -179,7 +189,7 @@ export function SelectContent({ className, children, position = "popper", ...pro
       <SelectPrimitive.Content
         position={position}
         className={cn(
-          "relative z-50 max-h-72 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md",
+          "relative z-50 max-h-72 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md animate-ui-pop",
           position === "popper" && "w-full min-w-[var(--radix-select-trigger-width)] data-[side=bottom]:translate-y-1",
           className,
         )}

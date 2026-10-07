@@ -3,7 +3,7 @@
 // loop and statistics, so one failing destination never stops the others.
 
 import { EventEmitter } from "node:events";
-import type { DestinationConfig, DestinationProfile, DestinationStatus, OutputState, RecordingStatus } from "../../shared/types";
+import type { DestinationConfig, DestinationProfile, DestinationStatus, OutputState, RecordingFormat, RecordingStatus } from "../../shared/types";
 import { planEncoders } from "../../shared/planner";
 import type { EngineSession } from "./engine";
 import type { EOutputSignal, IAdvancedRecording, IAdvancedStreaming, IVideoEncoder } from "./osn";
@@ -29,7 +29,11 @@ interface ActiveOutput {
 }
 
 const AUDIO_TRACK = 1;
-const RECORDING_BITRATE_KBPS = 12000;
+
+export interface RecordingOptions {
+  format: RecordingFormat;
+  bitrateKbps: number;
+}
 
 /** Maps libobs output stop codes to translation keys. */
 function stopErrorKey(code: number): string | undefined {
@@ -158,17 +162,17 @@ export class OutputManager extends EventEmitter {
 
   // ----- recording ----------------------------------------------------------
 
-  startRecording(folder: string, encoderId: string): void {
+  startRecording(folder: string, encoderId: string, options: RecordingOptions): void {
     if (this.recording) return;
     const { osn } = this.engine;
     const encoder = osn.VideoEncoderFactory.create(encoderId, "seenalyze-recording", {
       rate_control: "CBR",
-      bitrate: RECORDING_BITRATE_KBPS,
+      bitrate: options.bitrateKbps,
       keyint_sec: 2,
     });
     const output = osn.AdvancedRecordingFactory.create();
     output.path = folder;
-    output.format = "mkv" as IAdvancedRecording["format"];
+    output.format = options.format as IAdvancedRecording["format"];
     output.fileFormat = "%CCYY-%MM-%DD %hh-%mm-%ss";
     output.overwrite = false;
     output.noSpace = false;

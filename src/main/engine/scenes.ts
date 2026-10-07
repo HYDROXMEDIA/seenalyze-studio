@@ -1,9 +1,10 @@
 // Scene graph: scenes, sources, scene items, transforms, properties and
 // persistence of the scene collection.
 
-import type { PropertyDTO, PropertyKind, SceneDTO, SourceKind, TransformPreset } from "../../shared/types";
+import type { ItemTransformDTO, ItemTransformPatch, PropertyDTO, PropertyKind, SceneDTO, SourceKind, TransformPreset } from "../../shared/types";
 import type { EngineSession } from "./engine";
-import type { IInput, IProperty, IScene, ISceneItem, OSN } from "./osn";
+import { DEFAULT_TRANSITION, sanitizeTransition, transitionPreset, type TransitionChoice } from "../../shared/transitions";
+import type { IInput, IProperty, IScene, ISceneItem, ITransition, OSN } from "./osn";
 
 const OUTPUT_FLAG_AUDIO = 2;
 // EPropertyType
@@ -116,15 +117,72 @@ export class SceneGraph {
   private readonly inputs = new Map<string, { input: IInput; kind: SourceKind | "other" }>();
   private readonly locked = new Set<string>();
   private readonly globalAudio = new Map<number, string>();
+  /**
+   * Muted global microphones are kept as plain records instead of engine
+   * sources: creating the capture opens the input device, and on Bluetooth
+   * headsets that switches the headset to its low-quality call mode and
+   * lowers playback volume. They are created when unmuted (or opened for
+   * editing) and released again when muted.
+   */
+  private readonly dormant = new Map<string, { kind: SourceKind | "other"; inputId: string; settings: Record<string, unknown>; channel: number }>();
   private active: string | null = null;
+  /**
+   * Wraps input releases; the audio mixer uses it to detach meters from
+   * sources about to be released.
+   */
+  releaseGuard: (inputs: IInput[], release: () => void) => void = (_inputs, release) => release();
   /**
    * The engine client keeps reporting a source's original name after a rename,
    * so names read from engine objects are mapped to their current name here.
    */
   private readonly engineNames = new Map<string, string>();
+  /**
+   * Program output is a transition that holds the active scene. Transitions
+   * are created once per engine type and never released before engine
+   * shutdown (teardown rules); switching presets reuses and updates them.
+   */
+  private readonly transitions = new Map<string, ITransition>();
+  private transition: ITransition | null = null;
+  private transitionChoice: TransitionChoice = { ...DEFAULT_TRANSITION };
 
   constructor(private readonly engine: EngineSession) {
     this.osn = engine.osn;
+  }
+
+  // ----- transitions --------------------------------------------------------
+
+  get currentTransition(): TransitionChoice {
+    return { ...this.transitionChoice };
+  }
+
+  /** Name of the source the program output currently shows (the transition's active source). */
+  get programSource(): string | null {
+    const source = this.transition?.getActiveSource();
+    return source ? this.nameOf(source) : null;
+  }
+
+  setTransition(choice: TransitionChoice): void {
+    const clean = sanitizeTransition(choice);
+    const preset = transitionPreset(clean.id);
+    if (!preset) throw new Error("transition-unavailable");
+    let next = this.transitions.get(preset.engineId);
+    if (!next) {
+      if (!this.osn.TransitionFactory.types().includes(preset.engineId)) throw new Error("transition-unavailable");
+      next = this.osn.TransitionFactory.createPrivate(preset.engineId, `seenalyze-transition-${preset.engineId}`, preset.settings);
+      this.transitions.set(preset.engineId, next);
+    } else {
+      next.update(preset.settings);
+    }
+    if (next !== this.transition) {
+      const scene = this.active ? this.scenes.get(this.active) : undefined;
+      if (scene) next.set(scene);
+      this.osn.Global.setOutputSource(0, next);
+      // The previous transition stays alive (released by engine teardown) but
+      // must not keep a scene shown or referenced.
+      this.transition?.clear();
+      this.transition = next;
+    }
+    this.transitionChoice = clean;
   }
 
   // ----- scenes -------------------------------------------------------------
@@ -141,6 +199,7 @@ export class SceneGraph {
           kind: this.inputs.get(this.nameOf(item.source))?.kind ?? "other",
           visible: item.visible,
           locked: this.locked.has(lockKey(name, item.id)),
+          transform: transformOf(item),
         }))
         .reverse();
       return { name, items };
@@ -155,12 +214,13 @@ export class SceneGraph {
     const clean = this.uniqueName(name.trim() || "Scene");
     this.scenes.set(clean, this.osn.SceneFactory.create(clean));
     this.sceneOrder.push(clean);
-    if (!this.active) this.setActiveScene(clean);
+    if (!this.active) this.setActiveScene(clean, false);
   }
 
   removeScene(name: string): void {
     if (this.sceneOrder.length <= 1) throw new Error("last-scene");
     const scene = this.requireScene(name);
+    if (this.active === name) this.setActiveScene(this.sceneOrder.find((entry) => entry !== name) as string, false);
     // Detach items before releasing the scene; releasing a populated scene
     // leaves references that make engine teardown stall.
     for (const item of scene.getItems()) {
@@ -170,7 +230,6 @@ export class SceneGraph {
     scene.release();
     this.scenes.delete(name);
     this.sceneOrder = this.sceneOrder.filter((entry) => entry !== name);
-    if (this.active === name) this.setActiveScene(this.sceneOrder[0]);
     this.releaseUnusedInputs();
   }
 
@@ -192,9 +251,14 @@ export class SceneGraph {
     if (this.active === name) this.active = clean;
   }
 
-  setActiveScene(name: string): void {
+  /** Switches the program scene; `animate` false cuts (startup, collection load, removal). */
+  setActiveScene(name: string, animate = true): void {
     const scene = this.requireScene(name);
-    this.osn.Global.setOutputSource(0, scene);
+    if (!this.transition) this.setTransition(this.transitionChoice);
+    const transition = this.transition as ITransition;
+    const duration = this.transitionChoice.durationMs;
+    if (animate && duration > 0 && this.active !== name) transition.start(duration, scene);
+    else transition.set(scene);
     this.active = name;
   }
 
@@ -302,10 +366,44 @@ export class SceneGraph {
     this.transform(this.requireItem(sceneName, itemId), preset);
   }
 
+  /** Interactive move/resize/rotate from the preview editor. */
+  setItemTransform(sceneName: string, itemId: number, patch: ItemTransformPatch): void {
+    if (this.locked.has(lockKey(sceneName, itemId))) throw new Error("item-locked");
+    const item = this.requireItem(sceneName, itemId);
+    item.deferUpdateBegin();
+    if (patch.position) item.position = { x: patch.position.x, y: patch.position.y };
+    if (typeof patch.rotation === "number") item.rotation = patch.rotation;
+    if (item.boundsType === BOUNDS_NONE) {
+      if (patch.scale) item.scale = { x: patch.scale.x, y: patch.scale.y };
+    } else if (patch.bounds) {
+      // The binding's bounds setter is a no-op; go through transformInfo.
+      setBounds(item, item.boundsType, item.boundsAlignment, { x: patch.bounds.x, y: patch.bounds.y });
+    }
+    item.deferUpdateEnd();
+  }
+
+  /** Selects one item of a scene (the preview draws its outline); null clears. */
+  setSelectedItem(sceneName: string, itemId: number | null): void {
+    for (const item of this.requireScene(sceneName).getItems()) {
+      const selected = item.id === itemId;
+      if (item.selected !== selected) item.selected = selected;
+    }
+  }
+
   renameSource(name: string, nextName: string): void {
     const clean = nextName.trim();
     if (!clean || clean === name) return;
     if (this.nameTaken(clean)) throw new Error("name-taken");
+    const sleeping = this.dormant.get(name);
+    if (sleeping) {
+      this.dormant.delete(name);
+      this.dormant.set(clean, sleeping);
+      const volume = this.pendingVolumes.get(name);
+      this.pendingVolumes.delete(name);
+      if (volume !== undefined) this.pendingVolumes.set(clean, volume);
+      for (const [channel, source] of this.globalAudio) if (source === name) this.globalAudio.set(channel, clean);
+      return;
+    }
     const entry = this.requireInput(name);
     const reported = entry.input.name;
     entry.input.name = clean;
@@ -313,6 +411,34 @@ export class SceneGraph {
     this.inputs.delete(name);
     this.inputs.set(clean, entry);
     for (const [channel, source] of this.globalAudio) if (source === name) this.globalAudio.set(channel, clean);
+  }
+
+  isMicrophone(name: string): boolean {
+    return (this.dormant.get(name)?.kind ?? this.inputs.get(name)?.kind) === "microphone";
+  }
+
+  /** Muted global microphones that have no engine source (see dormant). */
+  dormantAudio(): string[] {
+    return [...this.dormant.keys()];
+  }
+
+  /** Mutes or unmutes a source, opening or closing a global microphone. */
+  setMuted(name: string, muted: boolean): void {
+    if (this.dormant.has(name)) {
+      if (!muted) this.activate(name).muted = false;
+      return;
+    }
+    const entry = this.requireInput(name);
+    entry.input.muted = muted;
+    if (muted && entry.kind === "microphone") this.deactivate(name);
+  }
+
+  setPendingVolume(name: string, volume: number): void {
+    this.pendingVolumes.set(name, volume);
+  }
+
+  pendingVolume(name: string): number | undefined {
+    return this.pendingVolumes.get(name);
   }
 
   /** Keeps every item's layout proportional when the canvas size changes. */
@@ -325,7 +451,7 @@ export class SceneGraph {
         item.deferUpdateBegin();
         item.position = { x: item.position.x * rx, y: item.position.y * ry };
         if (item.boundsType === BOUNDS_NONE) item.scale = { x: item.scale.x * rx, y: item.scale.y * ry };
-        else item.bounds = { x: item.bounds.x * rx, y: item.bounds.y * ry };
+        else setBounds(item, item.boundsType, item.boundsAlignment, { x: item.bounds.x * rx, y: item.bounds.y * ry });
         item.deferUpdateEnd();
       }
     }
@@ -416,6 +542,9 @@ export class SceneGraph {
       volume: volumeOf(name),
       muted: input.muted,
     }));
+    for (const [name, { kind, inputId, settings }] of this.dormant) {
+      sources.push({ name, kind, inputId, settings, volume: volumeOf(name), muted: true });
+    }
     return {
       activeScene: this.active,
       sceneOrder: [...this.sceneOrder],
@@ -431,9 +560,17 @@ export class SceneGraph {
       return;
     }
     const installed = new Set(this.osn.InputFactory.types());
+    const globalChannels = new Map(collection.globalAudio.map(({ channel, source }) => [source, channel]));
     for (const saved of collection.sources) {
       if (!installed.has(saved.inputId)) {
         console.warn(`[scenes] source type ${saved.inputId} is not available; skipping ${saved.name}`);
+        continue;
+      }
+      const channel = globalChannels.get(saved.name);
+      if (saved.kind === "microphone" && saved.muted && channel !== undefined) {
+        if (typeof saved.volume === "number") this.pendingVolumes.set(saved.name, saved.volume);
+        this.dormant.set(saved.name, { kind: saved.kind, inputId: saved.inputId, settings: saved.settings, channel });
+        this.globalAudio.set(channel, saved.name);
         continue;
       }
       const input = this.osn.InputFactory.create(saved.inputId, saved.name, saved.settings);
@@ -454,9 +591,10 @@ export class SceneGraph {
         item.scale = saved.scale;
         item.rotation = saved.rotation;
         item.alignment = saved.alignment;
-        item.boundsType = saved.boundsType;
-        item.boundsAlignment = saved.boundsAlignment;
-        item.bounds = saved.bounds;
+        // Items placed before setBounds existed were saved with 0x0 bounds.
+        const zeroBounds = saved.boundsType !== BOUNDS_NONE && (saved.bounds.x <= 0 || saved.bounds.y <= 0);
+        const { baseWidth, baseHeight } = this.engine.settings;
+        setBounds(item, saved.boundsType, saved.boundsAlignment, zeroBounds ? { x: baseWidth, y: baseHeight } : saved.bounds);
         item.crop = saved.crop;
         if (saved.locked) this.locked.add(lockKey(name, item.id));
       }
@@ -466,7 +604,7 @@ export class SceneGraph {
       if (entry) this.bindGlobalAudio(channel, entry.input);
     }
     const active = collection.activeScene && this.scenes.has(collection.activeScene) ? collection.activeScene : this.sceneOrder[0];
-    this.setActiveScene(active);
+    this.setActiveScene(active, false);
   }
 
 
@@ -479,6 +617,12 @@ export class SceneGraph {
       ["microphone", GLOBAL_MIC_CHANNEL, "Microphone"],
     ] as const) {
       try {
+        if (kind === "microphone") {
+          // New installs start with the microphone off (see dormant).
+          this.dormant.set(name, { kind, inputId: this.resolveInputId(kind), settings: {}, channel });
+          this.globalAudio.set(channel, name);
+          continue;
+        }
         const input = this.osn.InputFactory.create(this.resolveInputId(kind), name, {});
         this.inputs.set(name, { input, kind });
         this.bindGlobalAudio(channel, input);
@@ -486,6 +630,34 @@ export class SceneGraph {
         console.warn(`[scenes] could not create default ${kind} source`, error);
       }
     }
+  }
+
+  /** Creates the engine source for a dormant global microphone (muted). */
+  private activate(name: string): IInput {
+    const sleeping = this.dormant.get(name);
+    if (!sleeping) return this.requireInput(name).input;
+    const input = this.osn.InputFactory.create(sleeping.inputId, name, sleeping.settings);
+    input.muted = true;
+    this.dormant.delete(name);
+    this.inputs.set(name, { input, kind: sleeping.kind });
+    this.bindGlobalAudio(sleeping.channel, input);
+    return input;
+  }
+
+  /** Closes a global microphone's device, keeping it as a dormant record. */
+  private deactivate(name: string): void {
+    const channel = [...this.globalAudio.entries()].find(([, source]) => source === name)?.[0];
+    const entry = this.inputs.get(name);
+    if (channel === undefined || !entry) return;
+    const { input, kind } = entry;
+    this.dormant.set(name, { kind, inputId: input.id, settings: input.settings, channel });
+    this.osn.Global.setOutputSource(channel, null as unknown as IInput);
+    this.inputs.delete(name);
+    this.releaseGuard([input], () => {
+      const reported = input.name;
+      if (reported !== name) input.name = reported;
+      input.release();
+    });
   }
 
   private bindGlobalAudio(channel: number, input: IInput): void {
@@ -502,9 +674,7 @@ export class SceneGraph {
         item.rotation = 0;
         item.alignment = ALIGN_TOP_LEFT;
         item.position = { x: 0, y: 0 };
-        item.boundsType = preset === "fit" ? BOUNDS_SCALE_INNER : BOUNDS_STRETCH;
-        item.boundsAlignment = ALIGN_CENTER;
-        item.bounds = { x: baseWidth, y: baseHeight };
+        setBounds(item, preset === "fit" ? BOUNDS_SCALE_INNER : BOUNDS_STRETCH, ALIGN_CENTER, { x: baseWidth, y: baseHeight });
         break;
       case "center": {
         const width = item.boundsType === BOUNDS_NONE ? item.source.width * item.scale.x : item.bounds.x;
@@ -537,16 +707,27 @@ export class SceneGraph {
   private releaseUnusedInputs(): void {
     const used = new Set(this.globalAudio.values());
     for (const scene of this.scenes.values()) for (const item of scene.getItems()) used.add(this.nameOf(item.source));
-    for (const [name, { input }] of [...this.inputs]) {
-      if (used.has(name)) continue;
-      input.release();
-      this.inputs.delete(name);
-    }
+    const unused = [...this.inputs].filter(([name]) => !used.has(name));
+    if (unused.length === 0) return;
+    this.releaseGuard(
+      unused.map(([, { input }]) => input),
+      () => {
+        for (const [name, { input }] of unused) {
+          // The engine client still knows a renamed source by its original
+          // name; releasing it under the new name leaves a stale entry that
+          // the engine's callback polling then blocks on. Restore it first.
+          const reported = input.name;
+          if (reported !== name) input.name = reported;
+          input.release();
+          this.inputs.delete(name);
+        }
+      },
+    );
   }
 
   private nameTaken(name: string): boolean {
     // Names the engine still reports for renamed sources stay reserved.
-    return this.scenes.has(name) || this.inputs.has(name) || this.engineNames.has(name);
+    return this.scenes.has(name) || this.inputs.has(name) || this.dormant.has(name) || this.engineNames.has(name);
   }
 
   /** Current name for a name reported by the engine (see engineNames). */
@@ -574,10 +755,38 @@ export class SceneGraph {
   }
 
   private requireInput(name: string): { input: IInput; kind: SourceKind | "other" } {
+    // Opening a dormant microphone for editing creates it (still muted).
+    if (this.dormant.has(name)) this.activate(name);
     const entry = this.inputs.get(name);
     if (!entry) throw new Error("source-not-found");
     return entry;
   }
+}
+
+/**
+ * Sets an item's bounds. The engine binding's `bounds` setter is a no-op
+ * (bounds always read back as 0x0, so "fit" items rendered at zero size and
+ * the preview stayed black); `transformInfo` applies them correctly.
+ */
+function setBounds(item: ISceneItem, boundsType: number, boundsAlignment: number, bounds: { x: number; y: number }): void {
+  item.transformInfo = { ...item.transformInfo, boundsType, boundsAlignment, bounds };
+}
+
+function transformOf(item: ISceneItem): ItemTransformDTO | undefined {
+  const crop = item.crop;
+  const sourceWidth = Math.max(0, item.source.width - crop.left - crop.right);
+  const sourceHeight = Math.max(0, item.source.height - crop.top - crop.bottom);
+  if (item.boundsType === BOUNDS_NONE && (sourceWidth <= 0 || sourceHeight <= 0)) return undefined;
+  return {
+    position: { x: item.position.x, y: item.position.y },
+    scale: { x: item.scale.x, y: item.scale.y },
+    rotation: item.rotation,
+    alignment: item.alignment,
+    boundsType: item.boundsType,
+    bounds: { x: item.bounds.x, y: item.bounds.y },
+    sourceWidth,
+    sourceHeight,
+  };
 }
 
 function lockKey(scene: string, itemId: number): string {

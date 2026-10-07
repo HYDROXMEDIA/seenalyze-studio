@@ -1,10 +1,9 @@
-import { Volume2Icon, VolumeXIcon } from "lucide-react";
+import { SlidersHorizontalIcon, Volume2Icon, VolumeXIcon } from "lucide-react";
 import { memo } from "react";
 import { useTranslations } from "use-intl";
 import { Dock, DockEmpty } from "@/components/Dock";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/form";
-import systemIcon from "@/assets/icons/system_desktop.png";
 import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
 import { cn } from "@/lib/utils";
@@ -19,7 +18,7 @@ export function MixerDock() {
   return (
     <Dock title={t("title")}>
       {audio.length === 0 ? (
-        <DockEmpty icon={systemIcon} text={t("empty")} />
+        <DockEmpty icon={SlidersHorizontalIcon} text={t("empty")} />
       ) : (
         <div className="grid gap-3 p-3">
           {audio.map((source) => (

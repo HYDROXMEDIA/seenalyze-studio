@@ -68,7 +68,9 @@ export class SeenalyzeAccountService {
         reject(new Error("sign-in-expired"));
       }, SIGN_IN_TIMEOUT_MS);
       this.pending = { state, verifier, resolve, reject, timer };
-      const url = new URL(`${seenalyzeOrigin()}/oauth/authorize`);
+      // The API route checks the request, signs the user in if needed and opens
+      // the consent page with its one-time consent token; the page alone cannot.
+      const url = new URL(`${seenalyzeOrigin()}/api/oauth/authorize`);
       url.search = new URLSearchParams({
         client_id: CLIENT_ID,
         redirect_uri: REDIRECT_URI,
@@ -85,7 +87,13 @@ export class SeenalyzeAccountService {
     });
     const tokens = await this.tokenRequest({ grant_type: "authorization_code", code, redirect_uri: REDIRECT_URI, code_verifier: verifier });
     this.store(tokens);
-    return this.refreshProfile();
+    try {
+      return await this.refreshProfile();
+    } catch (error) {
+      // A profile failure right after sign-in is a sign-in failure, not a designer one.
+      if (error instanceof Error && error.message === "seenalyze-signed-out") throw error;
+      throw new Error("seenalyze-sign-in-failed", { cause: error });
+    }
   }
 
   /** Handles `seenalyze-studio://oauth/callback?code=…&state=…`. Returns true if it was ours. */

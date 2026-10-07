@@ -21,7 +21,13 @@ export class AudioMixer {
   constructor(
     private readonly osn: OSN,
     private readonly scenes: SceneGraph,
-  ) {}
+  ) {
+    // Meters are detached before their source is released, never after.
+    scenes.releaseGuard = (inputs, release) => {
+      for (const [name, attached] of [...this.attached]) if (inputs.includes(attached)) this.detach(name);
+      release();
+    };
+  }
 
   /** Re-attaches faders/meters so they match the current set of audio sources. */
   sync(): void {
@@ -42,25 +48,41 @@ export class AudioMixer {
       this.meters.set(name, meter);
       this.attached.set(name, input);
     }
-    if (!this.callbackRegistered && this.attached.size > 0) {
-      this.osn.NodeObs.RegisterVolmeterCallback((reports: VolmeterReport[]) => {
-        for (const report of reports) {
-          if (report.sourceName && Array.isArray(report.peak)) {
-            this.levels.set(this.scenes.nameOf({ name: report.sourceName }), report.peak);
-          }
+    if (!this.callbackRegistered && this.attached.size > 0) this.startCallbacks();
+  }
+
+  private startCallbacks(): void {
+    // The binding only starts its callback worker (which also polls volume
+    // meters) from RegisterSourceCallback; without it meter callbacks never fire.
+    this.osn.NodeObs.RegisterSourceCallback(() => undefined);
+    this.osn.NodeObs.RegisterVolmeterCallback((reports: VolmeterReport[]) => {
+      for (const report of reports) {
+        if (report.sourceName && Array.isArray(report.peak)) {
+          this.levels.set(this.scenes.nameOf({ name: report.sourceName }), report.peak);
         }
-      });
-      this.callbackRegistered = true;
-    }
+      }
+    });
+    this.callbackRegistered = true;
   }
 
   list(): AudioSourceDTO[] {
-    return this.scenes.audioInputs().map(({ name, input, global }) => ({
+    const live = this.scenes.audioInputs().map(({ name, input, global }) => ({
       name,
       deflection: this.faders.get(name)?.deflection ?? 1,
       muted: input.muted,
       global,
+      microphone: this.scenes.isMicrophone(name),
     }));
+    // Muted microphones without an open device (see SceneGraph.dormant).
+    const dormant = this.scenes.dormantAudio().map((name) => ({
+      name,
+      deflection: this.scenes.pendingVolume(name) ?? 1,
+      muted: true,
+      global: true,
+      microphone: true,
+    }));
+    const globals = live.filter((entry) => entry.global).length;
+    return [...live.slice(0, globals), ...dormant, ...live.slice(globals)];
   }
 
   /** Moves fader/meter bookkeeping to a source's new name so its volume is kept. */
@@ -76,17 +98,20 @@ export class AudioMixer {
   }
 
   volumeOf(name: string): number | undefined {
-    return this.faders.get(name)?.deflection;
+    return this.faders.get(name)?.deflection ?? this.scenes.pendingVolume(name);
   }
 
   setVolume(name: string, deflection: number): void {
+    const clamped = Math.min(1, Math.max(0, deflection));
     const fader = this.faders.get(name);
-    if (!fader) throw new Error("source-not-found");
-    fader.deflection = Math.min(1, Math.max(0, deflection));
+    if (fader) fader.deflection = clamped;
+    else if (this.scenes.dormantAudio().includes(name)) this.scenes.setPendingVolume(name, clamped);
+    else throw new Error("source-not-found");
   }
 
   setMuted(name: string, muted: boolean): void {
-    this.scenes.input(name).muted = muted;
+    this.scenes.setMuted(name, muted);
+    this.sync();
   }
 
   /** Latest peak levels since the previous call. */

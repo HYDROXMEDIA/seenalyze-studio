@@ -35,6 +35,9 @@ export class PreviewHost {
     const { rect } = request;
     if (!this.created) {
       NodeObs.OBS_content_createDisplay(Buffer.from(request.windowHandle), DISPLAY, MAIN_RENDERING, false, this.engine.video);
+      // Keep the engine's own editing UI off: with it on, the canvas is drawn
+      // at half size in a corner and the rest of the display fills green. The
+      // preview editor draws selection and handles itself.
       NodeObs.OBS_content_setShouldDrawUI(DISPLAY, false);
       NodeObs.OBS_content_setPaddingSize(DISPLAY, 0);
       NodeObs.OBS_content_setPaddingColor(DISPLAY, 0, 0, 0);

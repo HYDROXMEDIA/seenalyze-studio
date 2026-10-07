@@ -21,6 +21,9 @@ mac:
   category: public.app-category.video
   target: [dmg, zip]
   hardenedRuntime: true
+  # Chromium/CEF data files are sealed by their bundle's signature; signing
+  # each one separately (~840 files, one timestamp request each) took ~6 min.
+  signIgnore: ['\.(pak|png|bin|dat|json|txt)$']
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:

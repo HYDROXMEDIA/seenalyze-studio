@@ -1,11 +1,11 @@
 // Engine session: starts the libobs host process, owns the main video canvas
 // and reports performance statistics.
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
-import type { EncoderOption, EngineStats, VideoSettings } from "../../shared/types";
+import type { EncoderOption, EngineStats, ScaleFilter, VideoSettings } from "../../shared/types";
 import { pipeName, stopHost, stopOrphanedHosts } from "./orphans";
 import { loadOsn, osnRoot, type IVideo, type OSN } from "./osn";
 
@@ -13,9 +13,15 @@ import { loadOsn, osnRoot, type IVideo, type OSN } from "./osn";
 const VIDEO_FORMAT_NV12 = 2;
 const COLORSPACE_709 = 2;
 const RANGE_PARTIAL = 1;
-const SCALE_BICUBIC = 2;
+const SCALE_TYPES: Record<ScaleFilter, number> = { bicubic: 2, bilinear: 3, lanczos: 4, area: 5 };
 // Fractional uses fpsNum/fpsDen directly, which covers integer rates too.
 const FPS_FRACTIONAL = 2;
+// The host needs a few hundred ms to destroy the engine after disconnecting;
+// stays well under the client's 12 s shutdown deadline.
+const HOST_EXIT_GRACE_MS = 5000;
+// A host we launched ourselves (macOS) stays idle after teardown and
+// disconnect instead of exiting, so it only gets a short grace period.
+const LAUNCHED_HOST_EXIT_GRACE_MS = 500;
 
 /**
  * Engine encoder names in order of preference. The engine maps these to the
@@ -56,7 +62,12 @@ export class EngineSession {
     const stopped = stopOrphanedHosts();
     if (stopped > 0) console.warn(`[engine] stopped ${stopped} leftover engine process(es)`);
     this.pipe = pipeName(randomUUID());
-    NodeObs.IPC.host(this.pipe);
+    if (process.platform === "darwin") {
+      launchHost(this.pipe);
+      NodeObs.IPC.connect(this.pipe);
+    } else {
+      NodeObs.IPC.host(this.pipe);
+    }
     NodeObs.SetWorkingDirectory(osnRoot());
     const engineData = path.join(this.options.dataDir, "engine");
     mkdirSync(engineData, { recursive: true });
@@ -91,7 +102,7 @@ export class EngineSession {
       outputFormat: VIDEO_FORMAT_NV12,
       colorspace: COLORSPACE_709,
       range: RANGE_PARTIAL,
-      scaleType: SCALE_BICUBIC,
+      scaleType: SCALE_TYPES[settings.scaleFilter] ?? SCALE_TYPES.bicubic,
       fpsType: FPS_FRACTIONAL,
     };
   }
@@ -117,19 +128,24 @@ export class EngineSession {
   /**
    * Tears the engine down. Sources and scenes must NOT be released first: the
    * engine enumerates them during destroy and crashes on freed objects. The
-   * host process does not always exit on its own, so it is stopped explicitly.
+   * host destroys the engine itself when we disconnect; calling
+   * OBS_API_destroyOBS_API here as well made it run twice and crash on every
+   * quit. A host that has not exited after the grace period is stopped.
+   * Exception: a host we launched ourselves (macOS, see launchHost) does not
+   * tear down on disconnect, so it gets the explicit destroy call.
    */
   shutdown(): void {
-    const { NodeObs } = this.osn;
     try {
-      NodeObs.InitShutdownSequence();
-      NodeObs.OBS_API_destroyOBS_API();
+      this.osn.NodeObs.InitShutdownSequence();
+      if (process.platform === "darwin") this.osn.NodeObs.OBS_API_destroyOBS_API();
     } catch (error) {
       console.error("[engine] engine teardown failed", error);
     } finally {
       this.context = null;
       this.disconnect();
-      if (this.pipe) stopHost(this.pipe);
+      if (this.pipe) {
+        stopHost(this.pipe, process.platform === "darwin" ? LAUNCHED_HOST_EXIT_GRACE_MS : HOST_EXIT_GRACE_MS);
+      }
     }
   }
 
@@ -140,6 +156,21 @@ export class EngineSession {
       console.error("[engine] failed to disconnect from the engine host", error);
     }
   }
+}
+
+/**
+ * Starts the macOS engine host with stdin/stdout/stderr open on /dev/null.
+ * The client's own launcher (`IPC.host`) can leave them closed; the host's
+ * reply pipe then becomes fd 2, its log lines are written into the IPC
+ * channel, and the first reply after browser-source init is read as garbage
+ * (the worker aborts and the preview stays black).
+ */
+function launchHost(pipe: string): void {
+  const host = spawn(path.join(osnRoot(), "bin", "obs64"), [pipe, "DEVMODE_VERSION", osnRoot()], {
+    cwd: osnRoot(),
+    stdio: "ignore",
+  });
+  host.on("error", (error) => console.error("[engine] could not start the engine host", error));
 }
 
 /**

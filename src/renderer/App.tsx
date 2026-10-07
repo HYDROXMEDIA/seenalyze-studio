@@ -1,7 +1,7 @@
+import { UnplugIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast, Toaster } from "sonner";
 import { useTranslations } from "use-intl";
-import disconnectedIcon from "@/assets/icons/disconnected.png";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -77,7 +77,7 @@ export function App() {
         </div>
       ) : snapshot.engineErrorKey ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-          <img src={disconnectedIcon} alt="" className="size-16" draggable={false} />
+          <UnplugIcon aria-hidden className="size-16 text-muted-foreground" strokeWidth={1.5} />
           <h2 className="text-xl font-bold">{t("engine.failedTitle")}</h2>
           <p className="max-w-md text-sm text-muted-foreground">
             {t.has(snapshot.engineErrorKey) ? t(snapshot.engineErrorKey) : t("errors.codes.engine-init-failed")}
@@ -98,7 +98,7 @@ export function App() {
       ) : view === "overlays" ? (
         <OverlaysPage />
       ) : (
-        <main className="flex min-h-0 flex-1 flex-col gap-3 p-3">
+        <main className="flex min-h-0 flex-1 flex-col gap-3 p-3 animate-ui-fade">
           <div className="flex min-h-0 flex-1 gap-3">
             <Preview />
             {chatOpen && <ChatPanel />}

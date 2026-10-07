@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
@@ -13,10 +14,10 @@ export function Dock({ title, actions, children, className }: { title: string; a
   );
 }
 
-export function DockEmpty({ icon, text, action }: { icon: string; text: string; action?: ReactNode }) {
+export function DockEmpty({ icon: Icon, text, action }: { icon: LucideIcon; text: string; action?: ReactNode }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center">
-      <img src={icon} alt="" className="size-12" draggable={false} />
+      <Icon aria-hidden className="size-12 text-muted-foreground" strokeWidth={1.5} />
       <p className="text-sm text-muted-foreground">{text}</p>
       {action}
     </div>
@@ -46,7 +47,7 @@ export function ListRow({
         }
       }}
       className={cn(
-        "group flex h-9 items-center gap-2 px-3 text-sm outline-none focus-visible:bg-accent",
+        "group flex h-9 items-center gap-2 px-3 text-sm outline-none transition-colors duration-150 focus-visible:bg-accent motion-reduce:transition-none",
         onClick && "cursor-default hover:bg-accent/60",
         active && "bg-accent text-accent-foreground",
         className,

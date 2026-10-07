@@ -28,7 +28,12 @@
     "restart": "Restart"
   },
   "preview": {
-    "label": "Program preview"
+    "label": "Program preview",
+    "editor": {
+      "label": "Scene editor: click a source to select it, drag to move, use the handles to resize or rotate",
+      "resize": "Resize",
+      "rotate": "Rotate"
+    }
   },
   "scenes": {
     "title": "Scenes",
@@ -37,6 +42,34 @@
     "empty": "No scenes yet",
     "removeTitle": "Remove \"{name}\"?",
     "removeDescription": "The scene and its layout are removed. Sources used in other scenes stay."
+  },
+  "transitions": {
+    "title": "Scene transition",
+    "open": "Transition: {name}",
+    "description": "Choose how the picture changes when you switch scenes.",
+    "duration": "Duration",
+    "durationValue": "{ms} ms",
+    "instant": "Instant",
+    "presets": {
+      "fade": "Fade",
+      "cut": "Cut",
+      "fadeBlack": "Fade through black",
+      "fadeWhite": "Fade through white",
+      "slideLeft": "Slide left",
+      "slideRight": "Slide right",
+      "slideUp": "Slide up",
+      "slideDown": "Slide down",
+      "swipeLeft": "Swipe left",
+      "swipeRight": "Swipe right",
+      "swipeUp": "Swipe up",
+      "swipeDown": "Swipe down",
+      "wipeLinear": "Wipe",
+      "wipeClock": "Clock wipe",
+      "wipeIris": "Iris",
+      "wipeBarnDoor": "Barn door",
+      "wipeBlinds": "Blinds",
+      "wipeCheckerboard": "Checkerboard"
+    }
   },
   "sources": {
     "title": "Sources",
@@ -156,7 +189,9 @@
     "showRecording": "Show recording",
     "settings": "Settings",
     "endTitle": "End the stream?",
-    "endDescription": "{count, plural, one {Your stream ends now.} other {All # streams end now.}}"
+    "endDescription": "{count, plural, one {Your stream ends now.} other {All # streams end now.}}",
+    "startTitle": "Go live now?",
+    "startDescription": "{count, plural, one {Your stream starts on 1 destination.} other {Your stream starts on # destinations.}}"
   },
   "settings": {
     "title": "Settings",
@@ -190,7 +225,7 @@
     },
     "back": "Back to studio",
     "discardTitle": "Discard your changes?",
-    "discardDescription": "Your video and encoder changes haven't been saved.",
+    "discardDescription": "Your video changes haven't been saved.",
     "keepEditing": "Keep editing",
     "discard": "Discard",
     "permissions": "Permissions",
@@ -198,7 +233,46 @@
     "seenalyzeAccount": "SEENALYZE account",
     "seenalyzeSignedOut": "Sign in to design overlays with AI using your credits.",
     "signIn": "Sign in",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "general": "General",
+    "output": "Output resolution",
+    "outputHint": "Size sent to platforms and recordings. Smaller than the canvas lowers the load on your computer.",
+    "canvasHint": "The size of the scene you design in.",
+    "custom": "Custom",
+    "width": "Width",
+    "height": "Height",
+    "scaleFilter": "Downscale filter",
+    "scaleFilterHint": "Used when the output is smaller than the canvas.",
+    "scaleFilters": {
+      "bilinear": "Bilinear (fastest)",
+      "bicubic": "Bicubic (balanced)",
+      "lanczos": "Lanczos (sharpest)",
+      "area": "Area (smooth)"
+    },
+    "videoCanvasGroup": "Canvas and frame rate",
+    "encoderGroup": "Encoding",
+    "encoderHint": "Hardware encoders keep your computer responsive while live.",
+    "recordingFormat": "File format",
+    "recordingFormatHint": "MKV keeps your recording safe if the app closes unexpectedly. MP4 and MOV play everywhere but can be lost if recording is interrupted.",
+    "recordingFormats": {
+      "mkv": "MKV",
+      "mp4": "MP4",
+      "mov": "MOV"
+    },
+    "recordingQuality": "Quality",
+    "recordingQualityHint": "Higher quality makes larger files.",
+    "recordingQualities": {
+      "low": "Small file ({kbps} kbps)",
+      "medium": "Balanced ({kbps} kbps)",
+      "high": "High ({kbps} kbps)",
+      "ultra": "Very high ({kbps} kbps)"
+    },
+    "recordingLockedWhileActive": "Stop recording to change these options.",
+    "confirmGoLive": "Ask before going live",
+    "confirmGoLiveHint": "Shows a confirmation before your stream starts. Ending a stream always asks.",
+    "keepAwake": "Keep the computer awake while live",
+    "keepAwakeHint": "Stops your computer and display from sleeping while you stream or record.",
+    "recordingBitrate": "{kbps} kbps"
   },
   "quit": {
     "title": "Quit while live?",
@@ -273,7 +347,8 @@
       "design-rate-limited": "Too many designs in a row. Wait a minute and try again.",
       "design-invalid": "The design couldn't be used, so your credits were refunded. Try describing it differently.",
       "design-refund-pending": "The design failed. Your credits will be refunded shortly.",
-      "design-unavailable": "The designer is unavailable right now. Your credits were not used."
+      "design-unavailable": "The designer is unavailable right now. Your credits were not used.",
+      "transition-unavailable": "This transition isn't available on this computer."
     }
   },
   "permissions": {

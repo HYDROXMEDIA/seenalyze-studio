@@ -1,6 +1,7 @@
 import {
   ArrowLeftIcon,
   CopyIcon,
+  LayersIcon,
   Loader2Icon,
   LogInIcon,
   PlusIcon,
@@ -11,8 +12,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import aiDesignerIcon from "@/assets/icons/ai-designer.png";
-import overlayIcon from "@/assets/icons/overlay.png";
 import { useTranslations } from "use-intl";
 import {
   OVERLAY_KINDS,
@@ -166,7 +165,7 @@ export function OverlaysPage() {
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col animate-ui-fade">
       <div className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
         <Button variant="ghost" size="sm" onClick={() => void flush().then(() => setView("studio"))}>
           <ArrowLeftIcon />
@@ -212,7 +211,7 @@ export function OverlaysPage() {
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
             {tab === "presets" ? (
-              <ul className="grid gap-2">
+              <ul key="presets" className="grid gap-2 animate-ui-list">
                 {visiblePresets.map((preset) => (
                   <li key={preset.id}>
                     <button
@@ -244,7 +243,7 @@ export function OverlaysPage() {
                 </Button>
               </div>
             ) : (
-              <ul className="grid gap-1">
+              <ul key="mine" className="grid gap-1 animate-ui-list">
                 {visibleOverlays.map((entry) => (
                   <li key={entry.id}>
                     <button
@@ -255,7 +254,7 @@ export function OverlaysPage() {
                         selection?.type === "overlay" && selection.id === entry.id && "bg-accent",
                       )}
                     >
-                      <img src={entry.origin === "ai" ? aiDesignerIcon : overlayIcon} alt="" draggable={false} className="size-5 shrink-0" />
+                      {entry.origin === "ai" ? <WandSparklesIcon aria-hidden className="size-5 shrink-0" /> : <LayersIcon aria-hidden className="size-5 shrink-0" />}
                       <span className="min-w-0 flex-1 truncate">{entry.name}</span>
                       <span className="text-xs text-muted-foreground">{t(`kinds.${entry.kind}`)}</span>
                     </button>
@@ -303,7 +302,7 @@ export function OverlaysPage() {
             />
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
-              <img src={overlayIcon} alt="" draggable={false} className="size-16" />
+              <LayersIcon aria-hidden className="size-16 text-muted-foreground" strokeWidth={1.5} />
               <p className="text-sm text-muted-foreground">{t("pick")}</p>
             </div>
           )}

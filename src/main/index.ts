@@ -2,15 +2,26 @@ import path from "node:path";
 import { app, BrowserWindow, ipcMain, nativeTheme, session, shell } from "electron";
 import { IPC, STUDIO_ERROR_PREFIX, STUDIO_METHODS, type StudioMethod } from "../shared/ipc";
 import { setVendorRoot } from "./engine/osn";
+import { appendLog, installAppLog } from "./log";
+import { PREVIEW_EDITOR_HASH, PREVIEW_EDITOR_METHODS, PreviewEditorWindow } from "./preview-editor-window";
 import { STUDIO_SCHEME } from "./seenalyze/account";
 import { errorKey, Studio, vendorRoot } from "./studio";
 
+installAppLog();
+
 let mainWindow: BrowserWindow | null = null;
+let previewEditor: PreviewEditorWindow | null = null;
 let studio: Studio | null = null;
 let quitting = false;
 let shutdownStarted = false;
 
 const DEV_URL = process.env.ELECTRON_RENDERER_URL;
+const PRELOAD = path.join(__dirname, "../preload/index.js");
+
+function loadRenderer(window: BrowserWindow, hash?: string): void {
+  if (DEV_URL) window.loadURL(hash ? `${DEV_URL}#${hash}` : DEV_URL);
+  else window.loadFile(path.join(__dirname, "../renderer/index.html"), hash ? { hash } : undefined);
+}
 
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -23,7 +34,7 @@ function createWindow(): BrowserWindow {
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#000000" : "#ffffff",
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     webPreferences: {
-      preload: path.join(__dirname, "../preload/index.js"),
+      preload: PRELOAD,
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
@@ -43,12 +54,15 @@ function createWindow(): BrowserWindow {
     return { action: "deny" };
   });
 
+  // Renderer errors go to the app log; a broken screen otherwise leaves no trace.
+  window.webContents.on("console-message", (event) => {
+    if (event.level === "error") appendLog("error", `[renderer] ${event.message}`);
+  });
   if (DEV_URL) {
     // Surface renderer logs in the terminal during development.
     window.webContents.on("console-message", (event) => console.log(`[renderer] ${event.message}`));
-    window.loadURL(DEV_URL);
   }
-  else window.loadFile(path.join(__dirname, "../renderer/index.html"));
+  loadRenderer(window);
   return window;
 }
 
@@ -60,11 +74,17 @@ function isAppUrl(url: string): boolean {
 function registerIpc(): void {
   const allowed = new Set<string>(STUDIO_METHODS);
   ipcMain.handle(IPC.invoke, async (event, method: unknown, args: unknown) => {
-    if (!mainWindow || event.sender !== mainWindow.webContents || !isAppUrl(event.senderFrame?.url ?? "")) {
+    const fromMain = Boolean(mainWindow && event.sender === mainWindow.webContents);
+    // The macOS preview editor window may only read state and edit the selection/transforms.
+    const fromEditor = Boolean(previewEditor && event.sender === previewEditor.webContents);
+    if ((!fromMain && !fromEditor) || !isAppUrl(event.senderFrame?.url ?? "")) {
       throw new Error(`${STUDIO_ERROR_PREFIX}forbidden`);
     }
     if (typeof method !== "string" || !allowed.has(method) || !Array.isArray(args)) {
       throw new Error(`${STUDIO_ERROR_PREFIX}invalid-request`);
+    }
+    if (fromEditor && !PREVIEW_EDITOR_METHODS.has(method)) {
+      throw new Error(`${STUDIO_ERROR_PREFIX}forbidden`);
     }
     if (!studio) throw new Error(`${STUDIO_ERROR_PREFIX}engine-not-ready`);
     const handler = studio.api[method as StudioMethod] as (...params: unknown[]) => Promise<unknown>;
@@ -103,9 +123,13 @@ app.on("open-url", (event, link) => {
   handleAppLink(link);
 });
 
-if (!app.requestSingleInstanceLock()) {
+const hasInstanceLock = app.requestSingleInstanceLock();
+if (!hasInstanceLock) {
   app.quit();
 } else {
+  // Windows/Linux pass the link as an argument when it starts the app.
+  const launchLink = process.argv.find((arg) => arg.startsWith(`${STUDIO_SCHEME}://`));
+  if (launchLink) pendingLinks.push(launchLink);
   // Windows delivers links as an argument to a second launch.
   app.on("second-instance", (_event, argv) => {
     const link = argv.find((arg) => arg.startsWith(`${STUDIO_SCHEME}://`));
@@ -117,18 +141,35 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 app.whenReady().then(() => {
+  if (!hasInstanceLock) return;
   setVendorRoot(vendorRoot());
   lockDownPermissions();
   registerIpc();
   mainWindow = createWindow();
-  studio = new Studio(mainWindow, () => {
-    quitting = true;
-    app.quit();
-  });
+  if (process.platform === "darwin") {
+    previewEditor = new PreviewEditorWindow(mainWindow, {
+      preload: PRELOAD,
+      load: (window) => {
+        window.webContents.on("console-message", (event) => {
+          if (event.level === "error") appendLog("error", `[preview-editor] ${event.message}`);
+        });
+        loadRenderer(window, PREVIEW_EDITOR_HASH);
+      },
+    });
+  }
+  studio = new Studio(
+    mainWindow,
+    () => {
+      quitting = true;
+      app.quit();
+    },
+    previewEditor,
+  );
   mainWindow.webContents.once("did-finish-load", () => void studio?.start());
   for (const link of pendingLinks.splice(0)) handleAppLink(link);
 
   mainWindow.on("close", (event) => {
+    appendLog("info", `window close requested (quitting=${quitting}, busy=${studio?.busy ?? false})`);
     if (quitting || !studio?.busy) return;
     event.preventDefault();
     studio.requestQuitConfirmation();

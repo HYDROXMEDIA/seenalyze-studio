@@ -1,6 +1,8 @@
 // Domain types shared by the main process, preload bridge and renderer.
 // Nothing here may reference Electron, Node or libobs objects directly.
 
+import type { TransitionChoice } from "./transitions";
+
 export type Platform = "youtube" | "twitch";
 
 export type VideoCodec = "h264";
@@ -11,7 +13,27 @@ export interface VideoSettings {
   outputWidth: number;
   outputHeight: number;
   fps: number;
+  /** Filter used when the output resolution differs from the canvas. */
+  scaleFilter: ScaleFilter;
 }
+
+export const SCALE_FILTERS = ["bilinear", "bicubic", "lanczos", "area"] as const;
+export type ScaleFilter = (typeof SCALE_FILTERS)[number];
+
+export const RECORDING_FORMATS = ["mkv", "mp4", "mov"] as const;
+export type RecordingFormat = (typeof RECORDING_FORMATS)[number];
+
+/** App behaviour preferences persisted with the studio state. */
+export interface StudioPreferences {
+  recordingFormat: RecordingFormat;
+  recordingBitrateKbps: number;
+  /** Ask before going live. Ending a stream always asks. */
+  confirmGoLive: boolean;
+  /** Prevent the computer from sleeping while streaming or recording. */
+  keepAwakeWhileLive: boolean;
+}
+
+export const RECORDING_BITRATE_RANGE = { min: 2500, max: 100000 } as const;
 
 export interface EncoderOption {
   /** Engine encoder name, e.g. "apple_h264", "nvenc", "x264". */
@@ -114,6 +136,34 @@ export interface SceneItemDTO {
   kind: SourceKind | "other";
   visible: boolean;
   locked: boolean;
+  /** Placement on the canvas; absent for items without a visual size. */
+  transform?: ItemTransformDTO;
+}
+
+/** A scene item's placement, in canvas pixels (libobs semantics). */
+export interface ItemTransformDTO {
+  /** Canvas position of the item's alignment point (also the rotation pivot). */
+  position: { x: number; y: number };
+  scale: { x: number; y: number };
+  /** Degrees, clockwise. */
+  rotation: number;
+  /** libobs alignment flags: left 1, right 2, top 4, bottom 8 (0 = center). */
+  alignment: number;
+  /** 0 = none (sized by scale); otherwise the item is sized by `bounds`. */
+  boundsType: number;
+  bounds: { x: number; y: number };
+  /** Source size after crop, in source pixels. */
+  sourceWidth: number;
+  sourceHeight: number;
+}
+
+/** Interactive transform change from the preview editor. */
+export interface ItemTransformPatch {
+  position?: { x: number; y: number };
+  scale?: { x: number; y: number };
+  rotation?: number;
+  /** Only applied to items with a bounds type. */
+  bounds?: { x: number; y: number };
 }
 
 export interface SceneDTO {
@@ -127,6 +177,8 @@ export interface AudioSourceDTO {
   deflection: number;
   muted: boolean;
   global: boolean;
+  /** True for a microphone, which needs microphone access before unmuting. */
+  microphone: boolean;
 }
 
 export interface AudioLevel {
@@ -175,11 +227,16 @@ export interface StudioSnapshot {
   destinationStatus: DestinationStatus[];
   recording: RecordingStatus;
   recordingFolder: string;
+  preferences: StudioPreferences;
   accounts: AccountDTO[];
   platformsConfigured: Record<Platform, boolean>;
   permissions: Record<PermissionKind, PermissionState>;
   /** Twitch follower alerts need a reconnect when the sign-in predates their permission. */
   overlayData: { twitchFollows: "connecting" | "connected" | "needsReconnect" | "offline" | "unavailable" };
+  /** Scene transition used when switching scenes. */
+  transition: TransitionChoice;
+  /** Scene item selected for editing (shared by the sources list and the preview editor). */
+  selectedItemId: number | null;
 }
 
 // ----- permissions -----------------------------------------------------------

@@ -40,15 +40,21 @@ function listHostProcesses(): { pid: number; commandLine: string }[] {
         return { pid: Number(pid), commandLine: rest.join("\t") };
       });
   }
-  const output = execFileSync("ps", ["-A", "-o", "pid=,command="], { encoding: "utf8", timeout: 10_000 });
-  return output
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.includes(`obs64 ${PIPE_PREFIX}`))
-    .map((line) => {
-      const [pid, ...rest] = line.split(/\s+/u);
-      return { pid: Number(pid), commandLine: rest.join(" ") };
-    });
+  const output = execFileSync("ps", ["-A", "-o", "pid=,stat=,command="], { encoding: "utf8", timeout: 10_000 });
+  return (
+    output
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.includes(`obs64 ${PIPE_PREFIX}`))
+      .map((line) => {
+        const [pid, stat, ...rest] = line.split(/\s+/u);
+        return { pid: Number(pid), stat: stat ?? "", commandLine: rest.join(" ") };
+      })
+      // On macOS the engine starts the host as its own child; once the host
+      // exits it stays a zombie until the (blocked) worker reaps it.
+      .filter((host) => !host.stat.startsWith("Z"))
+      .map(({ pid, commandLine }) => ({ pid, commandLine }))
+  );
 }
 
 /** Stops engine hosts left behind by app instances that are no longer running. */
@@ -75,17 +81,31 @@ export function stopOrphanedHosts(): number {
   return stopped;
 }
 
-/** Stops this app's own engine host after teardown, if it is still running. */
-export function stopHost(pipe: string): void {
+/**
+ * Waits up to `graceMs` for this app's own engine host to exit after
+ * disconnecting (it tears itself down first), then stops it if still running.
+ * Blocks synchronously; only call it from the engine worker.
+ */
+export function stopHost(pipe: string, graceMs: number): void {
+  // The process list, not isAlive: an exited host stays a zombie of this
+  // process until it is reaped, and signal 0 still reports it as alive
+  // (listHostProcesses skips zombies).
+  const running = () => listHostProcesses().filter((host) => host.commandLine.includes(pipe));
   let hosts: { pid: number; commandLine: string }[];
   try {
-    hosts = listHostProcesses();
+    hosts = running();
+    const pause = new Int32Array(new SharedArrayBuffer(4));
+    const deadline = Date.now() + graceMs;
+    while (hosts.length > 0 && Date.now() < deadline) {
+      Atomics.wait(pause, 0, 0, 100);
+      hosts = running();
+    }
   } catch (error) {
     console.warn("[engine] could not look up the engine process", error);
     return;
   }
   for (const host of hosts) {
-    if (!host.commandLine.includes(pipe)) continue;
+    console.warn(`[engine] engine process ${host.pid} did not exit on its own; stopping it`);
     try {
       process.kill(host.pid);
     } catch (error) {

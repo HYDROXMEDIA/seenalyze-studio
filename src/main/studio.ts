@@ -5,7 +5,7 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { app, dialog, screen, shell, type BrowserWindow } from "electron";
+import { app, dialog, powerSaveBlocker, screen, shell, type BrowserWindow } from "electron";
 import type { Notice, StudioApi, StudioMethod } from "../shared/ipc";
 import { IPC } from "../shared/ipc";
 import { OVERLAY_KINDS, type DesignRequest, type DesignResult, type OverlayKind } from "../shared/overlays";
@@ -16,11 +16,14 @@ import type {
   DestinationConfig,
   DestinationDraft,
   DestinationStatus,
+  ItemTransformPatch,
   Rect,
   SourceKind,
+  StudioPreferences,
   StudioSnapshot,
   VideoSettings,
 } from "../shared/types";
+import { RECORDING_BITRATE_RANGE, RECORDING_FORMATS, SCALE_FILTERS } from "../shared/types";
 import { EngineClient } from "./engine/client";
 import type { LiveDestination } from "./engine/outputs";
 import type { SceneCollection } from "./engine/scenes";
@@ -32,6 +35,7 @@ import { validateDesign } from "./overlay/design";
 import { StreamDataHub } from "./overlay/data";
 import { OverlayLibrary, summarize } from "./overlay/library";
 import { findPreset, OVERLAY_PRESETS } from "./overlay/presets";
+import type { PreviewEditorWindow } from "./preview-editor-window";
 import { MacPreviewView } from "./preview-mac";
 import { SeenalyzeAccountService } from "./seenalyze/account";
 import * as twitch from "./platforms/twitch";
@@ -39,6 +43,7 @@ import { forgetToken, readToken } from "./platforms/tokens";
 import * as youtube from "./platforms/youtube";
 import { deleteSecret, getSecret, hasSecret, secretNames, setSecret } from "./secrets";
 import { debounced, readJson, writeJson } from "./store";
+import { sanitizeTransition, type TransitionChoice } from "../shared/transitions";
 
 type AccountRecord =
   | ({ platform: "twitch" } & twitch.TwitchAccount & { login?: string })
@@ -49,11 +54,13 @@ interface PersistedState {
   video: VideoSettings;
   encoder: string | null;
   recordingFolder: string | null;
+  preferences: StudioPreferences;
   destinations: DestinationConfig[];
   broadcastInfo: Record<string, BroadcastInfo>;
   accounts: AccountRecord[];
   collection: SceneCollection | null;
   overlayPort: number;
+  transition: TransitionChoice;
 }
 
 interface YouTubeBroadcast {
@@ -80,6 +87,8 @@ const DESIGN_SIZES: Record<OverlayKind, { width: number; height: number }> = {
   custom: { width: 800, height: 600 },
 };
 const IS_MAC = process.platform === "darwin";
+/** Far off-screen coordinate for a parked (covered) preview surface. */
+const PREVIEW_PARK_OFFSET = -20000;
 
 const DEFAULT_VIDEO: VideoSettings = {
   baseWidth: 1920,
@@ -87,6 +96,14 @@ const DEFAULT_VIDEO: VideoSettings = {
   outputWidth: 1920,
   outputHeight: 1080,
   fps: 30,
+  scaleFilter: "bicubic",
+};
+
+const DEFAULT_PREFERENCES: StudioPreferences = {
+  recordingFormat: "mkv",
+  recordingBitrateKbps: 12000,
+  confirmGoLive: false,
+  keepAwakeWhileLive: true,
 };
 
 const ACTIVE_STATES = new Set(["preparing", "connecting", "live", "reconnecting", "stopping"]);
@@ -100,7 +117,11 @@ export class Studio {
   private readonly youtubeBroadcasts = new Map<string, YouTubeBroadcast>();
   private readonly macPreview: MacPreviewView | null;
   private previewRect: Rect | null = null;
+  /** Floating UI covers the preview: keep the surface but park it off-screen. */
+  private previewHidden = false;
   private previewQueue: Promise<void> = Promise.resolve();
+  /** Selected scene item, shared by the main window and the preview editor. */
+  private selectedItemId: number | null = null;
   private twitchSignIn: AbortController | null = null;
   private readonly chat = new ChatHub({
     accounts: () => this.state.accounts as ChatAccount[],
@@ -128,18 +149,25 @@ export class Studio {
     if (this.shuttingDown) return;
     this.saveNow().catch((error: unknown) => console.error("[studio] could not save", error));
   }, 400);
-  private readonly pushSnapshot = debounced(() => this.send(IPC.snapshot, this.snapshot()), 30);
+  private readonly pushSnapshot = debounced(() => {
+    this.syncKeepAwake();
+    this.send(IPC.snapshot, this.snapshot());
+  }, 30);
+  private keepAwakeId: number | null = null;
 
   constructor(
     private readonly window: BrowserWindow,
     private readonly quit: () => void,
+    private readonly editor: PreviewEditorWindow | null = null,
   ) {
     this.state = this.loadState();
     this.macPreview = IS_MAC ? new MacPreviewView(window) : null;
     this.engine.on("event", (event: EngineEvent) => this.onEngineEvent(event));
     this.engine.on("crash", () => this.onEngineCrash());
     window.on("minimize", () => this.applyPreview(null));
-    window.on("restore", () => this.applyPreview(this.previewRect));
+    window.on("restore", () => this.applyPreview(this.shownPreviewRect()));
+    // The editor window shows its own snapshot once it has loaded.
+    editor?.window.webContents.on("did-finish-load", () => this.pushSnapshot());
   }
 
   // ----- lifecycle ----------------------------------------------------------
@@ -161,6 +189,7 @@ export class Studio {
         appVersion: app.getVersion(),
         video: this.state.video,
         collection: this.state.collection,
+        transition: this.state.transition,
       });
       // Saved chat overlays follow the overlay server if its port changed.
       await this.engine.call("retargetChatOverlays", `http://127.0.0.1:${this.state.overlayPort}`);
@@ -200,6 +229,13 @@ export class Studio {
     removeScene: async (name) => this.mutate(() => this.engine.call("removeScene", name)),
     renameScene: async (name, nextName) => this.mutate(() => this.engine.call("renameScene", name, nextName)),
     setActiveScene: async (name) => this.mutate(() => this.engine.call("setActiveScene", name)),
+    setTransition: async (choice) => {
+      const clean = sanitizeTransition(choice);
+      await this.engine.call("setTransition", clean);
+      this.state.transition = clean;
+      this.persist();
+      this.pushSnapshot();
+    },
 
     addSource: async (scene, kind, name) => {
       await this.ensureCapturePermission(kind);
@@ -211,6 +247,21 @@ export class Studio {
     setItemLocked: async (scene, itemId, locked) => this.mutate(() => this.engine.call("setItemLocked", scene, itemId, locked)),
     moveSceneItem: async (scene, itemId, direction) => this.mutate(() => this.engine.call("moveSceneItem", scene, itemId, direction)),
     applyTransform: async (scene, itemId, preset) => this.mutate(() => this.engine.call("applyTransform", scene, itemId, preset)),
+    setItemTransform: async (scene, itemId, patch, commit) => {
+      const clean = sanitizeTransformPatch(patch);
+      // Live drag updates only touch the engine; the drag end refreshes and saves.
+      if (!commit) return this.engine.call("setItemTransform", scene, itemId, clean);
+      return this.mutate(() => this.engine.call("setItemTransform", scene, itemId, clean));
+    },
+    setSelectedItem: async (scene, itemId) => {
+      const next = typeof itemId === "number" && Number.isInteger(itemId) ? itemId : null;
+      if (next !== this.selectedItemId) {
+        this.selectedItemId = next;
+        this.pushSnapshot();
+      }
+      if (!this.engine.running || !this.engineState) return;
+      await this.engine.call("setSelectedItem", scene, typeof itemId === "number" ? itemId : null);
+    },
     getSourceProperties: async (source) => this.engine.call("getProperties", source),
     updateSourceSettings: async (source, settings) => {
       const result = await this.engine.call("updateSettings", source, settings);
@@ -232,11 +283,25 @@ export class Studio {
     },
 
     setVolume: async (source, deflection) => this.mutate(() => this.engine.call("setVolume", source, deflection)),
-    setMuted: async (source, muted) => this.mutate(() => this.engine.call("setMuted", source, muted)),
+    setMuted: async (source, muted) => {
+      // Unmuting a microphone opens its device, which needs OS access first.
+      if (!muted && this.engineState?.audio.find((entry) => entry.name === source)?.microphone) {
+        await this.ensureCapturePermission("microphone");
+      }
+      return this.mutate(() => this.engine.call("setMuted", source, muted));
+    },
 
     setPreviewBounds: async (rect) => {
       this.previewRect = rect;
-      if (!this.window.isMinimized()) this.applyPreview(rect);
+      if (!rect) this.previewHidden = false;
+      this.syncEditor();
+      if (!this.window.isMinimized()) this.applyPreview(this.shownPreviewRect());
+    },
+    setPreviewHidden: async (hidden) => {
+      if (this.previewHidden === Boolean(hidden)) return;
+      this.previewHidden = Boolean(hidden);
+      this.syncEditor();
+      if (!this.window.isMinimized()) this.applyPreview(this.shownPreviewRect());
     },
 
     setVideoSettings: async (settings) => {
@@ -246,7 +311,7 @@ export class Studio {
       this.state.video = clean;
       // The preview surface is tied to the old canvas; rebuild it.
       this.applyPreview(null);
-      this.applyPreview(this.previewRect);
+      this.applyPreview(this.shownPreviewRect());
       await this.refreshState();
       this.persist();
     },
@@ -267,6 +332,11 @@ export class Studio {
       this.persist();
       this.pushSnapshot();
       return this.state.recordingFolder;
+    },
+    setPreferences: async (patch) => {
+      this.state.preferences = sanitizePreferences({ ...this.state.preferences, ...patch });
+      this.persist();
+      this.pushSnapshot();
     },
 
     saveDestination: async (draft) => this.saveDestination(draft),
@@ -365,7 +435,10 @@ export class Studio {
     startRecording: async () => {
       const folder = this.recordingFolder();
       if (!existsSync(folder)) throw new Error("recording-folder-missing");
-      await this.engine.call("startRecording", folder, this.encoderId());
+      await this.engine.call("startRecording", folder, this.encoderId(), {
+        format: this.state.preferences.recordingFormat,
+        bitrateKbps: this.state.preferences.recordingBitrateKbps,
+      });
       await this.refreshState();
     },
     stopRecording: async () => {
@@ -453,7 +526,7 @@ export class Studio {
       for (const [id, status] of this.statuses) if (ACTIVE_STATES.has(status.state)) this.statuses.delete(id);
       this.pushSnapshot();
       await this.start();
-      this.applyPreview(this.previewRect);
+      this.applyPreview(this.shownPreviewRect());
     },
   };
 
@@ -595,6 +668,7 @@ export class Studio {
     this.engineErrorKey = "engine-stopped";
     this.engineState = null;
     this.macPreview?.detach();
+    this.editor?.setRect(null);
     for (const status of this.statuses.values()) {
       if (ACTIVE_STATES.has(status.state)) Object.assign(status, { state: "error", kbps: 0, errorKey: "errors.codes.engine-stopped" });
     }
@@ -604,12 +678,32 @@ export class Studio {
 
   // ----- preview ------------------------------------------------------------
 
+  /**
+   * The rect the surface should occupy. While floating UI covers the preview it
+   * keeps its size but moves off-screen: tearing the display down and recreating
+   * it (new IOSurface on macOS) for every menu was slow and could leave the
+   * preview missing after the menu closed.
+   */
+  private shownPreviewRect(): Rect | null {
+    const rect = this.previewRect;
+    if (!rect || !this.previewHidden) return rect;
+    return { ...rect, x: PREVIEW_PARK_OFFSET, y: PREVIEW_PARK_OFFSET };
+  }
+
+  /** The editor window covers the visible preview only (never while parked or torn down). */
+  private syncEditor(): void {
+    if (!this.editor) return;
+    const visible = this.previewRect && !this.previewHidden && this.engine.running && this.engineState;
+    this.editor.setRect(visible ? this.previewRect : null);
+  }
+
   /** Serializes preview updates; only the newest pending rect matters. */
   private applyPreview(rect: Rect | null): void {
     this.previewQueue = this.previewQueue
       .then(async () => {
         if (!this.engine.running || !this.engineState) return;
         if (!rect || rect.width < 2 || rect.height < 2) {
+          this.editor?.setRect(null);
           this.macPreview?.detach();
           await this.engine.call("hidePreview");
           return;
@@ -623,6 +717,8 @@ export class Studio {
         if (this.macPreview) {
           if (result.surface !== undefined) this.macPreview.attach(result.surface);
           this.macPreview.move(rect);
+          this.syncEditor();
+          if (result.surface !== undefined) this.editor?.raise();
         }
       })
       .catch((error: unknown) => console.error("[studio] preview update failed", error));
@@ -717,10 +813,13 @@ export class Studio {
       destinationStatus: [...this.statuses.values()],
       recording: engine?.recording ?? { active: false },
       recordingFolder: this.recordingFolder(),
+      preferences: this.state.preferences,
       accounts,
       platformsConfigured: { twitch: twitch.twitchConfigured(), youtube: youtube.youtubeConfigured() },
       permissions: permissionSnapshot(),
       overlayData: this.overlayData.status(),
+      transition: this.state.transition,
+      selectedItemId: this.selectedItemId,
     };
   }
 
@@ -734,6 +833,8 @@ export class Studio {
 
   private send(channel: string, payload: unknown): void {
     if (!this.window.isDestroyed()) this.window.webContents.send(channel, payload);
+    // The preview editor only needs state updates.
+    if (channel === IPC.snapshot) this.editor?.webContents?.send(channel, payload);
   }
 
   // ----- helpers ------------------------------------------------------------
@@ -768,6 +869,16 @@ export class Studio {
     return this.state.encoder;
   }
 
+  /** Holds a sleep blocker while streaming or recording, when the user wants it. */
+  private syncKeepAwake(): void {
+    const want = this.busy && this.state.preferences.keepAwakeWhileLive && !this.shuttingDown;
+    if (want && this.keepAwakeId === null) this.keepAwakeId = powerSaveBlocker.start("prevent-display-sleep");
+    if (!want && this.keepAwakeId !== null) {
+      if (powerSaveBlocker.isStarted(this.keepAwakeId)) powerSaveBlocker.stop(this.keepAwakeId);
+      this.keepAwakeId = null;
+    }
+  }
+
   private recordingFolder(): string {
     return this.state.recordingFolder ?? app.getPath("videos");
   }
@@ -785,11 +896,13 @@ export class Studio {
       video: saved.video ? sanitizeVideo(saved.video) : DEFAULT_VIDEO,
       encoder: saved.encoder ?? null,
       recordingFolder: saved.recordingFolder ?? null,
+      preferences: sanitizePreferences({ ...DEFAULT_PREFERENCES, ...saved.preferences }),
       destinations: saved.destinations ?? [],
       broadcastInfo: saved.broadcastInfo ?? {},
       accounts: saved.accounts ?? [],
       collection: saved.collection ?? null,
       overlayPort: saved.overlayPort ?? DEFAULT_OVERLAY_PORT,
+      transition: sanitizeTransition(saved.transition),
     };
   }
 
@@ -802,6 +915,28 @@ export class Studio {
 
 export function vendorRoot(): string {
   return app.isPackaged ? path.join(process.resourcesPath, "vendor") : path.join(app.getAppPath(), "vendor");
+}
+
+/** Keeps only finite, sane values from a renderer transform patch. */
+function sanitizeTransformPatch(patch: ItemTransformPatch): ItemTransformPatch {
+  const LIMIT = 1_000_000;
+  const num = (value: unknown): number | undefined =>
+    typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= LIMIT ? value : undefined;
+  const vec = (value: unknown, positive: boolean): { x: number; y: number } | undefined => {
+    if (!value || typeof value !== "object") return undefined;
+    const x = num((value as { x?: unknown }).x);
+    const y = num((value as { y?: unknown }).y);
+    if (x === undefined || y === undefined) return undefined;
+    if (positive && (x <= 0 || y <= 0)) return undefined;
+    return { x, y };
+  };
+  const rotation = num(patch?.rotation);
+  return {
+    position: vec(patch?.position, false),
+    scale: vec(patch?.scale, true),
+    rotation: rotation === undefined ? undefined : ((rotation % 360) + 360) % 360,
+    bounds: vec(patch?.bounds, true),
+  };
 }
 
 function sanitizeVideo(settings: VideoSettings): VideoSettings {
@@ -817,6 +952,20 @@ function sanitizeVideo(settings: VideoSettings): VideoSettings {
     outputWidth: even(settings.outputWidth, 1920),
     outputHeight: even(settings.outputHeight, 1080),
     fps,
+    scaleFilter: SCALE_FILTERS.includes(settings.scaleFilter) ? settings.scaleFilter : "bicubic",
+  };
+}
+
+function sanitizePreferences(value: StudioPreferences): StudioPreferences {
+  const bitrate = Math.round(Number(value.recordingBitrateKbps));
+  return {
+    recordingFormat: RECORDING_FORMATS.includes(value.recordingFormat) ? value.recordingFormat : DEFAULT_PREFERENCES.recordingFormat,
+    recordingBitrateKbps:
+      Number.isFinite(bitrate) && bitrate >= RECORDING_BITRATE_RANGE.min && bitrate <= RECORDING_BITRATE_RANGE.max
+        ? bitrate
+        : DEFAULT_PREFERENCES.recordingBitrateKbps,
+    confirmGoLive: typeof value.confirmGoLive === "boolean" ? value.confirmGoLive : DEFAULT_PREFERENCES.confirmGoLive,
+    keepAwakeWhileLive: typeof value.keepAwakeWhileLive === "boolean" ? value.keepAwakeWhileLive : DEFAULT_PREFERENCES.keepAwakeWhileLive,
   };
 }
 

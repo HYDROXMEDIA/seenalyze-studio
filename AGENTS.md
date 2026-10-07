@@ -18,7 +18,7 @@ Desktop live-streaming studio (Electron, macOS + Windows) with native multistrea
 - `src/main/permissions.ts` — camera/microphone/screen-recording access. Capture sources must request access before the engine creates them; otherwise capture silently produces black frames or silence.
 - `src/preload/` — exposes exactly the `StudioApi` contract on `window.studio`.
 - `src/shared/` — IPC contract (`ipc.ts`), domain types, encoder planner, platform specs. No Electron/Node/libobs imports.
-- `src/renderer/` — Vite + React 19 + Tailwind 4 + shadcn-style components. Design tokens mirror the SEENALYZE web dashboard; icons in `assets/icons` are copies of dashboard compact PNGs.
+- `src/renderer/` — Vite + React 19 + Tailwind 4 + shadcn-style components. Design tokens mirror the SEENALYZE web dashboard; in-app icons are SVG only (lucide-react glyphs using `currentColor`, inline SVG platform marks in `components/PlatformIcon.tsx`, and the SVG app logo in `assets/icons`); never add PNG/raster UI icons.
 - `vendor/` (gitignored) — prebuilt libobs binding (`obs-studio-node`) and macOS preview helper, fetched by `scripts/fetch-native-deps.mjs` from `native-deps.json` with pinned SHA-256 hashes.
 
 ## Commands

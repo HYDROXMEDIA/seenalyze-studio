@@ -9,6 +9,7 @@ import type {
   DestinationStatus,
   EncoderOption,
   EngineStats,
+  ItemTransformPatch,
   PropertyDTO,
   RecordingStatus,
   SceneDTO,
@@ -16,10 +17,11 @@ import type {
   TransformPreset,
   VideoSettings,
 } from "../../shared/types";
+import type { TransitionChoice } from "../../shared/transitions";
 import { AudioMixer } from "./audio";
 import { EngineSession } from "./engine";
 import { setVendorRoot } from "./osn";
-import { OutputManager, type LiveDestination } from "./outputs";
+import { OutputManager, type LiveDestination, type RecordingOptions } from "./outputs";
 import { PreviewHost, type PreviewRequest, type PreviewResult } from "./preview";
 import { SceneGraph, type SceneCollection } from "./scenes";
 
@@ -29,6 +31,7 @@ export interface EngineInit {
   appVersion: string;
   video: VideoSettings;
   collection: SceneCollection | null;
+  transition: TransitionChoice;
 }
 
 export interface EngineState {
@@ -92,6 +95,7 @@ const handlers = {
     engine = new EngineSession(options.video, { dataDir: options.dataDir, appVersion: options.appVersion });
     engine.start();
     scenes = new SceneGraph(engine);
+    scenes.setTransition(options.transition);
     scenes.load(options.collection);
     audio = new AudioMixer(engine.osn, scenes);
     audio.sync();
@@ -134,6 +138,8 @@ const handlers = {
   removeScene: (name: string) => withScenes((graph) => graph.removeScene(name)),
   renameScene: (name: string, next: string) => withScenes((graph) => graph.renameScene(name, next)),
   setActiveScene: (name: string) => withScenes((graph) => graph.setActiveScene(name)),
+  setTransition: (choice: TransitionChoice) => need(scenes).setTransition(choice),
+  programSource: (): string | null => need(scenes).programSource,
   addSource: (scene: string, kind: SourceKind, name: string, settings?: Record<string, unknown>): string =>
     withScenes((graph) => graph.addSource(scene, kind, name, settings)),
   retargetChatOverlays: (origin: string): number => need(scenes).retargetChatOverlays(origin),
@@ -143,6 +149,8 @@ const handlers = {
   setItemLocked: (scene: string, itemId: number, locked: boolean) => need(scenes).setItemLocked(scene, itemId, locked),
   moveSceneItem: (scene: string, itemId: number, direction: "up" | "down") => need(scenes).moveSceneItem(scene, itemId, direction),
   applyTransform: (scene: string, itemId: number, preset: TransformPreset) => need(scenes).applyTransform(scene, itemId, preset),
+  setItemTransform: (scene: string, itemId: number, patch: ItemTransformPatch) => need(scenes).setItemTransform(scene, itemId, patch),
+  setSelectedItem: (scene: string, itemId: number | null) => need(scenes).setSelectedItem(scene, itemId),
   getProperties: (source: string): PropertyDTO[] => need(scenes).getProperties(source),
   updateSettings: (source: string, settings: Record<string, unknown>): PropertyDTO[] => need(scenes).updateSettings(source, settings),
   clickButton: (source: string, property: string): PropertyDTO[] => need(scenes).clickButton(source, property),
@@ -171,7 +179,7 @@ const handlers = {
   // Outputs
   startOutputs: (destinations: LiveDestination[], encoderId: string) => need(outputs).start(destinations, encoderId),
   stopOutputs: (ids: string[]) => need(outputs).stop(ids),
-  startRecording: (folder: string, encoderId: string) => need(outputs).startRecording(folder, encoderId),
+  startRecording: (folder: string, encoderId: string, options: RecordingOptions) => need(outputs).startRecording(folder, encoderId, options),
   stopRecording: () => need(outputs).stopRecording(),
 
   shutdown(): void {

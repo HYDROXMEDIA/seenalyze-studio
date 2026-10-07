@@ -1,7 +1,6 @@
-import { MoreHorizontalIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { ClapperboardIcon, MoreHorizontalIcon, PencilIcon, PlusIcon, Trash2Icon, WandSparklesIcon } from "lucide-react";
 import { useState } from "react";
 import { useTranslations } from "use-intl";
-import studioIcon from "@/assets/icons/studio.png";
 import { Dock, DockEmpty, ListRow } from "@/components/Dock";
 import { NameDialog } from "@/components/NameDialog";
 import { Button } from "@/components/ui/button";
@@ -22,6 +21,8 @@ import {
 import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
 import { useStudio } from "@/store/studio";
+import { TransitionsDialog } from "./TransitionsDialog";
+import { DEFAULT_TRANSITION } from "../../shared/transitions";
 
 export function ScenesDock() {
   const t = useTranslations("scenes");
@@ -33,18 +34,27 @@ export function ScenesDock() {
   const [creating, setCreating] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
+  const transition = useStudio((state) => state.snapshot?.transition ?? DEFAULT_TRANSITION);
+  const tt = useTranslations("transitions");
+  const transitionLabel = tt("open", { name: tt(`presets.${transition.id}`) });
 
   return (
     <Dock
       title={t("title")}
       actions={
-        <Button variant="ghost" size="icon-sm" aria-label={t("add")} onClick={() => setCreating(true)}>
-          <PlusIcon />
-        </Button>
+        <>
+          <Button variant="ghost" size="icon-sm" aria-label={transitionLabel} title={transitionLabel} onClick={() => setPicking(true)}>
+            <WandSparklesIcon />
+          </Button>
+          <Button variant="ghost" size="icon-sm" aria-label={t("add")} onClick={() => setCreating(true)}>
+            <PlusIcon />
+          </Button>
+        </>
       }
     >
       {scenes.length === 0 ? (
-        <DockEmpty icon={studioIcon} text={t("empty")} />
+        <DockEmpty icon={ClapperboardIcon} text={t("empty")} />
       ) : (
         scenes.map((scene) => (
           <ListRow
@@ -84,6 +94,7 @@ export function ScenesDock() {
         ))
       )}
 
+      <TransitionsDialog open={picking} onOpenChange={setPicking} />
       <NameDialog
         open={creating}
         title={t("add")}

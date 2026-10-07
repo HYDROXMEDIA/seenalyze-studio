@@ -22,12 +22,15 @@ import type {
   DeviceCodePrompt,
   EngineStats,
   PropertyDTO,
+  ItemTransformPatch,
   Rect,
   SourceKind,
   StudioSnapshot,
   TransformPreset,
+  StudioPreferences,
   VideoSettings,
 } from "./types";
+import type { TransitionChoice } from "./transitions";
 
 export interface StudioApi {
   getSnapshot(): Promise<StudioSnapshot>;
@@ -37,6 +40,8 @@ export interface StudioApi {
   removeScene(name: string): Promise<void>;
   renameScene(name: string, nextName: string): Promise<void>;
   setActiveScene(name: string): Promise<void>;
+  /** Picks the scene transition preset and its duration; applies immediately. */
+  setTransition(choice: TransitionChoice): Promise<void>;
 
   // Sources
   /** Resolves with the final (unique) source name. */
@@ -46,6 +51,10 @@ export interface StudioApi {
   setItemLocked(scene: string, itemId: number, locked: boolean): Promise<void>;
   moveSceneItem(scene: string, itemId: number, direction: "up" | "down"): Promise<void>;
   applyTransform(scene: string, itemId: number, preset: TransformPreset): Promise<void>;
+  /** Live transform from the preview editor; `commit` refreshes state and saves (drag end). */
+  setItemTransform(scene: string, itemId: number, patch: ItemTransformPatch, commit: boolean): Promise<void>;
+  /** Marks the item the preview draws its selection outline for (null clears). */
+  setSelectedItem(scene: string, itemId: number | null): Promise<void>;
   getSourceProperties(source: string): Promise<PropertyDTO[]>;
   updateSourceSettings(source: string, settings: Record<string, unknown>): Promise<PropertyDTO[]>;
   clickSourceButton(source: string, property: string): Promise<PropertyDTO[]>;
@@ -58,11 +67,14 @@ export interface StudioApi {
 
   // Preview
   setPreviewBounds(rect: Rect | null): Promise<void>;
+  /** Parks the preview off-screen while floating UI covers it, without tearing it down. */
+  setPreviewHidden(hidden: boolean): Promise<void>;
 
   // Settings
   setVideoSettings(settings: VideoSettings): Promise<void>;
   setEncoder(encoderId: string): Promise<void>;
   chooseRecordingFolder(): Promise<string | null>;
+  setPreferences(patch: Partial<StudioPreferences>): Promise<void>;
 
   // Destinations
   saveDestination(draft: DestinationDraft): Promise<string>;
@@ -156,12 +168,15 @@ export const STUDIO_METHODS: readonly StudioMethod[] = [
   "removeScene",
   "renameScene",
   "setActiveScene",
+  "setTransition",
   "addSource",
   "removeSceneItem",
   "setItemVisible",
   "setItemLocked",
   "moveSceneItem",
   "applyTransform",
+  "setItemTransform",
+  "setSelectedItem",
   "getSourceProperties",
   "updateSourceSettings",
   "clickSourceButton",
@@ -170,9 +185,11 @@ export const STUDIO_METHODS: readonly StudioMethod[] = [
   "setVolume",
   "setMuted",
   "setPreviewBounds",
+  "setPreviewHidden",
   "setVideoSettings",
   "setEncoder",
   "chooseRecordingFolder",
+  "setPreferences",
   "saveDestination",
   "removeDestination",
   "setDestinationEnabled",

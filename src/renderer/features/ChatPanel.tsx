@@ -1,8 +1,7 @@
-import { ArrowDownIcon, BadgeCheckIcon, CrownIcon, GemIcon, ShieldIcon, StarIcon, type LucideIcon } from "lucide-react";
+import { ArrowDownIcon, BadgeCheckIcon, CrownIcon, GemIcon, PlugIcon, ShieldIcon, StarIcon, type LucideIcon } from "lucide-react";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "use-intl";
 import type { ChatBadge, ChatMessage, ChatSourceStatus } from "../../shared/types";
-import connectIcon from "@/assets/icons/connect.png";
 import { PlatformIcon } from "@/components/PlatformIcon";
 import { studio } from "@/lib/studio";
 import { cn } from "@/lib/utils";
@@ -99,7 +98,7 @@ export function ChatPanel() {
 
       {accounts.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
-          <img src={connectIcon} alt="" className="size-12" draggable={false} />
+          <PlugIcon aria-hidden className="size-12 text-muted-foreground" strokeWidth={1.5} />
           <p className="text-sm text-muted-foreground">{t("noAccounts")}</p>
         </div>
       ) : (

@@ -1,9 +1,8 @@
-import { MoreHorizontalIcon, PencilIcon, PlayIcon, PlusIcon, SquareIcon, Trash2Icon, TypeIcon } from "lucide-react";
+import { MoreHorizontalIcon, PencilIcon, PlayIcon, PlusIcon, RadioTowerIcon, SquareIcon, Trash2Icon, TypeIcon } from "lucide-react";
 import { useState } from "react";
 import { useTranslations } from "use-intl";
 import { estimateUploadKbps, planEncoders, recommendedUploadKbps } from "../../shared/planner";
 import type { DestinationConfig, DestinationStatus, OutputState, Platform } from "../../shared/types";
-import outputIcon from "@/assets/icons/output.png";
 import { Dock, DockEmpty } from "@/components/Dock";
 import { PlatformIcon } from "@/components/PlatformIcon";
 import { Button } from "@/components/ui/button";
@@ -88,7 +87,7 @@ export function DestinationsDock() {
     >
       {destinations.length === 0 ? (
         <DockEmpty
-          icon={outputIcon}
+          icon={RadioTowerIcon}
           text={t("empty")}
           action={
             <div className="flex gap-2">

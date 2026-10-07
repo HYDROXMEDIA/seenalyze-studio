@@ -16,6 +16,7 @@ export type {
   IProperty,
   IScene,
   ISceneItem,
+  ITransition,
   IVideo,
   IVideoEncoder,
   IVolmeter,

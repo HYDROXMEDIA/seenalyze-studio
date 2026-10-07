@@ -3,6 +3,7 @@ import {
   ArrowDownIcon,
   ArrowUpIcon,
   CameraIcon,
+  ClapperboardIcon,
   EyeIcon,
   EyeOffIcon,
   FilmIcon,
@@ -30,14 +31,6 @@ import {
 import { useState } from "react";
 import { useTranslations } from "use-intl";
 import type { SceneItemDTO, SourceKind } from "../../shared/types";
-import cameraImage from "@/assets/icons/camera.png";
-import chatImage from "@/assets/icons/chat.png";
-import imageImage from "@/assets/icons/image.png";
-import microphoneImage from "@/assets/icons/microphone.png";
-import overlayImage from "@/assets/icons/overlay.png";
-import screenImage from "@/assets/icons/screen.png";
-import textImage from "@/assets/icons/text.png";
-import videoIcon from "@/assets/icons/video_post.png";
 import { Dock, DockEmpty, ListRow } from "@/components/Dock";
 import { NameDialog } from "@/components/NameDialog";
 import { Button } from "@/components/ui/button";
@@ -79,20 +72,7 @@ export const SOURCE_ICONS: Record<SourceKind | "other", LucideIcon> = {
   other: ScanIcon,
 };
 
-/** Illustrated icons for the main source kinds; the rest use a glyph. */
-const SOURCE_IMAGES: Partial<Record<SourceKind | "other", string>> = {
-  display: screenImage,
-  camera: cameraImage,
-  microphone: microphoneImage,
-  image: imageImage,
-  text: textImage,
-  chatOverlay: chatImage,
-  overlay: overlayImage,
-};
-
 export function SourceIcon({ kind, className }: { kind: SourceKind | "other"; className?: string }) {
-  const image = SOURCE_IMAGES[kind];
-  if (image) return <img src={image} alt="" draggable={false} className={cn("shrink-0 object-contain", className)} />;
   const Icon = SOURCE_ICONS[kind];
   return <Icon className={className} />;
 }
@@ -122,7 +102,7 @@ export function SourcesDock() {
     >
       {scene.items.length === 0 ? (
         <DockEmpty
-          icon={videoIcon}
+          icon={ClapperboardIcon}
           text={t("empty")}
           action={
             <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
@@ -132,90 +112,93 @@ export function SourcesDock() {
           }
         />
       ) : (
-        scene.items.map((item, index) => {
-          return (
-            <ListRow key={item.id} active={item.id === selectedItemId} onClick={() => selectItem(item.id)}>
-              <SourceIcon kind={item.kind} className={cn("size-4 shrink-0 text-muted-foreground", !item.visible && "opacity-40")} />
-              <span className={cn("min-w-0 flex-1 truncate", !item.visible && "text-muted-foreground")}>{item.sourceName}</span>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={item.locked ? t("unlock") : t("lock")}
-                aria-pressed={item.locked}
-                className={cn(!item.locked && "opacity-0 group-hover:opacity-100 focus-visible:opacity-100")}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  void run(() => studio.setItemLocked(scene.name, item.id, !item.locked));
-                }}
-              >
-                {item.locked ? <LockIcon /> : <UnlockIcon />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={item.visible ? t("hide") : t("show")}
-                aria-pressed={!item.visible}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  void run(() => studio.setItemVisible(scene.name, item.id, !item.visible));
-                }}
-              >
-                {item.visible ? <EyeIcon /> : <EyeOffIcon className="text-muted-foreground" />}
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon-sm" aria-label={tc("more")} onClick={(event) => event.stopPropagation()}>
-                    <MoreHorizontalIcon />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
-                  <DropdownMenuItem onSelect={() => setEditing(item.sourceName)}>
-                    <Settings2Icon />
-                    {t("properties")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => setRenaming(item.sourceName)}>
-                    <PencilIcon />
-                    {tc("rename")}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem disabled={item.locked} onSelect={() => void run(() => studio.applyTransform(scene.name, item.id, "fit"))}>
-                    <ScanIcon />
-                    {t("fit")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem disabled={item.locked} onSelect={() => void run(() => studio.applyTransform(scene.name, item.id, "stretch"))}>
-                    <MaximizeIcon />
-                    {t("stretch")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem disabled={item.locked} onSelect={() => void run(() => studio.applyTransform(scene.name, item.id, "center"))}>
-                    <ScanIcon />
-                    {t("center")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem disabled={item.locked} onSelect={() => void run(() => studio.applyTransform(scene.name, item.id, "reset"))}>
-                    <UndoIcon />
-                    {t("resetTransform")}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem disabled={index === 0} onSelect={() => void run(() => studio.moveSceneItem(scene.name, item.id, "up"))}>
-                    <ArrowUpIcon />
-                    {t("moveUp")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={index === scene.items.length - 1}
-                    onSelect={() => void run(() => studio.moveSceneItem(scene.name, item.id, "down"))}
-                  >
-                    <ArrowDownIcon />
-                    {t("moveDown")}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive" disabled={item.locked} onSelect={() => setRemoving(item)}>
-                    <Trash2Icon />
-                    {tc("remove")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </ListRow>
-          );
-        })
+        // Keyed on the scene so switching scenes cross-fades the list.
+        <div key={scene.name} className="animate-ui-fade">
+          {scene.items.map((item, index) => {
+            return (
+              <ListRow key={item.id} active={item.id === selectedItemId} onClick={() => selectItem(item.id)}>
+                <SourceIcon kind={item.kind} className={cn("size-4 shrink-0 text-muted-foreground", !item.visible && "opacity-40")} />
+                <span className={cn("min-w-0 flex-1 truncate", !item.visible && "text-muted-foreground")}>{item.sourceName}</span>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={item.locked ? t("unlock") : t("lock")}
+                  aria-pressed={item.locked}
+                  className={cn(!item.locked && "opacity-0 group-hover:opacity-100 focus-visible:opacity-100")}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void run(() => studio.setItemLocked(scene.name, item.id, !item.locked));
+                  }}
+                >
+                  {item.locked ? <LockIcon /> : <UnlockIcon />}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={item.visible ? t("hide") : t("show")}
+                  aria-pressed={!item.visible}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void run(() => studio.setItemVisible(scene.name, item.id, !item.visible));
+                  }}
+                >
+                  {item.visible ? <EyeIcon /> : <EyeOffIcon className="text-muted-foreground" />}
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon-sm" aria-label={tc("more")} onClick={(event) => event.stopPropagation()}>
+                      <MoreHorizontalIcon />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+                    <DropdownMenuItem onSelect={() => setEditing(item.sourceName)}>
+                      <Settings2Icon />
+                      {t("properties")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setRenaming(item.sourceName)}>
+                      <PencilIcon />
+                      {tc("rename")}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem disabled={item.locked} onSelect={() => void run(() => studio.applyTransform(scene.name, item.id, "fit"))}>
+                      <ScanIcon />
+                      {t("fit")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem disabled={item.locked} onSelect={() => void run(() => studio.applyTransform(scene.name, item.id, "stretch"))}>
+                      <MaximizeIcon />
+                      {t("stretch")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem disabled={item.locked} onSelect={() => void run(() => studio.applyTransform(scene.name, item.id, "center"))}>
+                      <ScanIcon />
+                      {t("center")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem disabled={item.locked} onSelect={() => void run(() => studio.applyTransform(scene.name, item.id, "reset"))}>
+                      <UndoIcon />
+                      {t("resetTransform")}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem disabled={index === 0} onSelect={() => void run(() => studio.moveSceneItem(scene.name, item.id, "up"))}>
+                      <ArrowUpIcon />
+                      {t("moveUp")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={index === scene.items.length - 1}
+                      onSelect={() => void run(() => studio.moveSceneItem(scene.name, item.id, "down"))}
+                    >
+                      <ArrowDownIcon />
+                      {t("moveDown")}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem variant="destructive" disabled={item.locked} onSelect={() => setRemoving(item)}>
+                      <Trash2Icon />
+                      {tc("remove")}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </ListRow>
+            );
+          })}
+        </div>
       )}
 
       <AddSourceDialog open={adding} scene={scene.name} onOpenChange={setAdding} onAdded={(name) => setEditing(name)} />

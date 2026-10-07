@@ -47,6 +47,8 @@
   --secondary: oklch(0.96 0 0);
   --secondary-foreground: oklch(0.28 0 0);
   --muted: oklch(0.96 0 0);
+  /* Letterbox space around the preview canvas (distinct from the black canvas). */
+  --preview-surface: oklch(0.9 0 0);
   --muted-foreground: oklch(0.55 0 0);
   --accent: oklch(0.96 0 0);
   --accent-foreground: oklch(0.28 0 0);
@@ -70,6 +72,7 @@
   --secondary: oklch(0.12 0 0);
   --secondary-foreground: oklch(1 0 0);
   --muted: oklch(0.12 0 0);
+  --preview-surface: #232325;
   --muted-foreground: oklch(0.75 0 0);
   --accent: oklch(0.12 0 0);
   --accent-foreground: oklch(1 0 0);
@@ -136,6 +139,155 @@
 
 @media (prefers-reduced-motion: reduce) {
   .animate-chat-in {
+    animation: none;
+  }
+}
+
+/*
+ * Shared UI motion. Enter-only on purpose: Radix keeps a closing surface
+ * mounted while an exit animation runs, which would delay the native preview
+ * reappearing. Transform/opacity only, 120–180ms ease-out.
+ */
+@keyframes ui-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ui-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes ui-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.animate-ui-fade {
+  animation: ui-fade-in 150ms ease-out both;
+}
+
+/* Dialogs and menus. Menus scale from the side their trigger is on. */
+.animate-ui-pop {
+  animation: ui-pop-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transform-origin: var(--radix-dropdown-menu-content-transform-origin, var(--radix-select-content-transform-origin, center));
+}
+
+/* Section, tab and page content. */
+.animate-ui-rise {
+  animation: ui-rise-in 180ms ease-out both;
+}
+
+/* List items: a short stagger for the first rows only, the rest appear together. */
+.animate-ui-list > * {
+  animation: ui-rise-in 180ms ease-out both;
+}
+.animate-ui-list > :nth-child(2) { animation-delay: 20ms; }
+.animate-ui-list > :nth-child(3) { animation-delay: 40ms; }
+.animate-ui-list > :nth-child(4) { animation-delay: 60ms; }
+.animate-ui-list > :nth-child(5) { animation-delay: 80ms; }
+.animate-ui-list > :nth-child(n + 6) { animation-delay: 100ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-ui-fade,
+  .animate-ui-pop,
+  .animate-ui-rise,
+  .animate-ui-list > * {
+    animation: none;
+  }
+}
+
+/*
+ * Scene transition thumbnails: scene B replaces scene A on a loop. Cheap
+ * transform/opacity/clip-path loops; static (showing B) with reduced motion.
+ */
+.transition-thumb {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.transition-thumb > .tt-a,
+.transition-thumb > .tt-b,
+.transition-thumb > .tt-mid {
+  position: absolute;
+  inset: 0;
+  animation-duration: 2.4s;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+}
+.transition-thumb > .tt-mid {
+  opacity: 0;
+}
+.transition-thumb[data-kind="fade"] > .tt-b { animation-name: tt-fade; }
+.transition-thumb[data-kind="cut"] > .tt-b { animation-name: tt-cut; animation-timing-function: steps(1, end); }
+.transition-thumb[data-kind="fadeBlack"] > .tt-mid,
+.transition-thumb[data-kind="fadeWhite"] > .tt-mid { animation-name: tt-dip; }
+.transition-thumb[data-kind="fadeBlack"] > .tt-b,
+.transition-thumb[data-kind="fadeWhite"] > .tt-b { animation-name: tt-cut; animation-timing-function: steps(1, end); }
+.transition-thumb[data-kind^="slide"] > .tt-a { animation-name: tt-out; }
+.transition-thumb[data-kind^="slide"] > .tt-b,
+.transition-thumb[data-kind^="swipe"] > .tt-b { animation-name: tt-in; }
+.transition-thumb[data-dir="left"] { --tt-x: 100%; --tt-y: 0%; }
+.transition-thumb[data-dir="right"] { --tt-x: -100%; --tt-y: 0%; }
+.transition-thumb[data-dir="up"] { --tt-x: 0%; --tt-y: 100%; }
+.transition-thumb[data-dir="down"] { --tt-x: 0%; --tt-y: -100%; }
+.transition-thumb[data-kind="wipeLinear"] > .tt-b { animation-name: tt-wipe-linear; }
+.transition-thumb[data-kind="wipeBarnDoor"] > .tt-b { animation-name: tt-wipe-barn; }
+.transition-thumb[data-kind="wipeIris"] > .tt-b { animation-name: tt-wipe-iris; }
+.transition-thumb[data-kind="wipeClock"] > .tt-b { animation-name: tt-wipe-clock; animation-timing-function: linear; }
+
+@keyframes tt-fade { 0%, 25% { opacity: 0; } 55%, 100% { opacity: 1; } }
+@keyframes tt-cut { 0%, 40% { opacity: 0; } 41%, 100% { opacity: 1; } }
+@keyframes tt-dip { 0%, 20% { opacity: 0; } 40% { opacity: 1; } 60%, 100% { opacity: 0; } }
+@keyframes tt-out { 0%, 25% { transform: translate(0, 0); } 55%, 100% { transform: translate(calc(var(--tt-x) * -1), calc(var(--tt-y) * -1)); } }
+@keyframes tt-in { 0%, 25% { transform: translate(var(--tt-x), var(--tt-y)); } 55%, 100% { transform: translate(0, 0); } }
+@keyframes tt-wipe-linear { 0%, 25% { clip-path: inset(0 100% 0 0); } 55%, 100% { clip-path: inset(0 0 0 0); } }
+@keyframes tt-wipe-barn { 0%, 25% { clip-path: inset(0 50% 0 50%); } 55%, 100% { clip-path: inset(0 0 0 0); } }
+@keyframes tt-wipe-iris { 0%, 25% { clip-path: circle(0% at 50% 50%); } 55%, 100% { clip-path: circle(75% at 50% 50%); } }
+@keyframes tt-wipe-clock {
+  0%, 25% { clip-path: polygon(50% 50%, 50% -50%, 50% -50%, 50% -50%, 50% -50%, 50% -50%); }
+  32% { clip-path: polygon(50% 50%, 50% -50%, 150% 50%, 150% 50%, 150% 50%, 150% 50%); }
+  40% { clip-path: polygon(50% 50%, 50% -50%, 150% 50%, 50% 150%, 50% 150%, 50% 150%); }
+  48% { clip-path: polygon(50% 50%, 50% -50%, 150% 50%, 50% 150%, -50% 50%, -50% 50%); }
+  55%, 100% { clip-path: polygon(50% 50%, 50% -50%, 150% 50%, 50% 150%, -50% 50%, 50% -50%); }
+}
+
+.transition-thumb[data-kind="wipeBlinds"] > .tt-b {
+  -webkit-mask-image: linear-gradient(to bottom, #000 var(--tt-blind, 0%), transparent var(--tt-blind, 0%));
+  mask-image: linear-gradient(to bottom, #000 var(--tt-blind, 0%), transparent var(--tt-blind, 0%));
+  -webkit-mask-size: 100% 25%;
+  mask-size: 100% 25%;
+  animation-name: tt-blinds-reveal;
+}
+@property --tt-blind {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+@keyframes tt-blinds-reveal { 0%, 25% { --tt-blind: 0%; } 55%, 100% { --tt-blind: 100%; } }
+.transition-thumb[data-kind="wipeCheckerboard"] > .tt-b {
+  -webkit-mask-image: conic-gradient(#000 25%, transparent 0 50%, #000 0 75%, transparent 0);
+  mask-image: conic-gradient(#000 25%, transparent 0 50%, #000 0 75%, transparent 0);
+  -webkit-mask-size: 25% 50%;
+  mask-size: 25% 50%;
+  animation-name: tt-checker;
+  animation-timing-function: steps(1, end);
+}
+@keyframes tt-checker {
+  0%, 30% { opacity: 0; -webkit-mask-size: 25% 50%; mask-size: 25% 50%; }
+  31%, 45% { opacity: 1; -webkit-mask-size: 25% 50%; mask-size: 25% 50%; }
+  46%, 100% { opacity: 1; -webkit-mask-image: none; mask-image: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transition-thumb > .tt-a,
+  .transition-thumb > .tt-b,
+  .transition-thumb > .tt-mid {
     animation: none;
   }
 }

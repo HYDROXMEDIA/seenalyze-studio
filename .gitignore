@@ -12,3 +12,8 @@ config/studio.config.json
 engine-worker.js
 .responsiveness-check.cjs
 .presets-check.cjs
+# Electron/Chromium profile + GPU caches left by headless check scripts
+.*-check-data/
+GraphiteDawnCache/
+# Locally compiled helper executables (no source in this repo)
+bin/

@@ -4,6 +4,7 @@
 import { EventEmitter } from "node:events";
 import path from "node:path";
 import { app, utilityProcess, type UtilityProcess } from "electron";
+import { appendLog } from "../log";
 import { stopOrphanedHosts } from "./orphans";
 import type { EngineEvent, EngineHandlers, EngineInit, WorkerMessage, WorkerRequest } from "./worker";
 
@@ -40,7 +41,10 @@ export class EngineClient extends EventEmitter {
     });
     this.child = child;
     // Forward the worker's output; engine logs are only useful during development.
-    child.stderr?.on("data", (chunk: Buffer) => process.stderr.write(chunk));
+    child.stderr?.on("data", (chunk: Buffer) => {
+      process.stderr.write(chunk);
+      appendLog("engine", chunk.toString("utf8"));
+    });
     if (!app.isPackaged) child.stdout?.on("data", (chunk: Buffer) => process.stdout.write(chunk));
     child.on("message", (message: WorkerMessage) => this.onMessage(message));
     child.on("exit", (code) => this.onExit(code));

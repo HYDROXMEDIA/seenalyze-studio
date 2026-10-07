@@ -1,9 +1,8 @@
+import { LayersIcon, MessagesSquareIcon } from "lucide-react";
 import { useTranslations } from "use-intl";
 import { Button } from "@/components/ui/button";
 import { useChat } from "@/store/chat";
-import appIcon from "@/assets/icons/seenalyze-app-icon.png";
-import chatIcon from "@/assets/icons/chat.png";
-import overlayIcon from "@/assets/icons/overlay.png";
+import appIcon from "@/assets/icons/seenalyze-app-icon.svg";
 import { isMac } from "@/lib/studio";
 import { cn } from "@/lib/utils";
 import { useStudio } from "@/store/studio";
@@ -49,7 +48,7 @@ export function Header() {
         )}
         {view === "studio" && (
           <Button variant="ghost" size="sm" className="app-no-drag" onClick={() => setView("overlays")}>
-            <img src={overlayIcon} alt="" className="size-4" draggable={false} />
+            <LayersIcon aria-hidden className="size-4" />
             {t("overlays")}
           </Button>
         )}
@@ -61,7 +60,7 @@ export function Header() {
             aria-pressed={chatOpen}
             onClick={() => setChatOpen(!chatOpen)}
           >
-            <img src={chatIcon} alt="" className="size-4" draggable={false} />
+            <MessagesSquareIcon aria-hidden className="size-4" />
             {t("chat")}
           </Button>
         )}

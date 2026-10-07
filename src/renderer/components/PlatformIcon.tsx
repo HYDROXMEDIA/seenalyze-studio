@@ -1,5 +1,4 @@
 import type { Platform } from "../../shared/types";
-import youtubeIcon from "@/assets/icons/youtube.png";
 import { cn } from "@/lib/utils";
 
 /** Twitch glitch mark, drawn inline because the shared icon set has no Twitch asset. */
@@ -14,7 +13,20 @@ function TwitchMark({ className }: { className?: string }) {
   );
 }
 
+/** YouTube play-button mark (brand red with white triangle). */
+function YouTubeMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden>
+      <path
+        fill="#FF0000"
+        d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814Z"
+      />
+      <path fill="#FFFFFF" d="M9.545 15.568V8.432L15.818 12z" />
+    </svg>
+  );
+}
+
 export function PlatformIcon({ platform, className }: { platform: Platform; className?: string }) {
-  if (platform === "youtube") return <img src={youtubeIcon} alt="" draggable={false} className={cn("size-5 object-contain", className)} />;
+  if (platform === "youtube") return <YouTubeMark className={cn("size-5", className)} />;
   return <TwitchMark className={cn("size-5", className)} />;
 }
