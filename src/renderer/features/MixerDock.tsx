@@ -1,5 +1,5 @@
-import { SlidersHorizontalIcon, Volume2Icon, VolumeXIcon } from "lucide-react";
-import { memo } from "react";
+import { Settings2Icon, SlidersHorizontalIcon, Volume2Icon, VolumeXIcon } from "lucide-react";
+import { memo, useState } from "react";
 import { useTranslations } from "use-intl";
 import { Dock, DockEmpty } from "@/components/Dock";
 import { Button } from "@/components/ui/button";
@@ -8,12 +8,14 @@ import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
 import { cn } from "@/lib/utils";
 import { useStudio } from "@/store/studio";
+import { SourcePropertiesDialog } from "./SourcePropertiesDialog";
 
 const MIN_DB = -60;
 
 export function MixerDock() {
   const t = useTranslations("mixer");
   const audio = useStudio((state) => state.snapshot?.audio ?? []);
+  const [editing, setEditing] = useState<string | null>(null);
 
   return (
     <Dock title={t("title")}>
@@ -22,15 +24,16 @@ export function MixerDock() {
       ) : (
         <div className="grid gap-3 p-3">
           {audio.map((source) => (
-            <MixerChannel key={source.name} name={source.name} deflection={source.deflection} muted={source.muted} />
+            <MixerChannel key={source.name} name={source.name} deflection={source.deflection} muted={source.muted} onProperties={setEditing} />
           ))}
         </div>
       )}
+      <SourcePropertiesDialog source={editing} onClose={() => setEditing(null)} />
     </Dock>
   );
 }
 
-const MixerChannel = memo(function MixerChannel({ name, deflection, muted }: { name: string; deflection: number; muted: boolean }) {
+const MixerChannel = memo(function MixerChannel({ name, deflection, muted, onProperties }: { name: string; deflection: number; muted: boolean; onProperties: (name: string) => void }) {
   const t = useTranslations("mixer");
   const run = useAction();
   const peak = useStudio((state) => state.levels[name]);
@@ -42,6 +45,7 @@ const MixerChannel = memo(function MixerChannel({ name, deflection, muted }: { n
       <div className="flex items-center justify-between gap-2 text-sm">
         <span className="truncate">{name}</span>
         <span className="text-xs text-muted-foreground tabular-nums">{muted ? t("muted") : `${Math.round(deflection * 100)}%`}</span>
+        <Button variant="ghost" size="icon-sm" aria-label={t("properties", { name })} onClick={() => onProperties(name)}><Settings2Icon /></Button>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
         <div

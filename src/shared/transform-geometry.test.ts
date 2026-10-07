@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { applyPatch, boxPoint, containsPoint, move, resize, rotateAround } from "./transform-geometry";
+import { applyPatch, boxPoint, containsPoint, move, resize, rotateAround, sanitizeTransformPatch } from "./transform-geometry";
 import type { ItemTransformDTO } from "./types";
 
 const base: ItemTransformDTO = {
@@ -78,8 +78,19 @@ describe("mirrored items", () => {
   test("resizing keeps the mirror and the opposite edge fixed", () => {
     const patch = resize(flipped, { hx: 0, hy: 0.5 }, { x: -200, y: 150 }, false);
     expect(patch.scale?.x).toBeCloseTo(-1.5);
-    const next = applyPatch(flipped, patch);
+    const clean = sanitizeTransformPatch(patch);
+    expect(clean.scale).toEqual(patch.scale);
+    const next = applyPatch(flipped, clean);
     expect(boxPoint(next, 1, 0).x).toBeCloseTo(100);
     expect(boxPoint(next, 0, 0).x).toBeCloseTo(-200);
+  });
+
+  test("rejects invalid scales and bounds without dropping valid position updates", () => {
+    for (const scale of [{ x: 0, y: 1 }, { x: Infinity, y: 1 }, { x: 1_000_001, y: 1 }]) {
+      const clean = sanitizeTransformPatch({ position: { x: -20, y: 0 }, scale, bounds: { x: -1, y: 10 } });
+      expect(clean.position).toEqual({ x: -20, y: 0 });
+      expect(clean.scale).toBeUndefined();
+      expect(clean.bounds).toBeUndefined();
+    }
   });
 });

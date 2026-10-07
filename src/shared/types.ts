@@ -108,6 +108,11 @@ export interface RecordingStatus {
   errorKey?: string;
 }
 
+export interface ScreenRecordingStatus {
+  active: boolean;
+  paused: boolean;
+}
+
 export interface EngineStats {
   cpu: number;
   fps: number;
@@ -119,16 +124,30 @@ export interface EngineStats {
 export type SourceKind =
   | "display"
   | "window"
+  | "application"
+  | "game"
   | "camera"
+  | "captureCard"
   | "microphone"
   | "desktopAudio"
+  | "applicationAudio"
   | "image"
+  | "slideshow"
   | "media"
+  | "playlist"
+  | "scene"
+  | "syphon"
+  | "blackmagic"
   | "text"
   | "color"
   | "browser"
   | "chatOverlay"
   | "overlay";
+
+export interface SourceChoiceDTO {
+  name: string;
+  kind: SourceKind | "other";
+}
 
 export interface SceneItemDTO {
   id: number;
@@ -196,6 +215,8 @@ export type PropertyKind =
   | "multiline"
   | "path"
   | "list"
+  | "editableList"
+  | "font"
   | "color"
   | "button"
   | "info";
@@ -212,12 +233,15 @@ export interface PropertyDTO {
   options?: { label: string; value: string | number }[];
   pathFilter?: string;
   directory?: boolean;
+  allowUrls?: boolean;
+  allowAlpha?: boolean;
 }
 
 export interface StudioSnapshot {
   ready: boolean;
   engineErrorKey?: string;
   scenes: SceneDTO[];
+  availableSourceKinds: SourceKind[];
   activeScene: string | null;
   audio: AudioSourceDTO[];
   video: VideoSettings;
@@ -228,6 +252,7 @@ export interface StudioSnapshot {
   recording: RecordingStatus;
   recordingFolder: string;
   preferences: StudioPreferences;
+  screenRecording: ScreenRecordingStatus;
   accounts: AccountDTO[];
   platformsConfigured: Record<Platform, boolean>;
   permissions: Record<PermissionKind, PermissionState>;
@@ -329,3 +354,36 @@ export interface Rect {
 }
 
 export type TransformPreset = "fit" | "stretch" | "center" | "reset";
+
+export type TransformAnchor = "topLeft" | "top" | "topRight" | "left" | "center" | "right" | "bottomLeft" | "bottom" | "bottomRight";
+export interface SourceTransform {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  sizing: "fit" | "stretch" | "scale";
+  anchor: TransformAnchor;
+  crop: { left: number; top: number; right: number; bottom: number };
+}
+
+export interface SourceTransformDTO extends SourceTransform {
+  sourceName: string;
+  sourceWidth: number;
+  sourceHeight: number;
+  locked: boolean;
+}
+
+export interface SceneReadiness {
+  scene: string | null;
+  pictureSources: number;
+  pendingSources: number;
+  audibleSources: number;
+  missingSources: number;
+}
+
+export interface StreamCheck {
+  readyDestinationIds: string[];
+  scene: string | null;
+  issues: { key: string; blocking: boolean; destinationId?: string; count?: number }[];
+}

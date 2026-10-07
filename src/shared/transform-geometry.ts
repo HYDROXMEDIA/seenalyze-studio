@@ -21,6 +21,28 @@ const ALIGN_RIGHT = 2;
 const ALIGN_TOP = 4;
 const ALIGN_BOTTOM = 8;
 
+/** Keeps finite renderer values; scales may be mirrored, bounds must stay positive. */
+export function sanitizeTransformPatch(patch: ItemTransformPatch): ItemTransformPatch {
+  const num = (value: unknown): number | undefined =>
+    typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= 1_000_000 ? value : undefined;
+  const vec = (value: unknown, mode: "position" | "scale" | "bounds"): Vec | undefined => {
+    if (!value || typeof value !== "object") return undefined;
+    const x = num((value as { x?: unknown }).x);
+    const y = num((value as { y?: unknown }).y);
+    if (x === undefined || y === undefined) return undefined;
+    if (mode === "scale" && (x === 0 || y === 0)) return undefined;
+    if (mode === "bounds" && (x <= 0 || y <= 0)) return undefined;
+    return { x, y };
+  };
+  const rotation = num(patch?.rotation);
+  return {
+    position: vec(patch?.position, "position"),
+    scale: vec(patch?.scale, "scale"),
+    rotation: rotation === undefined ? undefined : ((rotation % 360) + 360) % 360,
+    bounds: vec(patch?.bounds, "bounds"),
+  };
+}
+
 export function itemSize(t: ItemTransformDTO): { width: number; height: number } {
   if (t.boundsType !== 0) return { width: t.bounds.x, height: t.bounds.y };
   return { width: t.sourceWidth * Math.abs(t.scale.x), height: t.sourceHeight * Math.abs(t.scale.y) };

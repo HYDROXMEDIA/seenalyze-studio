@@ -82,7 +82,7 @@ export function PreviewEditor({ width, height, baseWidth, baseHeight }: { width:
     if (!pending) return;
     pendingRef.current = null;
     inFlightRef.current = studio
-      .setItemTransform(pending.scene, pending.itemId, pending.patch, false)
+      .patchItemTransform(pending.scene, pending.itemId, pending.patch, false)
       .catch(() => undefined)
       .finally(() => {
         inFlightRef.current = null;
@@ -153,7 +153,7 @@ export function PreviewEditor({ width, height, baseWidth, baseHeight }: { width:
     // Final update (after any live update still in flight) refreshes the
     // snapshot and saves the scene collection.
     void (inFlightRef.current ?? Promise.resolve())
-      .then(() => studio.setItemTransform(sceneName, drag.itemId, patch, true))
+      .then(() => studio.patchItemTransform(sceneName, drag.itemId, patch, true))
       .catch(console.error)
       .finally(() => setLive(null));
   };

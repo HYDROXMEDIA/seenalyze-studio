@@ -1,0 +1,71 @@
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+body {
+  position: relative;
+  -webkit-app-region: drag;
+  cursor: grab;
+  user-select: none;
+}
+
+video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #111;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35);
+  transform: scaleX(-1);
+}
+
+/* Size buttons show on hover; they are not part of the drag area. */
+.size-controls {
+  position: absolute;
+  bottom: 12%;
+  left: 50%;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transform: translateX(-50%);
+  transition: opacity 150ms ease;
+  -webkit-app-region: no-drag;
+}
+
+body:hover .size-controls,
+.size-controls:focus-within {
+  opacity: 1;
+}
+
+.size-controls button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: #fff;
+  font: 600 17px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: rgba(20, 20, 22, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  cursor: default;
+}
+
+.size-controls button:hover {
+  background: rgba(40, 40, 44, 0.9);
+}
+
+.size-controls button:focus-visible {
+  outline: 2px solid #ff8a3d;
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .size-controls {
+    transition: none;
+  }
+}

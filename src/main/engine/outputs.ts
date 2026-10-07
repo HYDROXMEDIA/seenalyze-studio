@@ -103,7 +103,17 @@ export class OutputManager extends EventEmitter {
     this.configureAudioTrack(configs);
 
     for (const group of plan.groups) {
-      const encoderGroup = this.acquireGroup(group.profile, encoderId);
+      let encoderGroup: EncoderGroupState;
+      try {
+        encoderGroup = this.acquireGroup(group.profile, encoderId);
+      } catch (error) {
+        console.error("[outputs] failed to create an encoder", error);
+        for (const id of group.destinationIds) this.emitStatus({ id, state: "error", kbps: 0, droppedFrames: 0, totalFrames: 0, encoderGroup: null, errorKey: "errors.output.startFailed" });
+        continue;
+      }
+      // Reserve all users before starting: an early failure must not release
+      // the encoder that the next destination in this group still needs.
+      for (const id of group.destinationIds) encoderGroup.users.add(id);
       for (const destinationId of group.destinationIds) {
         const destination = pending.find((entry) => entry.config.id === destinationId);
         if (!destination) continue;
@@ -111,7 +121,9 @@ export class OutputManager extends EventEmitter {
           this.startOutput(destination, encoderGroup, group.profile);
         } catch (error) {
           console.error(`[outputs] failed to start destination ${destinationId}`, error);
-          this.releaseUser(encoderGroup, destinationId);
+          const output = this.outputs.get(destinationId);
+          if (output) this.teardown(output, "errors.output.startFailed");
+          else this.releaseUser(encoderGroup, destinationId);
           this.emitStatus({
             id: destinationId,
             state: "error",
@@ -225,61 +237,66 @@ export class OutputManager extends EventEmitter {
     const { osn } = this.engine;
     const { config } = destination;
     const stream = osn.AdvancedStreamingFactory.create();
-    stream.service = osn.ServiceFactory.create("rtmp_custom", `seenalyze-service-${config.id}`, {
-      server: destination.server,
-      key: destination.streamKey,
-      use_auth: false,
-    });
-    stream.video = this.engine.video;
-    stream.videoEncoder = group.encoder;
-    stream.audioTrack = AUDIO_TRACK;
-    stream.enforceServiceBitrate = false;
-    stream.enableTwitchVOD = false;
+    try {
+      stream.service = osn.ServiceFactory.create("rtmp_custom", `seenalyze-service-${config.id}`, {
+        server: destination.server,
+        key: destination.streamKey,
+        use_auth: false,
+      });
+      stream.video = this.engine.video;
+      stream.videoEncoder = group.encoder;
+      stream.audioTrack = AUDIO_TRACK;
+      stream.enforceServiceBitrate = false;
+      stream.enableTwitchVOD = false;
 
-    const settings = this.engine.settings;
-    const rescale = profile.width !== settings.outputWidth || profile.height !== settings.outputHeight;
-    stream.rescaling = rescale;
-    if (rescale) {
-      stream.outputWidth = profile.width;
-      stream.outputHeight = profile.height;
+      const settings = this.engine.settings;
+      const rescale = profile.width !== settings.outputWidth || profile.height !== settings.outputHeight;
+      stream.rescaling = rescale;
+      if (rescale) {
+        stream.outputWidth = profile.width;
+        stream.outputHeight = profile.height;
+      }
+
+      const delay = osn.DelayFactory.create();
+      delay.enabled = false;
+      stream.delay = delay;
+
+      const reconnect = osn.ReconnectFactory.create();
+      reconnect.enabled = true;
+      reconnect.retryDelay = 2;
+      reconnect.maxRetries = 25;
+      stream.reconnect = reconnect;
+
+      const network = osn.NetworkFactory.create();
+      // Dynamic bitrate would change the shared encoder for every destination in
+      // the group; adaptation is a group decision, so it stays off per output.
+      network.enableDynamicBitrate = false;
+      network.enableOptimizations = false;
+      network.enableLowLatency = false;
+      stream.network = network;
+
+      const output: ActiveOutput = {
+        destinationId: config.id,
+        stream,
+        group,
+        status: {
+          id: config.id,
+          state: "preparing",
+          kbps: 0,
+          droppedFrames: 0,
+          totalFrames: 0,
+          encoderGroup: group.index,
+        },
+      };
+      stream.signalHandler = (signal) => this.onSignal(output, signal);
+      group.users.add(config.id);
+      this.outputs.set(config.id, output);
+      this.emitStatus(output.status);
+      stream.start();
+    } catch (error) {
+      if (!this.outputs.has(config.id)) osn.AdvancedStreamingFactory.destroy(stream);
+      throw error;
     }
-
-    const delay = osn.DelayFactory.create();
-    delay.enabled = false;
-    stream.delay = delay;
-
-    const reconnect = osn.ReconnectFactory.create();
-    reconnect.enabled = true;
-    reconnect.retryDelay = 2;
-    reconnect.maxRetries = 25;
-    stream.reconnect = reconnect;
-
-    const network = osn.NetworkFactory.create();
-    // Dynamic bitrate would change the shared encoder for every destination in
-    // the group; adaptation is a group decision, so it stays off per output.
-    network.enableDynamicBitrate = false;
-    network.enableOptimizations = false;
-    network.enableLowLatency = false;
-    stream.network = network;
-
-    const output: ActiveOutput = {
-      destinationId: config.id,
-      stream,
-      group,
-      status: {
-        id: config.id,
-        state: "preparing",
-        kbps: 0,
-        droppedFrames: 0,
-        totalFrames: 0,
-        encoderGroup: group.index,
-      },
-    };
-    stream.signalHandler = (signal) => this.onSignal(output, signal);
-    group.users.add(config.id);
-    this.outputs.set(config.id, output);
-    this.emitStatus(output.status);
-    stream.start();
   }
 
   private onSignal(output: ActiveOutput, signal: EOutputSignal): void {

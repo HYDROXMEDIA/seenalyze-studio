@@ -3,6 +3,7 @@ out/
 dist/
 release/
 vendor/
+bin/
 *.log
 .DS_Store
 .env*
@@ -15,5 +16,5 @@ engine-worker.js
 # Electron/Chromium profile + GPU caches left by headless check scripts
 .*-check-data/
 GraphiteDawnCache/
-# Locally compiled helper executables (no source in this repo)
-bin/
+.sources-check.cjs
+.platforms-check.cjs

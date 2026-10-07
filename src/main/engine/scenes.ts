@@ -1,10 +1,12 @@
 // Scene graph: scenes, sources, scene items, transforms, properties and
 // persistence of the scene collection.
 
-import type { ItemTransformDTO, ItemTransformPatch, PropertyDTO, PropertyKind, SceneDTO, SourceKind, TransformPreset } from "../../shared/types";
+import type { ItemTransformDTO, ItemTransformPatch, PropertyDTO, PropertyKind, SceneDTO, SceneReadiness, SourceChoiceDTO, SourceKind, SourceTransform, SourceTransformDTO, TransformAnchor, TransformPreset } from "../../shared/types";
+import { onCanvas, TRANSFORM_ANCHORS, validateTransform } from "../../shared/transforms";
 import type { EngineSession } from "./engine";
 import { DEFAULT_TRANSITION, sanitizeTransition, transitionPreset, type TransitionChoice } from "../../shared/transitions";
 import type { IInput, IProperty, IScene, ISceneItem, ITransition, OSN } from "./osn";
+import { availableSourceKinds, resolveSourceType } from "./source-types";
 
 const OUTPUT_FLAG_AUDIO = 2;
 // EPropertyType
@@ -31,22 +33,6 @@ const BOUNDS_SCALE_INNER = 2;
 const ALIGN_CENTER = 0;
 const ALIGN_TOP_LEFT = 5;
 
-/** Engine input ids per kind, in order of preference. */
-const INPUT_IDS: Record<SourceKind, { darwin: string[]; win32: string[] }> = {
-  display: { darwin: ["mac_screen_capture", "screen_capture", "display_capture"], win32: ["monitor_capture"] },
-  window: { darwin: ["mac_screen_capture", "screen_capture", "window_capture"], win32: ["window_capture"] },
-  camera: { darwin: ["av_capture_input_v2", "macos_avcapture", "av_capture_input"], win32: ["dshow_input"] },
-  microphone: { darwin: ["coreaudio_input_capture"], win32: ["wasapi_input_capture"] },
-  desktopAudio: { darwin: ["sck_audio_capture", "coreaudio_output_capture"], win32: ["wasapi_output_capture"] },
-  image: { darwin: ["image_source"], win32: ["image_source"] },
-  media: { darwin: ["ffmpeg_source"], win32: ["ffmpeg_source"] },
-  text: { darwin: ["text_ft2_source_v2", "text_ft2_source"], win32: ["text_gdiplus_v3", "text_gdiplus", "text_ft2_source_v2"] },
-  color: { darwin: ["color_source_v3", "color_source"], win32: ["color_source_v3", "color_source"] },
-  browser: { darwin: ["browser_source"], win32: ["browser_source"] },
-  chatOverlay: { darwin: ["browser_source"], win32: ["browser_source"] },
-  overlay: { darwin: ["browser_source"], win32: ["browser_source"] },
-};
-
 /** Chat overlay page size, in canvas pixels at 1080p. */
 const CHAT_OVERLAY_SIZE = { width: 440, height: 720 };
 const CHAT_OVERLAY_MARGIN = 24;
@@ -58,6 +44,10 @@ function initialSettings(kind: SourceKind, inputId: string, width: number, heigh
       return inputId === "mac_screen_capture" || inputId === "screen_capture" ? { type: 0, show_cursor: true } : {};
     case "window":
       return inputId === "mac_screen_capture" || inputId === "screen_capture" ? { type: 1, show_cursor: true } : {};
+    case "application":
+      return { type: 2, show_cursor: true };
+    case "applicationAudio":
+      return inputId === "sck_audio_capture" ? { type: 1 } : {};
     case "color":
       return { color: 0xff1a1a1a, width, height };
     case "text":
@@ -71,8 +61,8 @@ function initialSettings(kind: SourceKind, inputId: string, width: number, heigh
   }
 }
 
-const VISUAL_KINDS: SourceKind[] = ["display", "window", "camera", "image", "media", "browser"];
-const AUDIO_ONLY: SourceKind[] = ["microphone", "desktopAudio"];
+const VISUAL_KINDS: SourceKind[] = ["display", "window", "application", "game", "camera", "captureCard", "image", "slideshow", "media", "playlist", "browser", "syphon", "blackmagic"];
+const AUDIO_ONLY: SourceKind[] = ["microphone", "desktopAudio", "applicationAudio"];
 
 interface SavedItem {
   source: string;
@@ -115,6 +105,8 @@ export class SceneGraph {
   private readonly scenes = new Map<string, IScene>();
   private sceneOrder: string[] = [];
   private readonly inputs = new Map<string, { input: IInput; kind: SourceKind | "other" }>();
+  private readonly unavailable = new Map<string, SavedSource>();
+  private readonly unavailableItems = new Map<string, SavedItem[]>();
   private readonly locked = new Set<string>();
   private readonly globalAudio = new Map<number, string>();
   /**
@@ -196,7 +188,7 @@ export class SceneGraph {
         .map((item) => ({
           id: item.id,
           sourceName: this.nameOf(item.source),
-          kind: this.inputs.get(this.nameOf(item.source))?.kind ?? "other",
+          kind: this.scenes.has(this.nameOf(item.source)) ? "scene" as const : this.inputs.get(this.nameOf(item.source))?.kind ?? "other",
           visible: item.visible,
           locked: this.locked.has(lockKey(name, item.id)),
           transform: transformOf(item),
@@ -210,6 +202,10 @@ export class SceneGraph {
     return this.active;
   }
 
+  get unavailableSourceCount(): number {
+    return this.unavailable.size;
+  }
+
   createScene(name: string): void {
     const clean = this.uniqueName(name.trim() || "Scene");
     this.scenes.set(clean, this.osn.SceneFactory.create(clean));
@@ -220,6 +216,9 @@ export class SceneGraph {
   removeScene(name: string): void {
     if (this.sceneOrder.length <= 1) throw new Error("last-scene");
     const scene = this.requireScene(name);
+    if ([...this.scenes.values()].some((entry) => entry.getItems().some((item) => this.nameOf(item.source) === name))) {
+      throw new Error("scene-in-use");
+    }
     if (this.active === name) this.setActiveScene(this.sceneOrder.find((entry) => entry !== name) as string, false);
     // Detach items before releasing the scene; releasing a populated scene
     // leaves references that make engine teardown stall.
@@ -229,6 +228,7 @@ export class SceneGraph {
     }
     scene.release();
     this.scenes.delete(name);
+    this.unavailableItems.delete(name);
     this.sceneOrder = this.sceneOrder.filter((entry) => entry !== name);
     this.releaseUnusedInputs();
   }
@@ -238,9 +238,16 @@ export class SceneGraph {
     if (!clean || clean === name) return;
     if (this.nameTaken(clean)) throw new Error("name-taken");
     const scene = this.requireScene(name);
+    const reported = scene.name;
     scene.name = clean;
+    this.engineNames.set(reported, clean);
     this.scenes.delete(name);
     this.scenes.set(clean, scene);
+    const unavailable = this.unavailableItems.get(name);
+    if (unavailable) {
+      this.unavailableItems.delete(name);
+      this.unavailableItems.set(clean, unavailable);
+    }
     this.sceneOrder = this.sceneOrder.map((entry) => (entry === name ? clean : entry));
     for (const key of [...this.locked]) {
       if (key.startsWith(`${name}\u0000`)) {
@@ -263,6 +270,27 @@ export class SceneGraph {
   }
 
   // ----- sources ------------------------------------------------------------
+
+  availableKinds(): SourceKind[] {
+    return availableSourceKinds(this.osn.InputFactory.types());
+  }
+
+  sourceChoices(sceneName: string): SourceChoiceDTO[] {
+    this.requireScene(sceneName);
+    const inputs = [...this.inputs].map(([name, { kind }]) => ({ name, kind }));
+    const scenes = this.sceneOrder.filter((name) => !this.referencesScene(name, sceneName)).map((name) => ({ name, kind: "scene" as const }));
+    return [...inputs, ...scenes];
+  }
+
+  addExistingSource(sceneName: string, sourceName: string): string {
+    const scene = this.requireScene(sceneName);
+    const nested = this.scenes.get(sourceName);
+    if (nested && this.referencesScene(sourceName, sceneName)) throw new Error("scene-cycle");
+    const source = nested?.source ?? this.requireInput(sourceName).input;
+    const item = scene.add(source);
+    if (nested) this.transform(item, "fit");
+    return sourceName;
+  }
 
   /** `extraSettings` lets the caller supply values only it knows (e.g. the overlay URL). */
   addSource(sceneName: string, kind: SourceKind, name: string, extraSettings: Record<string, unknown> = {}): string {
@@ -367,7 +395,7 @@ export class SceneGraph {
   }
 
   /** Interactive move/resize/rotate from the preview editor. */
-  setItemTransform(sceneName: string, itemId: number, patch: ItemTransformPatch): void {
+  patchItemTransform(sceneName: string, itemId: number, patch: ItemTransformPatch): void {
     if (this.locked.has(lockKey(sceneName, itemId))) throw new Error("item-locked");
     const item = this.requireItem(sceneName, itemId);
     item.deferUpdateBegin();
@@ -388,6 +416,93 @@ export class SceneGraph {
       const selected = item.id === itemId;
       if (item.selected !== selected) item.selected = selected;
     }
+  }
+
+  getItemTransform(sceneName: string, itemId: number): SourceTransformDTO {
+    const item = this.requireItem(sceneName, itemId);
+    if (!(item.source.outputFlags & 1)) throw new Error("source-transform-unavailable");
+    const sourceWidth = item.source.width;
+    const sourceHeight = item.source.height;
+    const crop = { ...item.crop };
+    const bounded = item.boundsType !== BOUNDS_NONE;
+    const pixels = (value: number) => Math.round(value * 1000) / 1000;
+    const anchor = (Object.entries(TRANSFORM_ANCHORS).find(([, value]) => value === item.alignment)?.[0] ?? "topLeft") as TransformAnchor;
+    return {
+      sourceName: this.nameOf(item.source), sourceWidth, sourceHeight,
+      locked: this.locked.has(lockKey(sceneName, itemId)),
+      x: pixels(item.position.x), y: pixels(item.position.y),
+      width: pixels(Math.max(1, bounded ? item.bounds.x : (sourceWidth - crop.left - crop.right) * Math.abs(item.scale.x))),
+      height: pixels(Math.max(1, bounded ? item.bounds.y : (sourceHeight - crop.top - crop.bottom) * Math.abs(item.scale.y))),
+      rotation: pixels(((item.rotation + 180) % 360 + 360) % 360 - 180),
+      sizing: item.boundsType === BOUNDS_SCALE_INNER ? "fit" : item.boundsType === BOUNDS_STRETCH ? "stretch" : "scale",
+      anchor, crop,
+    };
+  }
+
+  setItemTransform(sceneName: string, itemId: number, value: SourceTransform): void {
+    if (this.locked.has(lockKey(sceneName, itemId))) throw new Error("item-locked");
+    const item = this.requireItem(sceneName, itemId);
+    if (!(item.source.outputFlags & 1)) throw new Error("source-transform-unavailable");
+    validateTransform(value, item.source.width, item.source.height);
+    const before = {
+      position: { ...item.position }, scale: { ...item.scale }, rotation: item.rotation,
+      alignment: item.alignment, boundsType: item.boundsType, boundsAlignment: item.boundsAlignment,
+      bounds: { ...item.bounds }, crop: { ...item.crop },
+    };
+    item.deferUpdateBegin();
+    try {
+      item.crop = { ...value.crop };
+      item.alignment = TRANSFORM_ANCHORS[value.anchor];
+      item.position = { x: value.x, y: value.y };
+      item.rotation = value.rotation;
+      item.boundsAlignment = ALIGN_CENTER;
+      item.boundsType = value.sizing === "fit" ? BOUNDS_SCALE_INNER : value.sizing === "stretch" ? BOUNDS_STRETCH : BOUNDS_NONE;
+      if (value.sizing === "scale") {
+        item.scale = { x: value.width / (item.source.width - value.crop.left - value.crop.right) * Math.sign(before.scale.x || 1), y: value.height / (item.source.height - value.crop.top - value.crop.bottom) * Math.sign(before.scale.y || 1) };
+      } else {
+        setBounds(item, item.boundsType, ALIGN_CENTER, { x: value.width, y: value.height });
+      }
+    } catch (error) {
+      Object.assign(item, before);
+      setBounds(item, before.boundsType, before.boundsAlignment, before.bounds);
+      throw error;
+    } finally {
+      item.deferUpdateEnd();
+    }
+  }
+
+  readiness(volumeOf: (name: string) => number | undefined): SceneReadiness {
+    const result: SceneReadiness = { scene: this.active, pictureSources: 0, pendingSources: 0, audibleSources: 0, missingSources: 0 };
+    const sound = new Set<string>();
+    const missing = new Set<string>();
+    const visited = new Set<string>();
+    const addAudio = (name: string, input: IInput) => {
+      if ((input.outputFlags & OUTPUT_FLAG_AUDIO) && !input.muted && (volumeOf(name) ?? 1) > 0) sound.add(name);
+    };
+    const visit = (name: string) => {
+      if (visited.has(name)) return;
+      visited.add(name);
+      for (const saved of this.unavailableItems.get(name) ?? []) if (saved.visible) missing.add(saved.source);
+      for (const item of this.requireScene(name).getItems()) {
+        if (!item.visible) continue;
+        const sourceName = this.nameOf(item.source);
+        if (this.scenes.has(sourceName)) { visit(sourceName); continue; }
+        addAudio(sourceName, item.source);
+        if (!(item.source.outputFlags & 1)) continue;
+        if (item.source.width <= 0 || item.source.height <= 0) { result.pendingSources += 1; continue; }
+        const isTransparent = item.source.id === "color_source_v3" && ((Number(item.source.settings.color) >>> 24) === 0);
+        if (!isTransparent && onCanvas(this.getItemTransform(name, item.id), this.engine.settings.baseWidth, this.engine.settings.baseHeight)) result.pictureSources += 1;
+      }
+    };
+    if (this.active) visit(this.active);
+    for (const name of this.globalAudio.values()) {
+      const input = this.inputs.get(name)?.input;
+      if (input) addAudio(name, input);
+      else if (this.unavailable.has(name)) missing.add(name);
+    }
+    result.audibleSources = sound.size;
+    result.missingSources = missing.size;
+    return result;
   }
 
   renameSource(name: string, nextName: string): void {
@@ -480,12 +595,13 @@ export class SceneGraph {
   // ----- properties ---------------------------------------------------------
 
   getProperties(name: string): PropertyDTO[] {
+    if (this.scenes.has(name)) return [];
     const input = this.input(name);
     const settings = input.settings;
     const result: PropertyDTO[] = [];
     let property: IProperty | undefined = input.properties.first();
     while (property) {
-      const dto = toPropertyDTO(property, settings);
+      const dto = toPropertyDTO(property, settings, input.id);
       if (dto && property.visible) result.push(dto);
       property = property.next();
     }
@@ -493,7 +609,15 @@ export class SceneGraph {
   }
 
   updateSettings(name: string, settings: Record<string, unknown>): PropertyDTO[] {
-    this.input(name).update(settings);
+    const input = this.input(name);
+    input.update(settings);
+    // Device/method changes can reveal dependent controls and repopulate lists.
+    const properties = input.properties;
+    for (const key of Object.keys(settings)) {
+      const property = properties.get(key);
+      // The binding accepts settings at runtime despite its no-argument declaration.
+      if (property) (property.modified as (values: Record<string, unknown>) => boolean).call(property, input.settings);
+    }
     return this.getProperties(name);
   }
 
@@ -533,6 +657,7 @@ export class SceneGraph {
           bounds: { x: item.bounds.x, y: item.bounds.y },
           crop: { ...item.crop },
         }));
+      scenes[name].push(...this.unavailableItems.get(name) ?? []);
     }
     const sources: SavedSource[] = [...this.inputs.entries()].map(([name, { input, kind }]) => ({
       name,
@@ -545,6 +670,7 @@ export class SceneGraph {
     for (const [name, { kind, inputId, settings }] of this.dormant) {
       sources.push({ name, kind, inputId, settings, volume: volumeOf(name), muted: true });
     }
+    sources.push(...this.unavailable.values());
     return {
       activeScene: this.active,
       sceneOrder: [...this.sceneOrder],
@@ -563,29 +689,45 @@ export class SceneGraph {
     const globalChannels = new Map(collection.globalAudio.map(({ channel, source }) => [source, channel]));
     for (const saved of collection.sources) {
       if (!installed.has(saved.inputId)) {
-        console.warn(`[scenes] source type ${saved.inputId} is not available; skipping ${saved.name}`);
+        this.unavailable.set(saved.name, saved);
         continue;
       }
       const channel = globalChannels.get(saved.name);
-      if (saved.kind === "microphone" && saved.muted && channel !== undefined) {
+      const usedInScene = Object.values(collection.scenes).some((items) => items.some((item) => item.source === saved.name));
+      if (saved.kind === "microphone" && saved.muted && channel !== undefined && !usedInScene) {
         if (typeof saved.volume === "number") this.pendingVolumes.set(saved.name, saved.volume);
         this.dormant.set(saved.name, { kind: saved.kind, inputId: saved.inputId, settings: saved.settings, channel });
         this.globalAudio.set(channel, saved.name);
         continue;
       }
-      const input = this.osn.InputFactory.create(saved.inputId, saved.name, saved.settings);
-      if (typeof saved.volume === "number") this.pendingVolumes.set(saved.name, saved.volume);
-      input.muted = saved.muted;
-      this.inputs.set(saved.name, { input, kind: saved.kind });
+      try {
+        const input = this.osn.InputFactory.create(saved.inputId, saved.name, saved.settings);
+        if (typeof saved.volume === "number") this.pendingVolumes.set(saved.name, saved.volume);
+        input.muted = saved.muted;
+        this.inputs.set(saved.name, { input, kind: saved.kind });
+      } catch {
+        // Device loss or denied access must not prevent the studio from opening.
+        // Keep its settings and items for restoration on the next launch.
+        this.unavailable.set(saved.name, saved);
+      }
     }
+    // Create every scene before attaching items, including nested scenes.
     for (const name of collection.sceneOrder) {
       const scene = this.osn.SceneFactory.create(name);
       this.scenes.set(name, scene);
       this.sceneOrder.push(name);
+    }
+    for (const name of collection.sceneOrder) {
+      const scene = this.requireScene(name);
       for (const saved of collection.scenes[name] ?? []) {
-        const entry = this.inputs.get(saved.source);
-        if (!entry) continue;
-        const item = scene.add(entry.input);
+        const nested = this.scenes.get(saved.source);
+        if (nested && this.referencesScene(saved.source, name)) continue;
+        const source = nested?.source ?? this.inputs.get(saved.source)?.input;
+        if (!source) {
+          if (this.unavailable.has(saved.source)) this.unavailableItems.set(name, [...this.unavailableItems.get(name) ?? [], saved]);
+          continue;
+        }
+        const item = scene.add(source);
         item.visible = saved.visible;
         item.position = saved.position;
         item.scale = saved.scale;
@@ -602,6 +744,7 @@ export class SceneGraph {
     for (const { channel, source } of collection.globalAudio) {
       const entry = this.inputs.get(source);
       if (entry) this.bindGlobalAudio(channel, entry.input);
+      else if (this.unavailable.has(source)) this.globalAudio.set(channel, source);
     }
     const active = collection.activeScene && this.scenes.has(collection.activeScene) ? collection.activeScene : this.sceneOrder[0];
     this.setActiveScene(active, false);
@@ -649,6 +792,8 @@ export class SceneGraph {
     const channel = [...this.globalAudio.entries()].find(([, source]) => source === name)?.[0];
     const entry = this.inputs.get(name);
     if (channel === undefined || !entry) return;
+    // A reused microphone remains owned by its scene items; do not replace it.
+    if ([...this.scenes.values()].some((scene) => scene.getItems().some((item) => this.nameOf(item.source) === name))) return;
     const { input, kind } = entry;
     this.dormant.set(name, { kind, inputId: input.id, settings: input.settings, channel });
     this.osn.Global.setOutputSource(channel, null as unknown as IInput);
@@ -696,11 +841,16 @@ export class SceneGraph {
   }
 
   private resolveInputId(kind: SourceKind): string {
-    const installed = new Set(this.osn.InputFactory.types());
-    const candidates = process.platform === "win32" ? INPUT_IDS[kind].win32 : INPUT_IDS[kind].darwin;
-    const found = candidates.find((id) => installed.has(id));
+    const found = resolveSourceType(kind, this.osn.InputFactory.types());
     if (!found) throw new Error("source-unavailable");
     return found;
+  }
+
+  private referencesScene(from: string, target: string, visited = new Set<string>()): boolean {
+    if (from === target) return true;
+    if (visited.has(from)) return false;
+    visited.add(from);
+    return this.scenes.get(from)?.getItems().some((item) => this.referencesScene(this.nameOf(item.source), target, visited)) ?? false;
   }
 
   /** Sources not referenced by any scene or global channel are released. */
@@ -727,7 +877,7 @@ export class SceneGraph {
 
   private nameTaken(name: string): boolean {
     // Names the engine still reports for renamed sources stay reserved.
-    return this.scenes.has(name) || this.inputs.has(name) || this.dormant.has(name) || this.engineNames.has(name);
+    return this.scenes.has(name) || this.inputs.has(name) || this.dormant.has(name) || this.unavailable.has(name) || this.engineNames.has(name);
   }
 
   /** Current name for a name reported by the engine (see engineNames). */
@@ -793,7 +943,7 @@ function lockKey(scene: string, itemId: number): string {
   return `${scene}\u0000${itemId}`;
 }
 
-function toPropertyDTO(property: IProperty, settings: Record<string, unknown>): PropertyDTO | null {
+function toPropertyDTO(property: IProperty, settings: Record<string, unknown>, inputId: string): PropertyDTO | null {
   const base = {
     name: property.name,
     label: property.description || property.name,
@@ -832,15 +982,19 @@ function toPropertyDTO(property: IProperty, settings: Record<string, unknown>): 
       const items = Array.isArray(details.items) ? (details.items as { name: string; value: string | number }[]) : [];
       return { ...base, kind: "list", options: items.map((item) => ({ label: item.name, value: item.value })) };
     }
+    case P.Font:
+      return { ...base, kind: "font" };
+    case P.EditableList:
+      return { ...base, kind: "editableList", pathFilter: typeof details.filter === "string" ? details.filter : undefined, allowUrls: Number(details.type) !== 1 };
     case P.Color:
     case P.ColorAlpha:
-      kind = "color";
-      break;
+      // The binding reports the current color source's alpha control as Color.
+      return { ...base, kind: "color", allowAlpha: property.type === P.ColorAlpha || inputId === "color_source_v3" };
     case P.Button:
       kind = "button";
       break;
     default:
-      // Fonts, editable lists, frame rates, groups and capture pickers are not
+      // Frame rates, groups and platform-specific capture pickers are not
       // editable from the generic panel yet; their current value is preserved.
       return null;
   }

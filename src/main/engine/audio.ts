@@ -24,7 +24,13 @@ export class AudioMixer {
   ) {
     // Meters are detached before their source is released, never after.
     scenes.releaseGuard = (inputs, release) => {
-      for (const [name, attached] of [...this.attached]) if (inputs.includes(attached)) this.detach(name);
+      const dormant = new Set(scenes.dormantAudio());
+      for (const [name, attached] of [...this.attached]) {
+        if (!inputs.includes(attached)) continue;
+        const volume = this.faders.get(name)?.deflection;
+        if (dormant.has(name) && volume !== undefined) scenes.setPendingVolume(name, volume);
+        this.detach(name);
+      }
       release();
     };
   }

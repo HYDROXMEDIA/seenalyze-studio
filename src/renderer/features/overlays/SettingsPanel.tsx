@@ -76,7 +76,7 @@ function FieldControl({ field, value, onChange }: { field: OverlayField; value: 
       return (
         <div className="grid gap-2">
           <Label htmlFor={id}>{field.label}</Label>
-          <ColorField id={id} value={String(value)} onChange={onChange} />
+          <ColorField id={id} label={field.label} value={String(value)} onChange={onChange} />
         </div>
       );
     case "range":

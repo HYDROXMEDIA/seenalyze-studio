@@ -14,6 +14,7 @@ import type {
   RecordingStatus,
   SceneDTO,
   SourceKind,
+  SourceTransform,
   TransformPreset,
   VideoSettings,
 } from "../../shared/types";
@@ -36,6 +37,8 @@ export interface EngineInit {
 
 export interface EngineState {
   scenes: SceneDTO[];
+  availableSourceKinds: SourceKind[];
+  unavailableSourceCount: number;
   activeScene: string | null;
   audio: AudioSourceDTO[];
   encoders: EncoderOption[];
@@ -121,6 +124,8 @@ const handlers = {
     const out = need(outputs);
     return {
       scenes: graph.listScenes(),
+      availableSourceKinds: graph.availableKinds(),
+      unavailableSourceCount: graph.unavailableSourceCount,
       activeScene: graph.activeScene,
       audio: need(audio).list(),
       encoders: need(engine).availableEncoders(),
@@ -142,6 +147,8 @@ const handlers = {
   programSource: (): string | null => need(scenes).programSource,
   addSource: (scene: string, kind: SourceKind, name: string, settings?: Record<string, unknown>): string =>
     withScenes((graph) => graph.addSource(scene, kind, name, settings)),
+  listSourceChoices: (scene: string) => need(scenes).sourceChoices(scene),
+  addExistingSource: (scene: string, source: string) => withScenes((graph) => graph.addExistingSource(scene, source)),
   retargetChatOverlays: (origin: string): number => need(scenes).retargetChatOverlays(origin),
   resizeOverlaySources: (overlayId: string, width: number, height: number): number => need(scenes).resizeOverlaySources(overlayId, width, height),
   removeSceneItem: (scene: string, itemId: number) => withScenes((graph) => graph.removeSceneItem(scene, itemId)),
@@ -149,11 +156,14 @@ const handlers = {
   setItemLocked: (scene: string, itemId: number, locked: boolean) => need(scenes).setItemLocked(scene, itemId, locked),
   moveSceneItem: (scene: string, itemId: number, direction: "up" | "down") => need(scenes).moveSceneItem(scene, itemId, direction),
   applyTransform: (scene: string, itemId: number, preset: TransformPreset) => need(scenes).applyTransform(scene, itemId, preset),
-  setItemTransform: (scene: string, itemId: number, patch: ItemTransformPatch) => need(scenes).setItemTransform(scene, itemId, patch),
+  patchItemTransform: (scene: string, itemId: number, patch: ItemTransformPatch) => need(scenes).patchItemTransform(scene, itemId, patch),
   setSelectedItem: (scene: string, itemId: number | null) => need(scenes).setSelectedItem(scene, itemId),
+  getItemTransform: (scene: string, itemId: number) => need(scenes).getItemTransform(scene, itemId),
+  setItemTransform: (scene: string, itemId: number, transform: SourceTransform) => need(scenes).setItemTransform(scene, itemId, transform),
+  sceneReadiness: () => need(scenes).readiness((name) => audio?.volumeOf(name)),
   getProperties: (source: string): PropertyDTO[] => need(scenes).getProperties(source),
-  updateSettings: (source: string, settings: Record<string, unknown>): PropertyDTO[] => need(scenes).updateSettings(source, settings),
-  clickButton: (source: string, property: string): PropertyDTO[] => need(scenes).clickButton(source, property),
+  updateSettings: (source: string, settings: Record<string, unknown>): PropertyDTO[] => withScenes((graph) => graph.updateSettings(source, settings)),
+  clickButton: (source: string, property: string): PropertyDTO[] => withScenes((graph) => graph.clickButton(source, property)),
   renameSource(source: string, next: string): void {
     const graph = need(scenes);
     graph.renameSource(source, next);

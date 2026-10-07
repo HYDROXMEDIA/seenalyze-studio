@@ -81,6 +81,7 @@
     "hide": "Hide",
     "show": "Show",
     "properties": "Properties",
+    "editTransform": "Position and crop",
     "fit": "Fit to screen",
     "stretch": "Stretch to screen",
     "center": "Center",
@@ -89,14 +90,27 @@
     "moveDown": "Move down",
     "removeTitle": "Remove \"{name}\"?",
     "removeDescription": "The source is removed from this scene.",
+    "createNew": "Create new",
+    "useExisting": "Use existing",
+    "chooseSource": "Choose a source…",
+    "noExisting": "No sources available to reuse in this scene.",
     "kinds": {
       "display": "Screen",
       "window": "Window",
+      "application": "Application",
+      "game": "Game capture",
       "camera": "Camera",
+      "captureCard": "Capture card",
       "microphone": "Microphone",
       "desktopAudio": "Desktop audio",
+      "applicationAudio": "Application audio",
       "image": "Image",
-      "media": "Video file",
+      "slideshow": "Slideshow",
+      "media": "Audio / video",
+      "playlist": "Media playlist",
+      "scene": "Scene",
+      "syphon": "Syphon",
+      "blackmagic": "Blackmagic device",
       "text": "Text",
       "color": "Color",
       "browser": "Web page",
@@ -107,10 +121,57 @@
     "title": "{name} properties",
     "none": "This source has no settings",
     "browse": "Browse",
-    "choose": "Choose…"
+    "choose": "Choose…",
+    "refresh": "Refresh",
+    "loadFailed": "Settings couldn't be loaded. Refresh to try again.",
+    "noOptions": "Nothing found. Connect your device or open the app, then refresh.",
+    "onePerLine": "One file or address per line",
+    "fontFamily": "Font",
+    "fontSize": "Size",
+    "bold": "Bold",
+    "italic": "Italic"
+  },
+  "transformEditor": {
+    "title": "{name} layout",
+    "loadingTitle": "Source layout",
+    "loadFailed": "This source layout couldn't be loaded.",
+    "x": "X",
+    "y": "Y",
+    "width": "Width",
+    "height": "Height",
+    "rotation": "Rotation",
+    "sizing": "Sizing",
+    "anchor": "Anchor",
+    "crop": "Crop",
+    "cropEdges": { "left": "Left", "top": "Top", "right": "Right", "bottom": "Bottom" },
+    "sizingOptions": { "fit": "Fit", "stretch": "Stretch", "scale": "Scale" },
+    "anchorOptions": { "topLeft": "Top left", "top": "Top", "topRight": "Top right", "left": "Left", "center": "Center", "right": "Right", "bottomLeft": "Bottom left", "bottom": "Bottom", "bottomRight": "Bottom right" },
+    "saved": "Source layout saved",
+    "discardTitle": "Discard your changes?",
+    "discardDescription": "Your source layout changes haven't been saved.",
+    "discard": "Discard"
+  },
+  "streamCheck": {
+    "title": "Check your stream",
+    "noPicture": "This scene has no visible picture.",
+    "waitingSources": "{count, plural, one {One source has no picture yet. Select its input or file first.} other {# sources have no picture yet. Select their inputs or files first.}}",
+    "noSound": "This scene has no unmuted sound source.",
+    "missingSources": "{count, plural, one {One saved source is unavailable. Reconnect its device or check permissions.} other {# saved sources are unavailable. Reconnect their devices or check permissions.}}",
+    "unknown": "This destination needs attention.",
+    "start": "Go live",
+    "startMany": "Go live on {count}",
+    "startReady": "Go live on {count}"
+  },
+  "colorPicker": {
+    "hex": "Hex",
+    "hue": "Hue",
+    "saturation": "Color",
+    "saturationBrightness": "Saturation {saturation}%, brightness {brightness}%",
+    "opacity": "Opacity"
   },
   "mixer": {
     "title": "Audio",
+    "properties": "{name} settings",
     "empty": "No audio sources",
     "muted": "Muted",
     "volume": "{name} volume",
@@ -138,6 +199,8 @@
     "include": "Include {name} when going live",
     "goLiveOne": "Go live here",
     "endOne": "End stream here",
+    "endOneTitle": "End the stream on {name}?",
+    "endOneDescription": "Your other destinations keep streaming.",
     "streamInfo": "Stream title",
     "summary": "{encodes, plural, one {# encode} other {# encodes}} · needs about {upload} Mbps upload",
     "removeTitle": "Remove \"{name}\"?",
@@ -187,6 +250,9 @@
     "startRecording": "Record",
     "stopRecording": "Stop",
     "showRecording": "Show recording",
+    "recordScreen": "Record screen",
+    "stopScreenRecording": "Stop screen recording",
+    "editRecording": "Edit recording",
     "settings": "Settings",
     "endTitle": "End the stream?",
     "endDescription": "{count, plural, one {Your stream ends now.} other {All # streams end now.}}",
@@ -280,7 +346,8 @@
     "confirm": "Quit"
   },
   "notices": {
-    "accountConnected": "{name} connected"
+    "accountConnected": "{name} connected",
+    "sourcesUnavailable": "Some saved sources couldn't be opened. Reconnect your devices or check permissions, then restart. Their settings are kept."
   },
   "errors": {
     "output": {
@@ -304,11 +371,18 @@
       "invalid-request": "That action isn't allowed.",
       "last-scene": "You need at least one scene.",
       "scene-not-found": "That scene no longer exists.",
+      "scene-in-use": "Remove this scene from other scenes first.",
+      "scene-cycle": "A scene cannot contain itself, including through another scene.",
       "item-not-found": "That source no longer exists.",
       "source-not-found": "That source no longer exists.",
       "source-unavailable": "This source type isn't available on this computer.",
       "name-taken": "That name is already used.",
       "item-locked": "Unlock the source first.",
+      "invalid-transform": "Enter valid source positions and dimensions.",
+      "invalid-crop": "Keep at least one pixel of the source visible.",
+      "source-picture-not-ready": "This source has no picture yet. Select an input or file first.",
+      "source-transform-unavailable": "This source doesn't have a picture to position.",
+      "platform-timeout": "The platform took too long to respond. Check your connection and try again.",
       "settings-locked-live": "End your stream and recording to change this.",
       "encoder-unavailable": "That encoder isn't available on this computer.",
       "recording-folder-missing": "The recording folder doesn't exist. Choose another in Settings.",
@@ -336,7 +410,7 @@
       "youtube-quota-exceeded": "YouTube's daily request limit for this app was reached. Try again tomorrow.",
       "youtube-chat-ended": "This YouTube live chat has ended.",
       "youtube-chat-disabled": "Live chat is turned off for this YouTube stream.",
-      "twitch-scope-missing": "Reconnect Twitch to allow follower alerts and channel point rewards.",
+      "twitch-scope-missing": "Reconnect Twitch to allow this action.",
       "seenalyze-origin-invalid": "The SEENALYZE address in this build is not valid.",
       "seenalyze-signed-out": "Sign in to your SEENALYZE account to continue.",
       "seenalyze-sign-in-failed": "Signing in to SEENALYZE didn't work. Try again.",
@@ -505,6 +579,309 @@
       "notAvailable": "The AI designer isn't available on this account yet.",
       "done": "{name} is ready",
       "doneWithCredits": "{name} is ready · {credits} credits used"
+    }
+  },
+  "screenRecording": {
+    "capture": {
+      "windowTitle": "Record screen",
+      "hints": {
+        "dragArea": "Drag to select an area",
+        "clickScreen": "Click to record this screen",
+        "selectAreaFirst": "Select an area first",
+        "chooseWindow": "Choose a window"
+      },
+      "mode": {
+        "window": "Window",
+        "area": "Area",
+        "screen": "Full Screen",
+        "label": "Record",
+        "windowTitle": "Record a window",
+        "areaTitle": "Record a selected area",
+        "screenTitle": "Record the entire screen"
+      },
+      "record": {
+        "format": "Format",
+        "resolution": "Resolution",
+        "native": "Native",
+        "microphone": "Microphone",
+        "micOff": "Off",
+        "micDefault": "Default",
+        "saveTo": "Save to",
+        "fps": "FPS",
+        "chooseFolder": "Choose where recordings are saved",
+        "defaultFolder": "Videos",
+        "camera": "Camera",
+        "cameraOff": "Off",
+        "cameraDefault": "Default",
+        "cameraFailed": "The camera could not be started. Check that SEENALYZE STUDIO may use it and that no other app has it.",
+        "devices": "Microphone and camera"
+      },
+      "picker": {
+        "label": "Windows",
+        "windowLabel": "{app} — {title}",
+        "untitled": "Untitled window",
+        "empty": "No windows available"
+      },
+      "toolbar": {
+        "label": "Recording options",
+        "cancel": "Cancel",
+        "cancelTitle": "Cancel (Esc)"
+      },
+      "actions": {
+        "record": "Record"
+      },
+      "selection": {
+        "size": "{width} × {height}"
+      },
+      "errors": {
+        "captureFailed": "Recording could not start. Try again."
+      },
+      "systemAudio": "System audio",
+      "audioApp": "Audio from",
+      "allApps": "All apps"
+    },
+    "controls": {
+      "title": "Screen recording",
+      "pause": "Pause",
+      "resume": "Resume",
+      "stop": "Stop recording"
+    },
+    "recorder": {
+      "window": {
+        "title": "Recording"
+      },
+      "pill": {
+        "label": "Screen recording"
+      },
+      "stop": {
+        "label": "Stop recording",
+        "short": "Stop"
+      }
+    },
+    "editor": {
+      "window": {
+        "title": "Edit Recording"
+      },
+      "preview": "Preview",
+      "loading": "Loading",
+      "play": "Play",
+      "pause": "Pause",
+      "export": {
+        "button": "Export",
+        "cancel": "Cancel",
+        "saved": "Video exported",
+        "failed": "The video could not be exported. Try again.",
+        "unsupported": "Video export is not supported on this computer.",
+        "reveal": "Show in Finder",
+        "title": "Export video",
+        "resolution": "Resolution",
+        "frameRate": "Frame rate",
+        "quality": "Quality",
+        "original": "Original",
+        "uhd": "4K",
+        "qhd": "1440p",
+        "fullHd": "1080p",
+        "hd": "720p",
+        "fps": "{fps} fps",
+        "summary": "{width} × {height} · {length} · about {size} MB",
+        "percent": "{percent}%",
+        "qualities": {
+          "standard": "Standard",
+          "high": "High",
+          "max": "Maximum"
+        },
+        "protected": "Choose another name: that file belongs to a recording.",
+        "revealWindows": "Show in File Explorer"
+      },
+      "background": {
+        "title": "Background",
+        "padding": "Padding",
+        "corners": "Corners",
+        "shadow": "Shadow",
+        "dusk": "Dusk",
+        "ocean": "Ocean",
+        "meadow": "Meadow",
+        "graphite": "Graphite",
+        "paper": "Paper",
+        "none": "None",
+        "image": "Your image",
+        "addImage": "Add image",
+        "removeImage": "Remove image",
+        "invalidImage": "That file is not a supported image.",
+        "imageFailed": "The image could not be added. Try again."
+      },
+      "frame": {
+        "title": "Frame",
+        "auto": "Original",
+        "wide": "16:9",
+        "classic": "4:3",
+        "square": "Square",
+        "portrait": "4:5",
+        "tall": "9:16"
+      },
+      "zoom": {
+        "title": "Auto zoom",
+        "enabled": "Zoom on clicks and typing",
+        "level": "Zoom level",
+        "smoothness": "Smoothness",
+        "clicks": "Click effects",
+        "unavailable": "This video has no cursor data, so auto zoom is off.",
+        "selected": "Selected zoom",
+        "follow": "Follow pointer",
+        "maxLevel": "Maximum zoom",
+        "replan": "Suggest zooms again"
+      },
+      "openAfterRecording": "Open after each recording",
+      "cursor": {
+        "title": "Pointer",
+        "size": "Size",
+        "smoothing": "Smoothing",
+        "hideIdle": "Hide when still"
+      },
+      "motionBlur": "Motion blur",
+      "edit": {
+        "title": "Edit",
+        "undo": "Undo",
+        "redo": "Redo",
+        "undoShortcut": "Undo (⌘Z)",
+        "redoShortcut": "Redo (⇧⌘Z)",
+        "split": "Split",
+        "splitShortcut": "Split at playhead (S)",
+        "speed": "Speed",
+        "speedValue": "{speed}×",
+        "addZoom": "Zoom",
+        "addZoomShortcut": "Add zoom at playhead (Z)",
+        "delete": "Delete",
+        "deleteShortcut": "Delete selection (⌫)",
+        "clips": "Clips",
+        "zooms": "Zooms",
+        "clipLabel": "Clip {number}",
+        "zoomLabel": "Zoom {level}×",
+        "lastClip": "At least one part of the video has to stay.",
+        "zoomExists": "A zoom already covers this moment."
+      },
+      "effects": {
+        "title": "Effects",
+        "shortcuts": "Show shortcuts"
+      },
+      "camera": {
+        "title": "Camera",
+        "show": "Show camera",
+        "shape": "Shape",
+        "position": "Position",
+        "size": "Size",
+        "shrink": "Smaller while zoomed",
+        "mirror": "Mirror",
+        "shapes": {
+          "circle": "Circle",
+          "rounded": "Rounded",
+          "square": "Square"
+        },
+        "positions": {
+          "top-left": "Top left",
+          "top-right": "Top right",
+          "bottom-left": "Bottom left",
+          "bottom-right": "Bottom right"
+        },
+        "preview": "Camera preview",
+        "smaller": "Smaller",
+        "larger": "Larger"
+      },
+      "sounds": {
+        "title": "Sounds",
+        "clicks": "Clicks",
+        "clickVolume": "Click volume",
+        "typing": "Typing",
+        "typingVolume": "Typing volume",
+        "styles": {
+          "none": "Off",
+          "soft": "Soft",
+          "crisp": "Crisp",
+          "pop": "Pop",
+          "mechanical": "Mechanical",
+          "typewriter": "Typewriter"
+        }
+      },
+      "keys": {
+        "title": "Shortcut keys",
+        "color": "Key color",
+        "custom": "Custom color",
+        "size": "Key size",
+        "position": "Key position",
+        "sizes": {
+          "small": "Small",
+          "medium": "Medium",
+          "large": "Large"
+        },
+        "positions": {
+          "bottom": "Bottom",
+          "top": "Top"
+        },
+        "colors": {
+          "dark": "Dark",
+          "light": "White",
+          "orange": "Orange",
+          "blue": "Blue",
+          "green": "Green"
+        }
+      },
+      "saveFailed": "Changes could not be saved.",
+      "loadFailed": "This recording could not be opened.",
+      "close": "Close",
+      "discard": {
+        "button": "Discard",
+        "failed": "The recording could not be discarded. Try again."
+      },
+      "presets": {
+        "title": "Style presets",
+        "choose": "Choose a preset",
+        "name": "Preset name",
+        "default": "Use for new recordings",
+        "save": "Save style",
+        "remove": "Remove preset"
+      },
+      "captions": {
+        "title": "Captions",
+        "show": "Show captions",
+        "generate": "Generate captions",
+        "cancel": "Cancel",
+        "srt": "Export SRT",
+        "vtt": "Export VTT",
+        "text": "Caption",
+        "failed": "Could not generate captions. Check speech setup and try again.",
+        "recovered": "Recovered your last saved project.",
+        "start": "Caption start in seconds",
+        "end": "Caption end in seconds",
+        "invalidTiming": "Keep captions in order and within the video.",
+        "preparing": "Preparing captions…"
+      }
+    },
+    "main": {
+      "dialogs": {
+        "recordingFolder": "Save Recordings To",
+        "choose": "Choose",
+        "openRecording": "Edit a Recording",
+        "editRecording": "Edit Recording",
+        "exportRecording": "Export Video",
+        "video": "Video",
+        "chooseBackground": "Choose Background Image",
+        "image": "Image",
+        "removeBackground": "Remove this background image?",
+        "removeBackgroundDetail": "Recordings using it will switch back to a gradient. Your original file is kept.",
+        "remove": "Remove",
+        "cancel": "Cancel",
+        "discard": "Discard",
+        "discardRecording": "Discard this recording?",
+        "discardRecordingDetail": "The recording, camera video, and edits will be deleted."
+      },
+      "capture": {
+        "noSession": "No recording is being set up",
+        "busy": "Busy",
+        "invalid": "Invalid request",
+        "tooSmall": "Selection is too small",
+        "windowUnavailable": "Window unavailable",
+        "recordFailed": "The recording could not start"
+      }
     }
   }
 }

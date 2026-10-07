@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title data-i18n="recorder.window.title">Recording</title>
+    <link rel="stylesheet" href="./recorder.css" />
+  </head>
+  <body data-state="starting">
+    <div class="pill" role="group" aria-label="Screen recording" data-i18n-attr="aria-label:recorder.pill.label">
+      <span class="dot" aria-hidden="true"></span>
+      <span class="time" id="time" role="timer" aria-live="off">0:00</span>
+      <button class="stop" id="stop" type="button" aria-label="Stop recording" title="Stop recording" data-i18n-attr="aria-label:recorder.stop.label;title:recorder.stop.label">
+        <span class="stop-square" aria-hidden="true"></span>
+        <span data-i18n="recorder.stop.short">Stop</span>
+      </button>
+    </div>
+    <script src="./recorder.js" type="module"></script>
+  </body>
+</html>

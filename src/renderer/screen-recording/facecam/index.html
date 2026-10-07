@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title data-i18n="editor.camera.title">Camera</title>
+    <link rel="stylesheet" href="./facecam.css" />
+  </head>
+  <body>
+    <video id="camera" autoplay muted playsinline aria-label="Camera preview" data-i18n-attr="aria-label:editor.camera.preview"></video>
+    <div class="size-controls">
+      <button type="button" id="smaller" aria-label="Smaller" title="Smaller" data-i18n-attr="aria-label:editor.camera.smaller;title:editor.camera.smaller">−</button>
+      <button type="button" id="larger" aria-label="Larger" title="Larger" data-i18n-attr="aria-label:editor.camera.larger;title:editor.camera.larger">+</button>
+    </div>
+    <script src="./facecam.js" type="module"></script>
+  </body>
+</html>

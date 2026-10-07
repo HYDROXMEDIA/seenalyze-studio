@@ -5,9 +5,15 @@
 
 import { execSync } from "node:child_process";
 import { app, BrowserWindow } from "electron";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { Studio } from "../src/main/studio";
 
 const t0 = Date.now();
+const testData = path.join(app.getAppPath(), ".responsiveness-check-data");
+mkdirSync(testData, { recursive: true });
+app.setPath("userData", testData);
+writeFileSync(path.join(testData, "studio.json"), JSON.stringify({ collection: { activeScene: "Scene", sceneOrder: ["Scene"], scenes: { Scene: [] }, sources: [], globalAudio: [] } }));
 const log = (message: string) => console.log(`[check] +${Date.now() - t0}ms ${message}`);
 
 // Main-thread lag monitor: a 20ms timer that records how late it fires.
@@ -37,6 +43,7 @@ app.whenReady().then(async () => {
     log(`sources added (${text})`);
 
     const properties = await studio.api.getSourceProperties(text);
+    await studio.api.updateSourceSettings(text, { text: "Updated caption" });
     log(`text properties: ${properties.length}`);
     await studio.api.renameSource(text, "Renamed text");
     await studio.api.setVideoSettings({ baseWidth: 1280, baseHeight: 720, outputWidth: 1280, outputHeight: 720, fps: 30 });
@@ -67,5 +74,6 @@ app.whenReady().then(async () => {
   log(`shutdown took ${quitMs}ms, leftover engine processes: ${leftover ? leftover.split("\n").length : 0}`);
   if (quitMs > 8000 || leftover) failed = true;
   console.log(failed ? "[check] RESULT: FAIL" : "[check] RESULT: PASS");
+  rmSync(testData, { recursive: true, force: true });
   app.exit(failed ? 1 : 0);
 });

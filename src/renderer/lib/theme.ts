@@ -1,5 +1,7 @@
 // Theme preference is a per-device convenience, so it lives in localStorage.
 
+import { studio } from "./studio";
+
 export type ThemePreference = "dark" | "light" | "system";
 
 const KEY = "seenalyze-studio-theme";
@@ -17,6 +19,8 @@ export function readTheme(): ThemePreference {
 export function applyTheme(preference: ThemePreference): void {
   const dark = preference === "dark" || (preference === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
   document.documentElement.classList.toggle("dark", dark);
+  // The screen-recording windows follow the same appearance.
+  studio.setAppearance(dark ? "dark" : "light").catch((error: unknown) => console.warn("[theme] could not share appearance", error));
 }
 
 export function saveTheme(preference: ThemePreference): void {

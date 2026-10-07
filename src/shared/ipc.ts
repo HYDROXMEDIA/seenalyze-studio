@@ -25,6 +25,10 @@ import type {
   ItemTransformPatch,
   Rect,
   SourceKind,
+  SourceChoiceDTO,
+  SourceTransform,
+  SourceTransformDTO,
+  StreamCheck,
   StudioSnapshot,
   TransformPreset,
   StudioPreferences,
@@ -46,15 +50,19 @@ export interface StudioApi {
   // Sources
   /** Resolves with the final (unique) source name. */
   addSource(scene: string, kind: SourceKind, name: string): Promise<string>;
+  listSourceChoices(scene: string): Promise<SourceChoiceDTO[]>;
+  addExistingSource(scene: string, source: string): Promise<string>;
   removeSceneItem(scene: string, itemId: number): Promise<void>;
   setItemVisible(scene: string, itemId: number, visible: boolean): Promise<void>;
   setItemLocked(scene: string, itemId: number, locked: boolean): Promise<void>;
   moveSceneItem(scene: string, itemId: number, direction: "up" | "down"): Promise<void>;
   applyTransform(scene: string, itemId: number, preset: TransformPreset): Promise<void>;
   /** Live transform from the preview editor; `commit` refreshes state and saves (drag end). */
-  setItemTransform(scene: string, itemId: number, patch: ItemTransformPatch, commit: boolean): Promise<void>;
+  patchItemTransform(scene: string, itemId: number, patch: ItemTransformPatch, commit: boolean): Promise<void>;
   /** Marks the item the preview draws its selection outline for (null clears). */
   setSelectedItem(scene: string, itemId: number | null): Promise<void>;
+  getItemTransform(scene: string, itemId: number): Promise<SourceTransformDTO>;
+  setItemTransform(scene: string, itemId: number, transform: SourceTransform): Promise<void>;
   getSourceProperties(source: string): Promise<PropertyDTO[]>;
   updateSourceSettings(source: string, settings: Record<string, unknown>): Promise<PropertyDTO[]>;
   clickSourceButton(source: string, property: string): Promise<PropertyDTO[]>;
@@ -92,10 +100,20 @@ export interface StudioApi {
 
   // Go live / record
   goLive(destinationIds: string[]): Promise<void>;
+  checkStream(destinationIds: string[]): Promise<StreamCheck>;
   endStream(destinationIds: string[]): Promise<void>;
   startRecording(): Promise<void>;
   stopRecording(): Promise<void>;
   revealRecording(): Promise<void>;
+
+  // Screen recording with the editor
+  /** Opens the recording picker, or stops the screen recording that is running. */
+  toggleScreenRecording(): Promise<void>;
+  /** Lets the user choose a video and opens it in the recording editor. */
+  openRecordingEditor(): Promise<void>;
+  /** Tells the screen-recording windows which appearance the app uses. */
+  setAppearance(theme: "dark" | "light"): Promise<void>;
+
   quitApp(): Promise<void>;
   /** Starts the engine again after it stopped unexpectedly. */
   restartEngine(): Promise<void>;
@@ -170,13 +188,17 @@ export const STUDIO_METHODS: readonly StudioMethod[] = [
   "setActiveScene",
   "setTransition",
   "addSource",
+  "listSourceChoices",
+  "addExistingSource",
   "removeSceneItem",
   "setItemVisible",
   "setItemLocked",
   "moveSceneItem",
   "applyTransform",
-  "setItemTransform",
+  "patchItemTransform",
   "setSelectedItem",
+  "getItemTransform",
+  "setItemTransform",
   "getSourceProperties",
   "updateSourceSettings",
   "clickSourceButton",
@@ -201,10 +223,14 @@ export const STUDIO_METHODS: readonly StudioMethod[] = [
   "searchCategories",
   "openExternal",
   "goLive",
+  "checkStream",
   "endStream",
   "startRecording",
   "stopRecording",
   "revealRecording",
+  "toggleScreenRecording",
+  "openRecordingEditor",
+  "setAppearance",
   "quitApp",
   "restartEngine",
   "requestPermission",

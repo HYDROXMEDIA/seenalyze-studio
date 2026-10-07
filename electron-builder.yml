@@ -27,10 +27,21 @@ mac:
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
-    NSCameraUsageDescription: SEENALYZE STUDIO uses your camera when you add it as a source.
-    NSMicrophoneUsageDescription: SEENALYZE STUDIO uses your microphone when you add it as a source.
+    NSCameraUsageDescription: SEENALYZE STUDIO uses your camera when you add it as a source or record it with your screen.
+    NSMicrophoneUsageDescription: SEENALYZE STUDIO uses your microphone when you add it as a source or record it with your screen.
+    NSAudioCaptureUsageDescription: SEENALYZE STUDIO records system sound only when you turn it on for a screen recording.
+  # Screen-recording helpers built by scripts/build-native.mjs.
+  extraResources:
+    - from: bin
+      to: bin
+      filter: [screen-recorder, video-muxer, media-tools, window-list]
 win:
   target: [nsis]
+  # Screen-recording helpers (window list and caption audio preparation).
+  extraResources:
+    - from: native
+      to: native
+      filter: ["*.ps1"]
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true

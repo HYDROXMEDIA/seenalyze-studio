@@ -55,15 +55,25 @@ import { cn } from "@/lib/utils";
 import { useStudio } from "@/store/studio";
 import { AddSourceDialog } from "./AddSourceDialog";
 import { SourcePropertiesDialog } from "./SourcePropertiesDialog";
+import { SourceTransformDialog } from "./SourceTransformDialog";
 
 export const SOURCE_ICONS: Record<SourceKind | "other", LucideIcon> = {
   display: MonitorIcon,
   window: AppWindowIcon,
+  application: AppWindowIcon,
+  game: MonitorIcon,
   camera: CameraIcon,
+  captureCard: CameraIcon,
   microphone: MicIcon,
   desktopAudio: Volume2Icon,
+  applicationAudio: Volume2Icon,
   image: ImageIcon,
+  slideshow: ImageIcon,
   media: FilmIcon,
+  playlist: FilmIcon,
+  scene: LayersIcon,
+  syphon: AppWindowIcon,
+  blackmagic: CameraIcon,
   text: TypeIcon,
   color: PaletteIcon,
   browser: GlobeIcon,
@@ -74,7 +84,7 @@ export const SOURCE_ICONS: Record<SourceKind | "other", LucideIcon> = {
 
 export function SourceIcon({ kind, className }: { kind: SourceKind | "other"; className?: string }) {
   const Icon = SOURCE_ICONS[kind];
-  return <Icon className={className} />;
+  return <Icon className={className} aria-hidden />;
 }
 
 export function SourcesDock() {
@@ -88,6 +98,7 @@ export function SourcesDock() {
   const [editing, setEditing] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [removing, setRemoving] = useState<SceneItemDTO | null>(null);
+  const [transforming, setTransforming] = useState<{ scene: string; itemId: number } | null>(null);
 
   if (!scene) return <Dock title={t("title")}>{null}</Dock>;
 
@@ -160,6 +171,10 @@ export function SourcesDock() {
                       {tc("rename")}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem disabled={item.locked || ["microphone", "desktopAudio", "applicationAudio"].includes(item.kind)} onSelect={() => setTransforming({ scene: scene.name, itemId: item.id })}>
+                      <ScanIcon />
+                      {t("editTransform")}
+                    </DropdownMenuItem>
                     <DropdownMenuItem disabled={item.locked} onSelect={() => void run(() => studio.applyTransform(scene.name, item.id, "fit"))}>
                       <ScanIcon />
                       {t("fit")}
@@ -203,6 +218,7 @@ export function SourcesDock() {
 
       <AddSourceDialog open={adding} scene={scene.name} onOpenChange={setAdding} onAdded={(name) => setEditing(name)} />
       <SourcePropertiesDialog source={editing} onClose={() => setEditing(null)} />
+      <SourceTransformDialog target={transforming} onClose={() => setTransforming(null)} />
       <NameDialog
         open={renaming !== null}
         title={tc("rename")}

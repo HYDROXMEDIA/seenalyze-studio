@@ -10,16 +10,17 @@ import type { Notice, StudioApi, StudioMethod } from "../shared/ipc";
 import { IPC } from "../shared/ipc";
 import { OVERLAY_KINDS, type DesignRequest, type DesignResult, type OverlayKind } from "../shared/overlays";
 import { clampProfile, PLATFORM_SPECS } from "../shared/platforms";
+import { sceneIssues } from "../shared/stream-check";
 import type {
   AccountDTO,
   BroadcastInfo,
   DestinationConfig,
   DestinationDraft,
   DestinationStatus,
-  ItemTransformPatch,
   Rect,
   SourceKind,
   StudioPreferences,
+  StreamCheck,
   StudioSnapshot,
   VideoSettings,
 } from "../shared/types";
@@ -37,6 +38,7 @@ import { OverlayLibrary, summarize } from "./overlay/library";
 import { findPreset, OVERLAY_PRESETS } from "./overlay/presets";
 import type { PreviewEditorWindow } from "./preview-editor-window";
 import { MacPreviewView } from "./preview-mac";
+import { ScreenRecorder } from "./screen-recording";
 import { SeenalyzeAccountService } from "./seenalyze/account";
 import * as twitch from "./platforms/twitch";
 import { forgetToken, readToken } from "./platforms/tokens";
@@ -44,6 +46,7 @@ import * as youtube from "./platforms/youtube";
 import { deleteSecret, getSecret, hasSecret, secretNames, setSecret } from "./secrets";
 import { debounced, readJson, writeJson } from "./store";
 import { sanitizeTransition, type TransitionChoice } from "../shared/transitions";
+import { sanitizeTransformPatch } from "../shared/transform-geometry";
 
 type AccountRecord =
   | ({ platform: "twitch" } & twitch.TwitchAccount & { login?: string })
@@ -115,6 +118,7 @@ export class Studio {
   private engineErrorKey: string | undefined;
   private readonly statuses = new Map<string, DestinationStatus>();
   private readonly youtubeBroadcasts = new Map<string, YouTubeBroadcast>();
+  private readonly preparations = new Map<string, { cancelled: boolean }>();
   private readonly macPreview: MacPreviewView | null;
   private previewRect: Rect | null = null;
   /** Floating UI covers the preview: keep the surface but park it off-screen. */
@@ -144,6 +148,20 @@ export class Studio {
     subscribe: (listener) => this.overlayData.subscribe(listener),
   });
   readonly account = new SeenalyzeAccountService();
+  readonly screenRecorder = new ScreenRecorder({
+    recordingFolder: () => this.recordingFolder(),
+    setRecordingFolder: (folder) => {
+      this.state.recordingFolder = folder;
+      this.persist();
+      this.pushSnapshot();
+    },
+    ensureScreenAccess: async () => {
+      const state = await requestPermission("screen");
+      this.pushSnapshot();
+      return state === "granted" || state === "unsupported";
+    },
+    onStateChange: () => this.pushSnapshot(),
+  });
   private shuttingDown = false;
   private readonly persist = debounced(() => {
     if (this.shuttingDown) return;
@@ -174,6 +192,11 @@ export class Studio {
 
   async start(): Promise<void> {
     try {
+      await this.screenRecorder.start();
+    } catch (error) {
+      console.error("[studio] screen recording failed to start", error);
+    }
+    try {
       const port = this.overlay.running ? this.state.overlayPort : await this.overlay.start(this.state.overlayPort);
       if (port !== this.state.overlayPort) {
         this.state.overlayPort = port;
@@ -195,6 +218,7 @@ export class Studio {
       await this.engine.call("retargetChatOverlays", `http://127.0.0.1:${this.state.overlayPort}`);
       await this.refreshState();
       this.ensureEncoder();
+      if (this.engineState?.unavailableSourceCount) this.notify({ kind: "info", key: "notices.sourcesUnavailable" });
     } catch (error) {
       console.error("[studio] engine failed to start", error);
       this.engineErrorKey = errorKey(error) === "generic" ? "engine-init-failed" : errorKey(error);
@@ -208,6 +232,8 @@ export class Studio {
 
   async shutdown(): Promise<void> {
     this.shuttingDown = true;
+    this.twitchSignIn?.abort();
+    for (const preparation of this.preparations.values()) preparation.cancelled = true;
     this.overlay.stop();
     this.overlayData.stopAll();
     this.chat.stopAll();
@@ -217,6 +243,11 @@ export class Studio {
       console.error("[studio] could not save before quitting", error);
     }
     this.macPreview?.detach();
+    try {
+      await this.screenRecorder.shutdown();
+    } catch (error) {
+      console.error("[studio] screen recording did not stop cleanly", error);
+    }
     await this.engine.shutdown();
   }
 
@@ -242,16 +273,18 @@ export class Studio {
       const settings = kind === "chatOverlay" ? { url: this.overlay.chatUrl } : undefined;
       return this.mutate(() => this.engine.call("addSource", scene, kind, name, settings));
     },
+    listSourceChoices: async (scene) => this.engine.call("listSourceChoices", scene),
+    addExistingSource: async (scene, source) => this.mutate(() => this.engine.call("addExistingSource", scene, source)),
     removeSceneItem: async (scene, itemId) => this.mutate(() => this.engine.call("removeSceneItem", scene, itemId)),
     setItemVisible: async (scene, itemId, visible) => this.mutate(() => this.engine.call("setItemVisible", scene, itemId, visible)),
     setItemLocked: async (scene, itemId, locked) => this.mutate(() => this.engine.call("setItemLocked", scene, itemId, locked)),
     moveSceneItem: async (scene, itemId, direction) => this.mutate(() => this.engine.call("moveSceneItem", scene, itemId, direction)),
     applyTransform: async (scene, itemId, preset) => this.mutate(() => this.engine.call("applyTransform", scene, itemId, preset)),
-    setItemTransform: async (scene, itemId, patch, commit) => {
+    patchItemTransform: async (scene, itemId, patch, commit) => {
       const clean = sanitizeTransformPatch(patch);
       // Live drag updates only touch the engine; the drag end refreshes and saves.
-      if (!commit) return this.engine.call("setItemTransform", scene, itemId, clean);
-      return this.mutate(() => this.engine.call("setItemTransform", scene, itemId, clean));
+      if (!commit) return this.engine.call("patchItemTransform", scene, itemId, clean);
+      return this.mutate(() => this.engine.call("patchItemTransform", scene, itemId, clean));
     },
     setSelectedItem: async (scene, itemId) => {
       const next = typeof itemId === "number" && Number.isInteger(itemId) ? itemId : null;
@@ -262,14 +295,18 @@ export class Studio {
       if (!this.engine.running || !this.engineState) return;
       await this.engine.call("setSelectedItem", scene, typeof itemId === "number" ? itemId : null);
     },
+    getItemTransform: async (scene, itemId) => this.engine.call("getItemTransform", scene, itemId),
+    setItemTransform: async (scene, itemId, transform) => this.mutate(() => this.engine.call("setItemTransform", scene, itemId, transform)),
     getSourceProperties: async (source) => this.engine.call("getProperties", source),
     updateSourceSettings: async (source, settings) => {
       const result = await this.engine.call("updateSettings", source, settings);
+      await this.refreshState();
       this.persist();
       return result;
     },
     clickSourceButton: async (source, property) => {
       const result = await this.engine.call("clickButton", source, property);
+      await this.refreshState();
       this.persist();
       return result;
     },
@@ -429,7 +466,15 @@ export class Studio {
     },
 
     goLive: async (destinationIds) => this.goLive(destinationIds),
+    checkStream: async (destinationIds) => this.checkStream(destinationIds),
     endStream: async (destinationIds) => {
+      for (const id of destinationIds) {
+        const preparation = this.preparations.get(id);
+        if (!preparation) continue;
+        preparation.cancelled = true;
+        const status = this.statuses.get(id);
+        if (status) this.onOutputStatus({ ...status, state: "stopping" });
+      }
       await this.engine.call("stopOutputs", destinationIds);
     },
     startRecording: async () => {
@@ -448,6 +493,18 @@ export class Studio {
       const last = this.engineState?.recording.lastFile;
       if (last && existsSync(last)) shell.showItemInFolder(last);
       else await shell.openPath(this.recordingFolder());
+    },
+    toggleScreenRecording: async () => {
+      // Asking before the picker opens shows the system prompt or the permission dialog.
+      if (!this.screenRecorder.state.active) await this.ensureCapturePermission("display");
+      await this.screenRecorder.toggle();
+    },
+    openRecordingEditor: async () => {
+      await this.screenRecorder.openEditor(this.window);
+    },
+    setAppearance: async (theme) => {
+      if (theme !== "dark" && theme !== "light") throw new Error("invalid-request");
+      this.screenRecorder.setTheme(theme);
     },
     quitApp: async () => this.quit(),
     requestPermission: async (kind) => {
@@ -552,11 +609,35 @@ export class Studio {
 
   // ----- go live ------------------------------------------------------------
 
+  private async checkStream(destinationIds: string[]): Promise<StreamCheck> {
+    if (!this.engineState || this.shuttingDown) throw new Error("engine-not-ready");
+    const ids = [...new Set(destinationIds)];
+    const issues: StreamCheck["issues"] = [];
+    const readyDestinationIds: string[] = [];
+    for (const id of ids) {
+      const destination = this.requireDestination(id);
+      if (this.isLive(id)) continue;
+      let key: string | undefined;
+      if (destination.mode === "account") {
+        const account = this.accountFor(destination);
+        if (!account || !readToken(account.id)) key = "errors.codes.account-signed-out";
+        else if (account.platform === "twitch" ? !twitch.twitchConfigured() : !youtube.youtubeConfigured()) key = `errors.codes.${account.platform}-not-configured`;
+      } else if (!hasSecret(secretNames.streamKey(id))) key = "errors.codes.stream-key-missing";
+      if (key) issues.push({ key, blocking: true, destinationId: id });
+      else readyDestinationIds.push(id);
+    }
+    const scene = await this.engine.call("sceneReadiness");
+    issues.push(...sceneIssues(scene));
+    return { readyDestinationIds, scene: scene.scene, issues };
+  }
+
   private async goLive(destinationIds: string[]): Promise<void> {
     const encoderId = this.encoderId();
-    const targets = destinationIds.map((id) => this.requireDestination(id)).filter((destination) => !this.isLive(destination.id));
+    if (!this.engineState || this.shuttingDown) throw new Error("engine-not-ready");
+    const targets = [...new Set(destinationIds)].map((id) => this.requireDestination(id)).filter((destination) => !this.isLive(destination.id));
     if (targets.length === 0) return;
     for (const destination of targets) {
+      this.preparations.set(destination.id, { cancelled: false });
       this.onOutputStatus({ id: destination.id, state: "preparing", kbps: 0, droppedFrames: 0, totalFrames: 0, encoderGroup: null });
     }
 
@@ -564,6 +645,12 @@ export class Studio {
     const ready: LiveDestination[] = [];
     resolved.forEach((result, index) => {
       const destination = targets[index];
+      const cancelled = this.preparations.get(destination.id)?.cancelled || this.shuttingDown || !this.engineState;
+      this.preparations.delete(destination.id);
+      if (cancelled) {
+        this.onOutputStatus({ id: destination.id, state: "idle", kbps: 0, droppedFrames: 0, totalFrames: 0, encoderGroup: null });
+        return;
+      }
       if (result.status === "fulfilled") {
         ready.push(result.value);
         return;
@@ -669,8 +756,9 @@ export class Studio {
     this.engineState = null;
     this.macPreview?.detach();
     this.editor?.setRect(null);
+    for (const preparation of this.preparations.values()) preparation.cancelled = true;
     for (const status of this.statuses.values()) {
-      if (ACTIVE_STATES.has(status.state)) Object.assign(status, { state: "error", kbps: 0, errorKey: "errors.codes.engine-stopped" });
+      if (ACTIVE_STATES.has(status.state)) this.onOutputStatus({ ...status, state: "error", kbps: 0, errorKey: "errors.codes.engine-stopped" });
     }
     this.notify({ kind: "error", key: "errors.codes.engine-stopped" });
     this.pushSnapshot();
@@ -737,6 +825,7 @@ export class Studio {
       draft.mode === "account" && draft.accountId && this.state.accounts.some((account) => account.id === draft.accountId && account.platform === draft.platform)
         ? "account"
         : "manual";
+    if (draft.mode === "account" && mode !== "account") throw new Error("account-signed-out");
     // An account has one stream (key / ingest), so two destinations cannot share it.
     if (mode === "account" && this.state.destinations.some((destination) => destination.id !== id && destination.accountId === draft.accountId)) {
       throw new Error("account-in-use");
@@ -788,7 +877,7 @@ export class Studio {
    * black frames or silence without any error.
    */
   private async ensureCapturePermission(kind: SourceKind): Promise<void> {
-    const needed = kind === "camera" ? "camera" : kind === "microphone" ? "microphone" : ["display", "window", "desktopAudio"].includes(kind) ? "screen" : null;
+    const needed = ["camera", "captureCard", "blackmagic"].includes(kind) ? "camera" : kind === "microphone" ? "microphone" : ["display", "window", "application", "desktopAudio", "applicationAudio"].includes(kind) ? "screen" : null;
     if (!needed) return;
     const state = await requestPermission(needed);
     this.pushSnapshot();
@@ -804,6 +893,7 @@ export class Studio {
       ready: engine !== null,
       engineErrorKey: this.engineErrorKey ? `errors.codes.${this.engineErrorKey}` : undefined,
       scenes: engine?.scenes ?? [],
+      availableSourceKinds: engine?.availableSourceKinds ?? [],
       activeScene: engine?.activeScene ?? null,
       audio: engine?.audio ?? [],
       video: this.state.video,
@@ -814,6 +904,7 @@ export class Studio {
       recording: engine?.recording ?? { active: false },
       recordingFolder: this.recordingFolder(),
       preferences: this.state.preferences,
+      screenRecording: this.screenRecorder.state,
       accounts,
       platformsConfigured: { twitch: twitch.twitchConfigured(), youtube: youtube.youtubeConfigured() },
       permissions: permissionSnapshot(),
@@ -915,28 +1006,6 @@ export class Studio {
 
 export function vendorRoot(): string {
   return app.isPackaged ? path.join(process.resourcesPath, "vendor") : path.join(app.getAppPath(), "vendor");
-}
-
-/** Keeps only finite, sane values from a renderer transform patch. */
-function sanitizeTransformPatch(patch: ItemTransformPatch): ItemTransformPatch {
-  const LIMIT = 1_000_000;
-  const num = (value: unknown): number | undefined =>
-    typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= LIMIT ? value : undefined;
-  const vec = (value: unknown, positive: boolean): { x: number; y: number } | undefined => {
-    if (!value || typeof value !== "object") return undefined;
-    const x = num((value as { x?: unknown }).x);
-    const y = num((value as { y?: unknown }).y);
-    if (x === undefined || y === undefined) return undefined;
-    if (positive && (x <= 0 || y <= 0)) return undefined;
-    return { x, y };
-  };
-  const rotation = num(patch?.rotation);
-  return {
-    position: vec(patch?.position, false),
-    scale: vec(patch?.scale, true),
-    rotation: rotation === undefined ? undefined : ((rotation % 360) + 360) % 360,
-    bounds: vec(patch?.bounds, true),
-  };
 }
 
 function sanitizeVideo(settings: VideoSettings): VideoSettings {

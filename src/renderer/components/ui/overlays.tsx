@@ -2,7 +2,7 @@
 // its open state with usePreviewOcclusion so the native preview steps aside
 // while a floating surface is visible.
 
-import { AlertDialog as AlertPrimitive, Dialog as DialogPrimitive, DropdownMenu as MenuPrimitive, Select as SelectPrimitive } from "radix-ui";
+import { AlertDialog as AlertPrimitive, Dialog as DialogPrimitive, DropdownMenu as MenuPrimitive, Popover as PopoverPrimitive, Select as SelectPrimitive } from "radix-ui";
 import { CheckIcon, ChevronDownIcon, XIcon } from "lucide-react";
 import { useState, type ComponentProps } from "react";
 import { useTranslations } from "use-intl";
@@ -75,6 +75,26 @@ export function DialogTitle({ className, ...props }: ComponentProps<typeof Dialo
 
 export function DialogDescription({ className, ...props }: ComponentProps<typeof DialogPrimitive.Description>) {
   return <DialogPrimitive.Description className={cn("text-sm text-muted-foreground", className)} {...props} />;
+}
+
+// ----- Popover ---------------------------------------------------------------
+
+export function Popover({ open, defaultOpen, onOpenChange, ...props }: ComponentProps<typeof PopoverPrimitive.Root>) {
+  return <PopoverPrimitive.Root {...props} {...useTrackedOpen(open, defaultOpen, onOpenChange)} />;
+}
+
+export const PopoverTrigger = PopoverPrimitive.Trigger;
+
+export function PopoverContent({ className, sideOffset = 8, ...props }: ComponentProps<typeof PopoverPrimitive.Content>) {
+  return (
+    <PopoverPrimitive.Portal>
+      <PopoverPrimitive.Content
+        sideOffset={sideOffset}
+        className={cn("z-50 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border bg-popover p-4 text-popover-foreground shadow-lg outline-none", className)}
+        {...props}
+      />
+    </PopoverPrimitive.Portal>
+  );
 }
 
 // ----- Alert dialog ----------------------------------------------------------
