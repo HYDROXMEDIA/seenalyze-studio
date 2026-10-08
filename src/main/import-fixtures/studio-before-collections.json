@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "video": { "baseWidth": 1920, "baseHeight": 1080, "outputWidth": 1280, "outputHeight": 720, "fps": 60, "scaleFilter": "lanczos" },
+  "encoder": "apple_h264",
+  "recordingFolder": "/fixture/Movies",
+  "preferences": { "recordingFormat": "mp4", "recordingBitrateKbps": 20000, "confirmGoLive": true, "confirmEndStream": true, "keepAwakeWhileLive": true, "recordingMatchStream": false, "autoRecord": true, "keepRecordingAfterStream": false, "replayBufferEnabled": false, "replayBufferSeconds": 30 },
+  "destinations": [
+    { "id": "dest-1", "platform": "twitch", "name": "Twitch", "enabled": true, "mode": "manual", "server": "rtmp://fixture.invalid/app", "hasStreamKey": true,
+      "profile": { "width": 1280, "height": 720, "fps": 60, "videoBitrateKbps": 6000, "audioBitrateKbps": 160, "keyframeSec": 2, "codec": "h264" } }
+  ],
+  "broadcastInfo": {},
+  "accounts": [],
+  "collection": {
+    "activeScene": "Main",
+    "sceneOrder": ["Main", "BRB"],
+    "scenes": {
+      "Main": [
+        { "source": "Screen", "visible": true, "locked": false, "position": { "x": 0, "y": 0 }, "scale": { "x": 1, "y": 1 }, "rotation": 0, "alignment": 5, "boundsType": 2, "boundsAlignment": 0, "bounds": { "x": 1920, "y": 1080 }, "crop": { "left": 0, "right": 0, "top": 0, "bottom": 0 } },
+        { "source": "Camera", "visible": true, "locked": true, "position": { "x": 1440, "y": 800 }, "scale": { "x": 0.25, "y": 0.25 }, "rotation": 0, "alignment": 5, "boundsType": 0, "boundsAlignment": 0, "bounds": { "x": 0, "y": 0 }, "crop": { "left": 0, "right": 0, "top": 0, "bottom": 0 } }
+      ],
+      "BRB": []
+    },
+    "sources": [
+      { "name": "Screen", "kind": "display", "inputId": "screen_capture", "settings": { "type": 0, "show_cursor": true }, "muted": false },
+      { "name": "Camera", "kind": "camera", "inputId": "av_capture_input_v2", "settings": {}, "muted": false, "effects": [{ "kind": "chromaKey", "enabled": true, "settings": { "key_color_type": "green" } }] },
+      { "name": "Microphone", "kind": "microphone", "inputId": "coreaudio_input_capture", "settings": {}, "volume": 0.8, "muted": true, "audio": { "filters": [], "monitoring": "off", "syncOffsetMs": 0, "mono": true } }
+    ],
+    "globalAudio": [{ "channel": 3, "source": "Microphone" }]
+  },
+  "overlayPort": 47821,
+  "transition": { "id": "fade", "durationMs": 300 },
+  "hotkeys": {},
+  "advanced": { "streamDelaySec": 0, "reconnectDelaySec": 2, "reconnectMaxRetries": 25 },
+  "setupCompleted": true,
+  "monitoringDevice": null
+}

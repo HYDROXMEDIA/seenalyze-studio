@@ -1,0 +1,170 @@
+{
+  "name": "Gaming setup",
+  "current_scene": "Gameplay",
+  "current_program_scene": "Gameplay",
+  "scene_order": [{ "name": "Starting soon" }, { "name": "Gameplay" }],
+  "current_transition": "Slide",
+  "transition_duration": 450,
+  "transitions": [
+    { "name": "Slide", "id": "slide_transition", "settings": { "direction": "up" } },
+    { "name": "Logo stinger", "id": "obs_stinger_transition", "settings": { "path": "/fixture/stinger.webm" } }
+  ],
+  "DesktopAudioDevice1": {
+    "id": "coreaudio_output_capture",
+    "versioned_id": "coreaudio_output_capture",
+    "name": "Desktop Audio",
+    "settings": { "device_id": "default" },
+    "volume": 0.5011872336272722,
+    "muted": false,
+    "mixers": 255,
+    "monitoring_type": 0,
+    "sync": 0,
+    "flags": 0,
+    "filters": []
+  },
+  "AuxAudioDevice1": {
+    "id": "coreaudio_input_capture",
+    "versioned_id": "coreaudio_input_capture",
+    "name": "Mic/Aux",
+    "settings": { "device_id": "default" },
+    "volume": 1.0,
+    "muted": true,
+    "mixers": 3,
+    "monitoring_type": 1,
+    "sync": 150000000,
+    "flags": 2,
+    "filters": [
+      { "id": "noise_suppress_filter", "versioned_id": "noise_suppress_filter_v2", "name": "Noise", "enabled": true, "settings": { "suppress_level": -40 } },
+      { "id": "compressor_filter", "versioned_id": "compressor_filter", "name": "Comp", "enabled": false, "settings": { "ratio": 4.0, "sidechain_source": "Desktop Audio" } },
+      { "id": "basic_eq_filter", "versioned_id": "basic_eq_filter", "name": "EQ", "enabled": true, "settings": {} }
+    ]
+  },
+  "sources": [
+    {
+      "id": "scene",
+      "versioned_id": "scene",
+      "name": "Gameplay",
+      "settings": {
+        "items": [
+          {
+            "name": "Game capture", "id": 1, "visible": true, "locked": false, "rot": 0.0,
+            "pos": { "x": 0.0, "y": 0.0 }, "scale": { "x": 1.0, "y": 1.0 }, "align": 5,
+            "bounds_type": 2, "bounds_align": 0, "bounds": { "x": 2560.0, "y": 1440.0 },
+            "crop_left": 0, "crop_top": 0, "crop_right": 0, "crop_bottom": 0
+          },
+          {
+            "name": "Webcam", "id": 2, "visible": true, "locked": true, "rot": 0.0,
+            "pos": { "x": 2000.0, "y": 1100.0 }, "scale": { "x": 0.5, "y": 0.5 }, "align": 5,
+            "bounds_type": 0, "bounds_align": 0, "bounds": { "x": 0.0, "y": 0.0 },
+            "crop_left": 10, "crop_top": 0, "crop_right": 10, "crop_bottom": 0
+          },
+          {
+            "name": "Alerts", "id": 3, "visible": false, "locked": false, "rot": 15.0,
+            "pos": { "x": 1280.0, "y": 100.0 }, "scale": { "x": 1.0, "y": 1.0 }, "align": 0,
+            "bounds_type": 0, "bounds_align": 0, "bounds": { "x": 0.0, "y": 0.0 },
+            "crop_left": 0, "crop_top": 0, "crop_right": 0, "crop_bottom": 0
+          },
+          {
+            "name": "Overlay group", "id": 4, "visible": true, "locked": false, "rot": 0.0,
+            "pos": { "x": 100.0, "y": 100.0 }, "scale": { "x": 1.0, "y": 1.0 }, "align": 5,
+            "bounds_type": 0, "bounds_align": 0, "bounds": { "x": 0.0, "y": 0.0 },
+            "crop_left": 0, "crop_top": 0, "crop_right": 0, "crop_bottom": 0
+          }
+        ]
+      },
+      "filters": [{ "id": "color_filter", "versioned_id": "color_filter_v2", "name": "Scene color", "enabled": true, "settings": {} }]
+    },
+    {
+      "id": "scene",
+      "versioned_id": "scene",
+      "name": "Starting soon",
+      "settings": {
+        "items": [
+          {
+            "name": "Gameplay", "id": 1, "visible": true, "locked": false, "rot": 0.0,
+            "pos": { "x": 0.0, "y": 0.0 }, "scale": { "x": 1.0, "y": 1.0 }, "align": 5,
+            "bounds_type": 0, "bounds_align": 0, "bounds": { "x": 0.0, "y": 0.0 },
+            "crop_left": 0, "crop_top": 0, "crop_right": 0, "crop_bottom": 0
+          },
+          {
+            "name": "Title", "id": 2, "visible": true, "locked": false, "rot": 0.0,
+            "pos_rel": { "x": 0.0, "y": 0.0 }, "scale": { "x": 1.0, "y": 1.0 }, "align": 0,
+            "bounds_type": 0, "bounds_align": 0, "bounds": { "x": 0.0, "y": 0.0 },
+            "crop_left": 0, "crop_top": 0, "crop_right": 0, "crop_bottom": 0
+          },
+          {
+            "name": "Deleted source", "id": 3, "visible": true, "locked": false, "rot": 0.0,
+            "pos": { "x": 0.0, "y": 0.0 }, "scale": { "x": 1.0, "y": 1.0 }, "align": 5,
+            "bounds_type": 0, "bounds_align": 0, "bounds": { "x": 0.0, "y": 0.0 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "game_capture",
+      "versioned_id": "game_capture",
+      "name": "Game capture",
+      "settings": { "capture_mode": "any_fullscreen" },
+      "volume": 1.0,
+      "muted": false,
+      "mixers": 255,
+      "filters": [
+        { "id": "chroma_key_filter", "versioned_id": "chroma_key_filter_v2", "name": "Key", "enabled": true, "settings": { "similarity": 420 } },
+        { "id": "vst_filter", "versioned_id": "vst_filter", "name": "Plugin", "enabled": true, "settings": {} }
+      ]
+    },
+    {
+      "id": "av_capture_input",
+      "versioned_id": "av_capture_input_v2",
+      "name": "Webcam",
+      "settings": { "device": "fixture-camera" },
+      "volume": 1.0,
+      "muted": false,
+      "mixers": 255,
+      "filters": [{ "id": "crop_filter", "versioned_id": "crop_filter", "name": "Crop", "enabled": false, "settings": { "left": 20 } }]
+    },
+    {
+      "id": "browser_source",
+      "versioned_id": "browser_source",
+      "name": "Alerts",
+      "settings": { "url": "https://example.invalid/alerts", "width": 800, "height": 600, "api_key": "fixture-not-a-real-secret", "auth": { "token": "x" } },
+      "volume": 0.25,
+      "muted": false,
+      "mixers": 1
+    },
+    {
+      "id": "text_ft2_source",
+      "versioned_id": "text_ft2_source_v2",
+      "name": "Title",
+      "settings": { "text": "Starting soon" },
+      "volume": 1.0,
+      "muted": false
+    },
+    {
+      "id": "some_plugin_source",
+      "versioned_id": "some_plugin_source",
+      "name": "Plugin widget",
+      "settings": { "mode": 3 },
+      "volume": 1.0,
+      "muted": false
+    }
+  ],
+  "groups": [
+    {
+      "id": "group",
+      "versioned_id": "group",
+      "name": "Overlay group",
+      "settings": {
+        "items": [
+          {
+            "name": "Plugin widget", "id": 1, "visible": true, "locked": false, "rot": 0.0,
+            "pos": { "x": 10.0, "y": 20.0 }, "scale": { "x": 1.0, "y": 1.0 }, "align": 5,
+            "bounds_type": 0, "bounds_align": 0, "bounds": { "x": 0.0, "y": 0.0 },
+            "crop_left": 0, "crop_top": 0, "crop_right": 0, "crop_bottom": 0
+          }
+        ]
+      }
+    }
+  ],
+  "modules": {}
+}

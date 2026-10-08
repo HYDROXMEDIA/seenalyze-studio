@@ -144,7 +144,8 @@ function PropertiesForm({ source, onClose }: { source: string; onClose: () => vo
   );
 }
 
-function PropertyField({
+/** One generic engine property control (sources and effects). */
+export function PropertyField({
   property,
   onChange,
   onButton,

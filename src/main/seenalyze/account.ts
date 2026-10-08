@@ -131,7 +131,7 @@ export class SeenalyzeAccountService {
   async refreshProfile(): Promise<SeenalyzeAccount> {
     const response = await this.authorizedFetch("/api/studio/auth/me", { method: "GET" }, 15_000);
     const body = (await response.json()) as {
-      user?: { email?: string | null; displayName?: string | null; avatarUrl?: string | null };
+      user?: { email?: string | null; displayName?: string | null; avatarUrl?: string | null; language?: string | null };
       canUseDesigner?: boolean;
     };
     this.profile = {
@@ -139,8 +139,19 @@ export class SeenalyzeAccountService {
       displayName: body.user?.displayName ?? null,
       avatarUrl: body.user?.avatarUrl ?? null,
       canUseDesigner: body.canUseDesigner === true,
+      language: body.user?.language ?? null,
     };
     return this.profile;
+  }
+
+  /** Saves the account's interface language. The dashboard validates the value. */
+  async saveLanguage(language: string): Promise<void> {
+    await this.authorizedFetch(
+      "/api/studio/auth/language",
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ language }) },
+      15_000,
+    );
+    if (this.profile) this.profile = { ...this.profile, language };
   }
 
   /** Asks the dashboard to design (or redesign) an overlay; charges the account's credits. */

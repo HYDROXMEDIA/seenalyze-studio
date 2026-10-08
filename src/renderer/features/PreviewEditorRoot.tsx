@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { studio } from "@/lib/studio";
+import { useArrowNudge } from "@/lib/use-arrow-nudge";
+import { useCanvasUndo } from "@/lib/use-canvas-undo";
 import { useStudio } from "@/store/studio";
 import { PreviewEditor } from "./PreviewEditor";
 
@@ -11,6 +13,8 @@ export function PreviewEditorRoot() {
   const setSnapshot = useStudio((state) => state.setSnapshot);
   const video = useStudio((state) => state.snapshot?.video);
   const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+  useCanvasUndo();
+  useArrowNudge();
 
   useEffect(() => {
     let cancelled = false;

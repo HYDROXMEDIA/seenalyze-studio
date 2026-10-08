@@ -199,7 +199,7 @@ body{font-family:var(--s-font);color:var(--s-textColor)}
     ],
     html: `<style>${ANIMATION_CSS}
 body{font-family:var(--s-font);font-size:var(--s-fontSize);color:var(--s-textColor)}
-.pill{position:absolute;left:8px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:.6em;padding:.45em 1em;border-radius:999px;background:var(--s-pillColor);perspective:600px}
+.pill{position:absolute;inset:0;margin:auto;width:fit-content;height:fit-content;display:flex;align-items:center;gap:.6em;padding:.45em 1em;border-radius:999px;background:var(--s-pillColor);perspective:600px}
 .icon{width:1.2em;height:1.2em;display:grid;place-items:center;font-weight:900;color:var(--s-accentColor)}.icon svg{width:100%;height:100%}
 .platform{color:var(--s-accentColor);font-weight:800}.handle{font-weight:600}
 </style><div class="pill" id="pill"></div>

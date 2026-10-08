@@ -8,7 +8,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { app, BrowserWindow, ipcMain } from "electron";
-import { IPC, STUDIO_METHODS, type StudioMethod } from "../src/shared/ipc";
+import { IPC, STUDIO_METHODS, type MenuEntry, type StudioMethod } from "../src/shared/ipc";
 import { Studio } from "../src/main/studio";
 
 const dataDir = mkdtempSync(path.join(os.tmpdir(), "seenalyze-remove-check-"));
@@ -35,9 +35,17 @@ app.whenReady().then(async () => {
     quitRequested = true;
   });
   const calls: string[] = [];
+  let menuShown = false;
   ipcMain.handle(IPC.invoke, async (_event, method: StudioMethod, args: unknown[]) => {
     if (!STUDIO_METHODS.includes(method)) throw new Error("invalid-request");
     if (method !== "setPreviewBounds") calls.push(method);
+    if (method === "showMenu") {
+      // Row menus are OS menus a hidden window cannot click; answer like a user picking the last entry (Remove).
+      const entries = args[0] as MenuEntry[];
+      menuShown = true;
+      const index = entries.findLastIndex((entry) => !entry.separator && entry.enabled !== false);
+      return index >= 0 ? index : null;
+    }
     const handler = studio.api[method] as (...params: unknown[]) => Promise<unknown>;
     return handler(...args);
   });
@@ -74,6 +82,8 @@ app.whenReady().then(async () => {
   try {
     await window.loadFile(path.join(__dirname, "out/renderer/index.html"));
     await studio.start();
+    // The throwaway profile is a first run; dismiss the setup guide so it does not cover the docks.
+    await studio.api.completeSetup();
     const snapshot = await studio.api.getSnapshot();
     if (!snapshot.ready) throw new Error(`engine not ready: ${snapshot.engineErrorKey ?? "unknown"}`);
     const scene = snapshot.activeScene ?? snapshot.scenes[0]?.name;
@@ -84,9 +94,12 @@ app.whenReady().then(async () => {
     await waitFor("source row", `[...document.querySelectorAll("span")].some((s) => s.textContent === ${JSON.stringify(name)})`);
 
     const row = `[...document.querySelectorAll("span")].find((s) => s.textContent === ${JSON.stringify(name)}).parentElement`;
-    await click("more button", `${row}.querySelector('button[aria-haspopup="menu"]')`);
-    if (!(await waitFor("menu", `!!document.querySelector('[role="menu"]')`))) failed = true;
-    await click("Remove menu item", `[...document.querySelectorAll('[role="menuitem"]')].at(-1)`);
+    await click("more button", `${row}.querySelector('button[aria-label]:last-of-type')`);
+    await wait(300);
+    if (!menuShown) {
+      log("row menu was not opened");
+      failed = true;
+    }
     if (!(await waitFor("confirm dialog", `!!document.querySelector('[role="alertdialog"]')`))) failed = true;
     await wait(300);
     const before = await js<string>(`document.body.style.pointerEvents || "auto"`);

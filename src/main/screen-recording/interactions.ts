@@ -1,6 +1,6 @@
 import { screen } from 'electron';
 import { promises as fs } from 'node:fs';
-import { uIOhook } from 'uiohook-napi';
+import { acquireInputHook, releaseInputHook, uIOhook } from '../input-hook';
 import { interactionLogPath, prepareRecordingData } from './recording-data';
 
 // Pointer path and input activity recorded next to a screen recording, so the
@@ -97,7 +97,7 @@ export class InteractionRecorder {
     try {
       uIOhook.on('mousedown', this.onMouseDown);
       uIOhook.on('keydown', this.onKeyDown);
-      uIOhook.start();
+      acquireInputHook();
       this.hookRunning = true;
     } catch (error) {
       // Without input access the recording still gets the cursor path.
@@ -160,7 +160,7 @@ export class InteractionRecorder {
     if (this.hookRunning) {
       this.hookRunning = false;
       try {
-        uIOhook.stop();
+        releaseInputHook();
       } catch (error) {
         this.onLog(`Click tracking did not stop cleanly: ${error instanceof Error ? error.message : String(error)}`);
       }

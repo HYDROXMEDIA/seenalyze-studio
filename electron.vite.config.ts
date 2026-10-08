@@ -26,6 +26,8 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: path.resolve(__dirname, "src/preload/index.ts"),
+          // Projector windows get their own small bridge.
+          projector: path.resolve(__dirname, "src/preload/projector.ts"),
           ...Object.fromEntries(RECORDING_PAGES.map((page) => [`recording-${page}`, path.resolve(__dirname, `src/preload/recording-${page}.ts`)])),
         },
       },

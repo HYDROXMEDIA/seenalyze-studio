@@ -2,6 +2,7 @@ import {
   ArrowLeftIcon,
   CircleDotIcon,
   FolderOpenIcon,
+  KeyboardIcon,
   Loader2Icon,
   LogInIcon,
   LogOutIcon,
@@ -14,15 +15,18 @@ import {
   SunIcon,
   UsersIcon,
   VideoIcon,
+  WandSparklesIcon,
+  WrenchIcon,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useTranslations } from "use-intl";
 import type { SeenalyzeAccount } from "../../shared/overlays";
 import { RECORDING_FORMATS, SCALE_FILTERS, type DeviceCodePrompt, type RecordingFormat, type ScaleFilter, type VideoSettings } from "../../shared/types";
 import { PlatformIcon } from "@/components/PlatformIcon";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Label, Switch } from "@/components/ui/form";
+import { ColorPicker } from "@/components/ui/color-picker";
+import { Field, Input, Label } from "@/components/ui/form";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,12 +43,23 @@ import {
   SelectValue,
 } from "@/components/ui/overlays";
 import { errorCode, studio } from "@/lib/studio";
-import { readTheme, saveTheme, type ThemePreference } from "@/lib/theme";
+import { COLOR_PRESETS, CUSTOM_THEME_ID, THEME_ROLES, seedCustomRoles, type ColorPreset, type ColorThemeChoice, type ThemeRole, type ThemeVariant } from "@/lib/color-theme";
+import { readColorTheme, readTheme, saveColorTheme, saveTheme, type ThemePreference } from "@/lib/theme";
+import { saveLanguage, useLanguage } from "@/lib/language";
+import { LOCALE_NAMES, UI_LOCALES, isUiLocale } from "@/i18n";
 import { useAction } from "@/lib/use-action";
 import { cn } from "@/lib/utils";
 import { useStudio } from "@/store/studio";
 import { isActive } from "./DestinationsDock";
 import { TwitchCodeDialog } from "./TwitchCodeDialog";
+import { HotkeysSettings } from "./HotkeysSettings";
+import { RecordingAutomationCard, RecordingQualityField } from "./RecordingSettings";
+import { recommendEncoder } from "../../shared/setup";
+import { AdvancedSettingsCard } from "./settings/AdvancedSettingsCard";
+import { SettingsCard, ToggleRow } from "./settings/parts";
+import { useSetupWizard } from "./setup/SetupWizard";
+import { AudioFormatCard, RecordingTracksField, VideoFormatFields } from "./settings/FormatSettings";
+import { ProfileCard } from "./settings/ProfileCard";
 
 const CANVAS_PRESETS = [
   { width: 1920, height: 1080 },
@@ -56,9 +71,11 @@ const SECTIONS = [
   ["general", SlidersHorizontalIcon],
   ["video", VideoIcon],
   ["recording", CircleDotIcon],
+  ["hotkeys", KeyboardIcon],
   ["accounts", UsersIcon],
   ["permissions", ShieldCheckIcon],
   ["appearance", PaletteIcon],
+  ["advanced", WrenchIcon],
 ] as const;
 const PERMISSION_KINDS = ["camera", "microphone", "screen"] as const;
 type Section = (typeof SECTIONS)[number][0];
@@ -73,12 +90,6 @@ const OUTPUT_LADDER = [
   { width: 960, height: 540 },
   { width: 852, height: 480 },
 ];
-const RECORDING_QUALITIES = [
-  { id: "low", kbps: 6000 },
-  { id: "medium", kbps: 12000 },
-  { id: "high", kbps: 25000 },
-  { id: "ultra", kbps: 50000 },
-] as const;
 
 function outputPresets(baseWidth: number, baseHeight: number): { width: number; height: number }[] {
   const presets = [{ width: baseWidth, height: baseHeight }];
@@ -86,10 +97,6 @@ function outputPresets(baseWidth: number, baseHeight: number): { width: number; 
     if (size.width <= baseWidth && size.height <= baseHeight && !(size.width === baseWidth && size.height === baseHeight)) presets.push(size);
   }
   return presets;
-}
-
-function qualityOptions(current: number): { id: (typeof RECORDING_QUALITIES)[number]["id"] | "custom"; kbps: number }[] {
-  return RECORDING_QUALITIES.some((quality) => quality.kbps === current) ? [...RECORDING_QUALITIES] : [...RECORDING_QUALITIES, { id: "custom", kbps: current }];
 }
 
 /** Full-page settings view inside the app window. */
@@ -100,18 +107,28 @@ export function SettingsPage() {
   const run = useAction();
   const snapshot = useStudio((state) => state.snapshot);
   const setView = useStudio((state) => state.setView);
+  const showSetup = useSetupWizard((state) => state.show);
   const [section, setSection] = useState<Section>("general");
   const [video, setVideo] = useState<VideoSettings | null>(snapshot?.video ?? null);
   const [encoder, setEncoder] = useState(snapshot?.selectedEncoder ?? "");
-  const [theme, setTheme] = useState<ThemePreference>(readTheme);
   const [pending, setPending] = useState(false);
   const [disconnecting, setDisconnecting] = useState<{ id: string; name: string } | null>(null);
   const [twitchPrompt, setTwitchPrompt] = useState<DeviceCodePrompt | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  // Settings changed elsewhere (a profile switch) replace the draft unless it has unsaved edits.
+  const [synced, setSynced] = useState({ video: JSON.stringify(snapshot?.video ?? null), encoder: snapshot?.selectedEncoder ?? "" });
+  if (snapshot && (JSON.stringify(snapshot.video) !== synced.video || snapshot.selectedEncoder !== synced.encoder)) {
+    if (JSON.stringify(video) === synced.video && encoder === synced.encoder) {
+      setVideo(snapshot.video);
+      setEncoder(snapshot.selectedEncoder);
+    }
+    setSynced({ video: JSON.stringify(snapshot.video), encoder: snapshot.selectedEncoder });
+  }
 
   if (!snapshot || !video) return null;
   const prefs = snapshot.preferences;
-  const locked = snapshot.recording.active || snapshot.destinationStatus.some((status) => isActive(status));
+  const streaming = snapshot.destinationStatus.some((status) => isActive(status));
+  const locked = snapshot.recording.active || streaming;
   const videoChanged = JSON.stringify(video) !== JSON.stringify(snapshot.video);
   const dirty = videoChanged || encoder !== snapshot.selectedEncoder;
 
@@ -182,20 +199,33 @@ export function SettingsPage() {
 
         <div className="min-h-0 flex-1 overflow-y-auto p-6">
           <div key={section} className="mx-auto grid max-w-2xl gap-6 animate-ui-rise">
+            {section === "general" && <ProfileCard locked={locked || snapshot.virtualCamera.active} dirty={dirty} />}
+
             {section === "general" && (
               <SettingsCard title={t("general")}>
+                {streaming && <p className="text-sm text-muted-foreground">{t("streamingLockedWhileLive")}</p>}
                 <ToggleRow
                   id="settings-confirm-live"
                   label={t("confirmGoLive")}
                   hint={t("confirmGoLiveHint")}
                   checked={prefs.confirmGoLive}
+                  disabled={streaming}
                   onChange={(value) => void run(() => studio.setPreferences({ confirmGoLive: value }))}
+                />
+                <ToggleRow
+                  id="settings-confirm-end"
+                  label={t("confirmEndStream")}
+                  hint={t("confirmEndStreamHint")}
+                  checked={prefs.confirmEndStream}
+                  disabled={streaming}
+                  onChange={(value) => void run(() => studio.setPreferences({ confirmEndStream: value }))}
                 />
                 <ToggleRow
                   id="settings-keep-awake"
                   label={t("keepAwake")}
                   hint={t("keepAwakeHint")}
                   checked={prefs.keepAwakeWhileLive}
+                  disabled={streaming}
                   onChange={(value) => void run(() => studio.setPreferences({ keepAwakeWhileLive: value }))}
                 />
               </SettingsCard>
@@ -236,12 +266,12 @@ export function SettingsPage() {
                   />
                   <div className="grid grid-cols-2 gap-4">
                     <Field label={t("fps")} htmlFor="settings-fps">
-                      <Select disabled={locked} value={String(video.fps)} onValueChange={(value) => setVideo({ ...video, fps: Number(value) })}>
+                      <Select disabled={locked} value={String(video.fps)} onValueChange={(value) => setVideo({ ...video, fps: Number(value), fpsNum: undefined, fpsDen: undefined })}>
                         <SelectTrigger id="settings-fps">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {FPS_OPTIONS.map((fps) => (
+                          {[...new Set([...FPS_OPTIONS, video.fps])].sort((a, b) => a - b).map((fps) => (
                             <SelectItem key={fps} value={String(fps)}>
                               {fps}
                             </SelectItem>
@@ -265,6 +295,7 @@ export function SettingsPage() {
                     </Field>
                   </div>
                   <p className="text-xs text-muted-foreground">{t("scaleFilterHint")}</p>
+                  <VideoFormatFields video={video} encoder={encoder} disabled={locked} onChange={setVideo} />
                 </SettingsCard>
                 <SettingsCard title={t("encoderGroup")}>
                   <Field label={t("encoder")} htmlFor="settings-encoder">
@@ -276,6 +307,7 @@ export function SettingsPage() {
                         {snapshot.encoders.map((option) => (
                           <SelectItem key={option.id} value={option.id}>
                             {t(`encoders.${option.id}`)}
+                            {option.id === recommendEncoder(snapshot.encoders)?.id ? ` · ${t("recommended")}` : ""}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -283,6 +315,7 @@ export function SettingsPage() {
                   </Field>
                   <p className="text-xs text-muted-foreground">{t("encoderHint")}</p>
                 </SettingsCard>
+                <AudioFormatCard disabled={locked || snapshot.virtualCamera.active} />
               </>
             )}
 
@@ -322,29 +355,17 @@ export function SettingsPage() {
                       </SelectContent>
                     </Select>
                   </Field>
-                  <Field label={t("recordingQuality")} htmlFor="settings-quality">
-                    <Select
-                      disabled={snapshot.recording.active}
-                      value={String(prefs.recordingBitrateKbps)}
-                      onValueChange={(value) => void run(() => studio.setPreferences({ recordingBitrateKbps: Number(value) }))}
-                    >
-                      <SelectTrigger id="settings-quality">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {qualityOptions(prefs.recordingBitrateKbps).map(({ id, kbps }) => (
-                          <SelectItem key={kbps} value={String(kbps)}>
-                            {id === "custom" ? t("recordingBitrate", { kbps }) : t(`recordingQualities.${id}`, { kbps })}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
+                  <RecordingQualityField disabled={snapshot.recording.active} />
                 </div>
                 <p className="text-xs text-muted-foreground">{t("recordingFormatHint")}</p>
                 <p className="text-xs text-muted-foreground">{t("recordingQualityHint")}</p>
+                <RecordingTracksField disabled={locked || snapshot.virtualCamera.active} />
               </SettingsCard>
             )}
+
+            {section === "recording" && <RecordingAutomationCard />}
+
+            {section === "hotkeys" && <HotkeysSettings />}
 
             {section === "accounts" && (
               <SettingsCard title={t("accounts")}>
@@ -370,7 +391,12 @@ export function SettingsPage() {
                             {t("reconnect")}
                           </Button>
                         )}
-                        <Button variant="ghost" size="sm" onClick={() => setDisconnecting({ id: account.id, name: account.displayName })}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={snapshot.destinations.some((destination) => destination.accountId === account.id && isActive(snapshot.destinationStatus.find((status) => status.id === destination.id)))}
+                          onClick={() => setDisconnecting({ id: account.id, name: account.displayName })}
+                        >
                           <LogOutIcon />
                           {t("disconnect")}
                         </Button>
@@ -411,37 +437,21 @@ export function SettingsPage() {
               </SettingsCard>
             )}
 
-            {section === "appearance" && (
-              <SettingsCard title={t("appearance")}>
-                <div className="grid grid-cols-3 gap-3" role="radiogroup" aria-label={t("appearance")}>
-                  {(
-                    [
-                      ["dark", MoonIcon],
-                      ["light", SunIcon],
-                      ["system", MonitorIcon],
-                    ] as const
-                  ).map(([option, Icon]) => (
-                    <button
-                      key={option}
-                      type="button"
-                      role="radio"
-                      aria-checked={theme === option}
-                      onClick={() => {
-                        setTheme(option);
-                        saveTheme(option);
-                      }}
-                      className={cn(
-                        "flex flex-col items-center gap-2 rounded-lg border p-4 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                        theme === option && "border-primary bg-accent",
-                      )}
-                    >
-                      <Icon aria-hidden className="size-12" strokeWidth={1.5} />
-                      {t(`themes.${option}`)}
-                    </button>
-                  ))}
+            {section === "general" && (
+              <SettingsCard title={t("setupAgain")}>
+                <div className="flex items-center gap-4">
+                  <p className="min-w-0 flex-1 text-xs text-muted-foreground">{t("setupAgainHint")}</p>
+                  <Button variant="outline" size="sm" disabled={locked} onClick={showSetup}>
+                    <WandSparklesIcon />
+                    {t("setupAgainAction")}
+                  </Button>
                 </div>
               </SettingsCard>
             )}
+
+            {section === "appearance" && <AppearanceCard />}
+
+            {section === "advanced" && <AdvancedSettingsCard />}
           </div>
         </div>
       </div>
@@ -480,24 +490,148 @@ export function SettingsPage() {
   );
 }
 
-function SettingsCard({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="grid gap-4 rounded-xl border bg-card p-6">
-      <h3 className="text-xl font-bold text-neutral-900 dark:text-white">{title}</h3>
-      {children}
-    </section>
-  );
-}
+/** Light, dark or system mode, then a color theme: a preset or a custom palette for each role. */
+function AppearanceCard() {
+  const t = useTranslations("settings");
+  const [theme, setTheme] = useState<ThemePreference>(readTheme);
+  const [colorTheme, setColorTheme] = useState<ColorThemeChoice>(readColorTheme);
+  const [editing, setEditing] = useState<ThemeVariant>(() => (document.documentElement.classList.contains("dark") ? "dark" : "light"));
+  // Swatches show the colors for the appearance in use; the class is already updated when this re-renders.
+  const activeVariant: ThemeVariant = document.documentElement.classList.contains("dark") ? "dark" : "light";
+  const custom = colorTheme.id === CUSTOM_THEME_ID ? colorTheme.custom : null;
 
-function ToggleRow({ id, label, hint, checked, onChange }: { id: string; label: string; hint: string; checked: boolean; onChange: (value: boolean) => void }) {
+  const choose = (next: ColorThemeChoice) => {
+    setColorTheme(next);
+    saveColorTheme(next);
+  };
+  const customize = () => {
+    if (!custom) choose({ id: CUSTOM_THEME_ID, custom: seedCustomRoles(colorTheme) });
+  };
+  const editRole = (role: ThemeRole, value: string) => {
+    if (!custom) return;
+    choose({ id: CUSTOM_THEME_ID, custom: { ...custom, [editing]: { ...custom[editing], [role]: value } } });
+  };
+
+  const presetButton = (preset: ColorPreset) => {
+    const name = t(`colorTheme.presets.${preset.id}`);
+    const selected = colorTheme.id === preset.id;
+    return (
+      <button
+        key={preset.id}
+        type="button"
+        role="radio"
+        aria-checked={selected}
+        aria-label={name}
+        onClick={() => choose({ id: preset.id, custom: null })}
+        className={cn(
+          "flex flex-col items-center gap-2 rounded-lg border p-3 text-xs outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
+          selected && "border-primary bg-accent",
+        )}
+      >
+        <span className="size-7 rounded-full border" style={{ background: preset.primary[activeVariant] }} aria-hidden />
+        <span className="w-full truncate text-center">{name}</span>
+      </button>
+    );
+  };
+
   return (
-    <div className="flex items-start gap-4">
-      <div className="grid min-w-0 flex-1 gap-1">
-        <Label htmlFor={id}>{label}</Label>
-        <p className="text-xs text-muted-foreground">{hint}</p>
+    <SettingsCard title={t("appearance")}>
+      <div className="space-y-2">
+        <h4 className="text-base font-semibold text-neutral-900 dark:text-white">{t("language")}</h4>
+        <LanguageSelect />
       </div>
-      <Switch id={id} checked={checked} onCheckedChange={onChange} />
-    </div>
+
+      <div className="grid grid-cols-3 gap-3" role="radiogroup" aria-label={t("appearance")}>
+        {(
+          [
+            ["dark", MoonIcon],
+            ["light", SunIcon],
+            ["system", MonitorIcon],
+          ] as const
+        ).map(([option, Icon]) => (
+          <button
+            key={option}
+            type="button"
+            role="radio"
+            aria-checked={theme === option}
+            onClick={() => {
+              setTheme(option);
+              saveTheme(option);
+            }}
+            className={cn(
+              "flex flex-col items-center gap-2 rounded-lg border p-4 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
+              theme === option && "border-primary bg-accent",
+            )}
+          >
+            <Icon aria-hidden className="size-12" strokeWidth={1.5} />
+            {t(`themes.${option}`)}
+          </button>
+        ))}
+      </div>
+
+      <h4 className="text-base font-semibold text-neutral-900 dark:text-white">{t("colorTheme.title")}</h4>
+      {(["classic", "vibrant"] as const).map((group) => (
+        <div key={group} className="grid gap-2">
+          <span className="text-xs text-muted-foreground">{t(`colorTheme.${group}`)}</span>
+          <div className="grid grid-cols-5 gap-2" role="radiogroup" aria-label={t(`colorTheme.${group}`)}>
+            {COLOR_PRESETS.filter((preset) => preset.group === group).map(presetButton)}
+          </div>
+        </div>
+      ))}
+      <div className="grid grid-cols-5 gap-2" role="radiogroup" aria-label={t("colorTheme.custom")}>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={custom !== null}
+          onClick={customize}
+          className={cn(
+            "flex flex-col items-center gap-2 rounded-lg border p-3 text-xs outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
+            custom && "border-primary bg-accent",
+          )}
+        >
+          <PaletteIcon aria-hidden className="size-7" strokeWidth={1.5} />
+          <span className="w-full truncate text-center">{t("colorTheme.custom")}</span>
+        </button>
+      </div>
+
+      {custom && (
+        <div className="grid gap-4 rounded-lg border p-4">
+          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t("colorTheme.editing")}>
+            {(["light", "dark"] as const).map((variant) => (
+              <button
+                key={variant}
+                type="button"
+                role="radio"
+                aria-checked={editing === variant}
+                onClick={() => setEditing(variant)}
+                className={cn(
+                  "rounded-md border px-3 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                  editing === variant && "border-primary bg-accent font-medium",
+                )}
+              >
+                {t(`themes.${variant}`)}
+              </button>
+            ))}
+          </div>
+          {THEME_ROLES.map((role) => (
+            <div key={role} className="flex items-center gap-3">
+              <Label htmlFor={`theme-role-${role}`} className="min-w-0 flex-1 text-sm font-normal">
+                {t(`colorTheme.roles.${role}`)}
+              </Label>
+              <div className="w-44">
+                <ColorPicker
+                  id={`theme-role-${role}`}
+                  label={t(`colorTheme.roles.${role}`)}
+                  value={custom[editing][role]}
+                  opacity={false}
+                  onChange={(value) => editRole(role, value)}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </SettingsCard>
   );
 }
 
@@ -597,6 +731,45 @@ function ResolutionField({
   );
 }
 
+/** Interface language: saved on this device and, when signed in, on the SEENALYZE account. */
+function LanguageSelect() {
+  const t = useTranslations("settings");
+  const language = useLanguage();
+  const [busy, setBusy] = useState(false);
+
+  const choose = async (next: string) => {
+    if (!isUiLocale(next) || next === language) return;
+    const previous = language;
+    saveLanguage(next);
+    setBusy(true);
+    try {
+      await studio.setSeenalyzeLanguage(next);
+    } catch (error) {
+      console.error(error);
+      saveLanguage(previous);
+      toast.error(t("languageSyncError"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <select
+      aria-label={t("language")}
+      value={language}
+      disabled={busy}
+      onChange={(event) => void choose(event.target.value)}
+      className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
+    >
+      {UI_LOCALES.map((locale) => (
+        <option key={locale} value={locale}>
+          {LOCALE_NAMES[locale]}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 /** The SEENALYZE account used for the AI overlay designer and credits. */
 function SeenalyzeAccountRow() {
   const t = useTranslations("settings");
@@ -619,6 +792,12 @@ function SeenalyzeAccountRow() {
       cancelled = true;
     };
   }, []);
+
+  // A language saved on the account is the source of truth while signed in.
+  const accountLanguage = account?.language;
+  useEffect(() => {
+    if (isUiLocale(accountLanguage)) saveLanguage(accountLanguage);
+  }, [accountLanguage]);
 
   const act = async (call: () => Promise<SeenalyzeAccount | null>) => {
     setBusy(true);

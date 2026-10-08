@@ -8,11 +8,11 @@ import path from "node:path";
 import type { EncoderOption, EngineStats, ScaleFilter, VideoSettings } from "../../shared/types";
 import { pipeName, stopHost, stopOrphanedHosts } from "./orphans";
 import { loadOsn, osnRoot, type IVideo, type OSN } from "./osn";
+import { applyAudioFormat, videoFormatInfo } from "./formats";
+import type { AudioFormat } from "../../shared/formats";
 
 // libobs enum values (const enums cannot be imported across isolated modules).
-const VIDEO_FORMAT_NV12 = 2;
-const COLORSPACE_709 = 2;
-const RANGE_PARTIAL = 1;
+// Color format, space and range come from formats.ts.
 const SCALE_TYPES: Record<ScaleFilter, number> = { bicubic: 2, bilinear: 3, lanczos: 4, area: 5 };
 // Fractional uses fpsNum/fpsDen directly, which covers integer rates too.
 const FPS_FRACTIONAL = 2;
@@ -51,7 +51,8 @@ export class EngineSession {
 
   constructor(
     video: VideoSettings,
-    private readonly options: { dataDir: string; appVersion: string },
+    /** `audioFormat` is applied before any source exists; absent keeps the engine default. */
+    private readonly options: { dataDir: string; appVersion: string; audioFormat?: AudioFormat },
   ) {
     this.osn = loadOsn();
     this.videoSettings = video;
@@ -77,6 +78,13 @@ export class EngineSession {
       this.disconnect();
       throw new Error(result === -2 ? "engine-graphics-missing" : "engine-init-failed");
     }
+    if (this.options.audioFormat) {
+      try {
+        applyAudioFormat(this.osn, this.options.audioFormat);
+      } catch (error) {
+        console.warn("[engine] audio format not applied; using the default", error);
+      }
+    }
     this.context = this.osn.VideoFactory.create();
     this.applyVideo(this.videoSettings);
   }
@@ -93,15 +101,11 @@ export class EngineSession {
   applyVideo(settings: VideoSettings): void {
     this.videoSettings = settings;
     this.video.video = {
-      fpsNum: settings.fps,
-      fpsDen: 1,
+      ...videoFormatInfo(settings),
       baseWidth: settings.baseWidth,
       baseHeight: settings.baseHeight,
       outputWidth: settings.outputWidth,
       outputHeight: settings.outputHeight,
-      outputFormat: VIDEO_FORMAT_NV12,
-      colorspace: COLORSPACE_709,
-      range: RANGE_PARTIAL,
       scaleType: SCALE_TYPES[settings.scaleFilter] ?? SCALE_TYPES.bicubic,
       fpsType: FPS_FRACTIONAL,
     };

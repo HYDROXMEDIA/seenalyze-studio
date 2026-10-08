@@ -170,7 +170,7 @@ async function start() {
   }
 
   const bitrate = Math.min(40_000_000, Math.max(2_500_000, Math.round(size.width * size.height * config.fps * 0.12)));
-  recorder = new MediaRecorder(stream, { mimeType: type.mimeType, videoBitsPerSecond: bitrate });
+  recorder = new MediaRecorder(stream, { mimeType: type.mimeType, videoBitsPerSecond: bitrate, audioBitsPerSecond: 320_000 });
   // Chunks are sent strictly in order, and the file is finished only after the last one.
   let sending = Promise.resolve();
   recorder.addEventListener('dataavailable', (event) => {

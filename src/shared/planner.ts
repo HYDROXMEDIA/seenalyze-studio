@@ -1,10 +1,10 @@
 // Encoder planner: decides which destinations can share one video encode.
 //
 // Two destinations may share an encoder only when the encoded bitstream they
-// need is identical: same canvas size, frame rate, codec, bitrate and keyframe
-// cadence. Bitrate adaptation is owned by the group, so a destination that
-// needs a different bitrate gets its own encoder rather than silently changing
-// what the others receive.
+// need is identical: same canvas size, frame rate, codec, bitrate, keyframe
+// cadence and encoder speed preset. Bitrate adaptation is owned by the group,
+// so a destination that needs a different bitrate gets its own encoder rather
+// than silently changing what the others receive.
 
 import type { DestinationConfig, DestinationProfile } from "./types";
 
@@ -29,6 +29,7 @@ function videoKey(profile: DestinationProfile): string {
     profile.fps,
     profile.videoBitrateKbps,
     profile.keyframeSec,
+    profile.encoderPreset ?? "balanced",
   ].join(":");
 }
 
@@ -63,4 +64,13 @@ export function estimateUploadKbps(destinations: DestinationConfig[]): number {
 /** Upload to provision: payload plus 5% protocol overhead at 75% link utilization. */
 export function recommendedUploadKbps(payloadKbps: number): number {
   return Math.ceil((payloadKbps * 1.05) / 0.75);
+}
+
+/**
+ * Every destination shares one audio track, so it uses the lowest audio
+ * bitrate any of them asked for: no platform receives more than its limit.
+ */
+export function sharedAudioBitrateKbps(profiles: DestinationProfile[], fallback = 160): number {
+  const values = profiles.map((profile) => profile.audioBitrateKbps).filter((kbps) => Number.isFinite(kbps) && kbps > 0);
+  return values.length > 0 ? Math.min(...values) : fallback;
 }

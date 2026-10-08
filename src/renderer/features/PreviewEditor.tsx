@@ -6,10 +6,14 @@ import {
   applyPatch,
   boxPoint,
   containsPoint,
+  cropDrag,
   move,
-  resize,
   rotateAround,
+  snapLines,
+  snapMove,
+  snapResize,
   type Handle,
+  type SnapGuides,
   type Vec,
 } from "../../shared/transform-geometry";
 import type { ItemTransformDTO, ItemTransformPatch } from "../../shared/types";
@@ -27,10 +31,22 @@ const HANDLES: Handle[] = [
 const HANDLE_SIZE = 10;
 /** Distance of the rotation handle above the top edge, in screen pixels. */
 const ROTATE_OFFSET = 24;
+/** Snap distance to the canvas edges and centre lines, in screen pixels. */
+const SNAP_DISTANCE = 8;
+/** Smallest on-screen source size, so its handles stay apart and grabbable. */
+const MIN_SCREEN_SIZE = 3 * HANDLE_SIZE;
+const NO_GUIDES: SnapGuides = { x: [], y: [] };
 
-type Drag = { itemId: number; initial: ItemTransformDTO; lastPatch?: ItemTransformPatch } & (
-  | { mode: "move"; start: Vec }
+/** Pointer travel, in screen pixels, before a press on a source starts moving it. */
+const MOVE_THRESHOLD = 4;
+
+/** How long a committed outline may wait for the saved position to arrive. */
+const SETTLE_TIMEOUT_MS = 1000;
+
+type Drag = { itemId: number; pointerId: number; initial: ItemTransformDTO; lines: SnapGuides; lastPatch?: ItemTransformPatch } & (
+  | { mode: "move"; start: Vec; moving?: boolean }
   | { mode: "resize"; handle: Handle }
+  | { mode: "crop"; handle: Handle }
   | { mode: "rotate"; start: Vec }
 );
 
@@ -44,7 +60,11 @@ function cursorFor(handle: Handle, rotation: number): string {
 /**
  * Transparent editing layer aligned with the preview frame: click to select a
  * source, drag to move, handles to resize (corners keep the aspect ratio,
- * Shift resizes freely) and the top handle to rotate (Shift snaps to 15°).
+ * Shift resizes freely, Option/Alt crops) and the top handle to rotate
+ * (Shift snaps to 15°). Arrow keys nudge the selection (useArrowNudge).
+ * Moving and resizing snap to the canvas edges and centre (Option/Alt turns
+ * snapping off), and to other visible sources; sources never shrink below a
+ * usable size.
  * The engine draws no editing UI; this layer draws the outline and handles
  * (on macOS it runs in a transparent window above the native preview).
  */
@@ -55,7 +75,11 @@ export function PreviewEditor({ width, height, baseWidth, baseHeight }: { width:
   const selectItem = useStudio((state) => state.selectItem);
   const layerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<Drag | null>(null);
-  const [live, setLive] = useState<{ itemId: number; transform: ItemTransformDTO } | null>(null);
+  const finishRef = useRef<() => void>(() => undefined);
+  // `settling`: the drag has been saved and the outline stays at its final
+  // place until the updated scene arrives, so it never jumps back first.
+  const [live, setLive] = useState<{ itemId: number; transform: ItemTransformDTO; settling?: ItemTransformDTO } | null>(null);
+  const [guides, setGuides] = useState<SnapGuides>(NO_GUIDES);
 
   // Engine updates are coalesced: at most one request in flight, and only the
   // newest patch is sent when it completes. The outline follows the pointer
@@ -70,10 +94,29 @@ export function PreviewEditor({ width, height, baseWidth, baseHeight }: { width:
   const offset = { x: (width - baseWidth * k) / 2, y: (height - baseHeight * k) / 2 };
   const sceneName = scene?.name;
   const selected = scene?.items.find((item) => item.id === selectedItemId);
-  const transform = live && live.itemId === selected?.id ? live.transform : selected?.transform;
+  // A settling outline gives way once the scene reports a new transform for
+  // the item, or after a timeout if the update never arrives.
+  const savedTransform = scene?.items.find((item) => item.id === live?.itemId)?.transform;
+  const settled = Boolean(live?.settling && savedTransform !== live.settling);
+  const transform = live && !settled && live.itemId === selected?.id ? live.transform : selected?.transform;
   const editable = Boolean(selected && transform && selected.visible && !selected.locked);
 
   useEffect(() => () => cancelAnimationFrame(frameRef.current), []);
+
+  // A drag must never outlive the press: if the release is missed (the window
+  // loses focus, is re-ordered or hidden mid-drag), end it here so later hover
+  // movement cannot keep moving the source.
+  useEffect(() => {
+    const end = () => finishRef.current();
+    window.addEventListener("blur", end);
+    return () => window.removeEventListener("blur", end);
+  }, []);
+
+  useEffect(() => {
+    if (!live?.settling) return;
+    const timer = window.setTimeout(() => setLive((current) => (current === live ? null : current)), SETTLE_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [live, savedTransform]);
 
   const flush = () => {
     frameRef.current = 0;
@@ -101,6 +144,13 @@ export function PreviewEditor({ width, height, baseWidth, baseHeight }: { width:
     return { x: (event.clientX - (box?.left ?? 0) - offset.x) / k, y: (event.clientY - (box?.top ?? 0) - offset.y) / k };
   };
 
+  /** Snap lines for a drag: the canvas plus every other visible source. */
+  const linesFor = (itemId: number): SnapGuides =>
+    snapLines(
+      { width: baseWidth, height: baseHeight },
+      (scene?.items ?? []).flatMap((item) => (item.id !== itemId && item.visible && item.transform ? [item.transform] : [])),
+    );
+
   const begin = (event: ReactPointerEvent, drag: Drag) => {
     event.preventDefault();
     event.stopPropagation();
@@ -118,30 +168,50 @@ export function PreviewEditor({ width, height, baseWidth, baseHeight }: { width:
       return;
     }
     selectItem(hit.id);
-    begin(event, { mode: "move", itemId: hit.id, start: point, initial: hit.transform });
+    begin(event, { mode: "move", itemId: hit.id, pointerId: event.pointerId, start: point, initial: hit.transform, lines: linesFor(hit.id) });
     setLive({ itemId: hit.id, transform: hit.transform });
   };
 
   const onMove = (event: ReactPointerEvent) => {
     const drag = dragRef.current;
     if (!drag) return;
+    // No button held: the release was missed, so the drag is over.
+    if (event.pointerType === "mouse" && (event.buttons & 1) === 0) {
+      finish();
+      return;
+    }
     const point = toCanvasPoint(event);
-    const patch =
-      drag.mode === "move"
-        ? move(drag.initial, drag.start, point)
-        : drag.mode === "resize"
-          ? resize(drag.initial, drag.handle, point, !event.shiftKey)
-          : rotateAround(drag.initial, drag.start, point, event.shiftKey);
+    // A click selects without moving; small jitter while pressing is ignored.
+    if (drag.mode === "move" && !drag.moving) {
+      if (Math.hypot(point.x - drag.start.x, point.y - drag.start.y) * k < MOVE_THRESHOLD) return;
+      drag.moving = true;
+    }
+    const threshold = event.altKey ? -1 : SNAP_DISTANCE / k;
+    let patch: ItemTransformPatch;
+    let snapped = NO_GUIDES;
+    if (drag.mode === "move") {
+      ({ patch, guides: snapped } = snapMove(drag.initial, move(drag.initial, drag.start, point), drag.lines, threshold));
+    } else if (drag.mode === "crop") {
+      patch = cropDrag(drag.initial, drag.handle, point);
+    } else if (drag.mode === "resize") {
+      ({ patch, guides: snapped } = snapResize(drag.initial, drag.handle, point, !event.shiftKey, MIN_SCREEN_SIZE / k, drag.lines, threshold));
+    } else {
+      patch = rotateAround(drag.initial, drag.start, point, event.shiftKey);
+    }
+    setGuides(snapped);
     drag.lastPatch = patch;
     setLive({ itemId: drag.itemId, transform: applyPatch(drag.initial, patch) });
     queue(drag.itemId, patch);
   };
 
-  const onUp = (event: ReactPointerEvent) => {
+  /** Ends the current drag (release, cancel, lost capture or blur) and saves its last position. */
+  const finish = () => {
     const drag = dragRef.current;
     if (!drag) return;
     dragRef.current = null;
-    layerRef.current?.releasePointerCapture(event.pointerId);
+    setGuides(NO_GUIDES);
+    const layer = layerRef.current;
+    if (layer?.hasPointerCapture(drag.pointerId)) layer.releasePointerCapture(drag.pointerId);
     cancelAnimationFrame(frameRef.current);
     frameRef.current = 0;
     pendingRef.current = null;
@@ -152,11 +222,20 @@ export function PreviewEditor({ width, height, baseWidth, baseHeight }: { width:
     }
     // Final update (after any live update still in flight) refreshes the
     // snapshot and saves the scene collection.
+    const final = applyPatch(drag.initial, patch);
+    const saved = scene?.items.find((item) => item.id === drag.itemId)?.transform ?? drag.initial;
     void (inFlightRef.current ?? Promise.resolve())
       .then(() => studio.patchItemTransform(sceneName, drag.itemId, patch, true))
-      .catch(console.error)
-      .finally(() => setLive(null));
+      .then(() => setLive({ itemId: drag.itemId, transform: final, settling: saved }))
+      .catch((error: unknown) => {
+        console.error(error);
+        setLive(null);
+      });
   };
+
+  useEffect(() => {
+    finishRef.current = finish;
+  });
 
   const screen = (p: Vec) => ({ x: offset.x + p.x * k, y: offset.y + p.y * k });
   const corners = transform ? [boxPoint(transform, 0, 0), boxPoint(transform, 1, 0), boxPoint(transform, 1, 1), boxPoint(transform, 0, 1)].map(screen) : [];
@@ -182,9 +261,20 @@ export function PreviewEditor({ width, height, baseWidth, baseHeight }: { width:
       style={{ width, height }}
       onPointerDown={onLayerDown}
       onPointerMove={onMove}
-      onPointerUp={onUp}
-      onPointerCancel={onUp}
+      onPointerUp={finish}
+      onPointerCancel={finish}
+      onLostPointerCapture={finish}
     >
+      {/* Canvas border and snap guides: what is inside the border goes live. */}
+      <svg className="pointer-events-none absolute inset-0" width={width} height={height}>
+        <rect x={offset.x + 0.5} y={offset.y + 0.5} width={Math.max(0, baseWidth * k - 1)} height={Math.max(0, baseHeight * k - 1)} fill="none" stroke="var(--canvas-border)" strokeWidth={1} />
+        {guides.x.map((x) => (
+          <line key={`x-${x}`} x1={offset.x + x * k} y1={offset.y} x2={offset.x + x * k} y2={offset.y + baseHeight * k} stroke="var(--snap-guide)" strokeWidth={1} strokeDasharray="5 4" />
+        ))}
+        {guides.y.map((y) => (
+          <line key={`y-${y}`} x1={offset.x} y1={offset.y + y * k} x2={offset.x + baseWidth * k} y2={offset.y + y * k} stroke="var(--snap-guide)" strokeWidth={1} strokeDasharray="5 4" />
+        ))}
+      </svg>
       {transform && corners.length === 4 && (
         <svg className="pointer-events-none absolute inset-0 overflow-visible" width={width} height={height}>
           <polygon
@@ -216,7 +306,8 @@ export function PreviewEditor({ width, height, baseWidth, baseHeight }: { width:
               }}
               onPointerDown={(event) => {
                 if (event.button !== 0) return;
-                begin(event, { mode: "resize", itemId: selected.id, handle, initial: transform });
+                // Option/Alt-drag on a handle crops instead of resizing (as in OBS).
+                begin(event, { mode: event.altKey ? "crop" : "resize", itemId: selected.id, pointerId: event.pointerId, handle, initial: transform, lines: linesFor(selected.id) });
               }}
             />
           );
@@ -228,7 +319,7 @@ export function PreviewEditor({ width, height, baseWidth, baseHeight }: { width:
           style={{ left: rotateHandle.to.x - HANDLE_SIZE / 2, top: rotateHandle.to.y - HANDLE_SIZE / 2, width: HANDLE_SIZE, height: HANDLE_SIZE }}
           onPointerDown={(event) => {
             if (event.button !== 0 || !selected) return;
-            begin(event, { mode: "rotate", itemId: selected.id, start: toCanvasPoint(event), initial: transform });
+            begin(event, { mode: "rotate", itemId: selected.id, pointerId: event.pointerId, start: toCanvasPoint(event), initial: transform, lines: NO_GUIDES });
           }}
         />
       )}

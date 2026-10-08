@@ -17,6 +17,7 @@ const helpers = [
   { source: "video_muxer.swift", output: "video-muxer", frameworks: ["AVFoundation", "CoreMedia"] },
   { source: "media_tools.swift", output: "media-tools", frameworks: ["AVFoundation"] },
   { source: "window_list.swift", output: "window-list", frameworks: ["AppKit"] },
+  { source: "audio_inputs.swift", output: "audio-inputs", frameworks: ["CoreAudio"] },
 ];
 
 let built = 0;

@@ -3,8 +3,9 @@
 // loop and statistics, so one failing destination never stops the others.
 
 import { EventEmitter } from "node:events";
-import type { DestinationConfig, DestinationProfile, DestinationStatus, OutputState, RecordingFormat, RecordingStatus } from "../../shared/types";
-import { planEncoders } from "../../shared/planner";
+import { DEFAULT_ADVANCED_STREAM, type AdvancedStreamSettings, type DestinationConfig, type DestinationProfile, type DestinationStatus, type OutputState, type RecordingFormat, type RecordingStatus } from "../../shared/types";
+import { encoderPresetSettings } from "../../shared/encoder-presets";
+import { planEncoders, sharedAudioBitrateKbps } from "../../shared/planner";
 import type { EngineSession } from "./engine";
 import type { EOutputSignal, IAdvancedRecording, IAdvancedStreaming, IVideoEncoder } from "./osn";
 
@@ -29,10 +30,17 @@ interface ActiveOutput {
 }
 
 const AUDIO_TRACK = 1;
+const DEFAULT_RECORDING_AUDIO_KBPS = 320;
+/** Pseudo user that keeps a shared stream encoder alive for the recording. */
+const RECORDING_USER = "\u0000recording";
 
 export interface RecordingOptions {
   format: RecordingFormat;
   bitrateKbps: number;
+  /** Reuse a live stream's encoder instead of encoding twice (falls back to `bitrateKbps`). */
+  shareStreamEncoder?: boolean;
+  /** Bitmask of the audio tracks to record (bit 0 = track 1); absent records track 1. */
+  tracks?: number;
 }
 
 /** Maps libobs output stop codes to translation keys. */
@@ -60,14 +68,17 @@ function stopErrorKey(code: number): string | undefined {
 }
 
 function groupKey(profile: DestinationProfile): string {
-  return [profile.codec, profile.width, profile.height, profile.fps, profile.videoBitrateKbps, profile.keyframeSec].join(":");
+  return [profile.codec, profile.width, profile.height, profile.fps, profile.videoBitrateKbps, profile.keyframeSec, profile.encoderPreset ?? "balanced"].join(":");
 }
 
 export class OutputManager extends EventEmitter {
   private readonly outputs = new Map<string, ActiveOutput>();
   private readonly groups = new Map<string, EncoderGroupState>();
   private nextGroupIndex = 0;
-  private recording: { output: IAdvancedRecording; encoder: IVideoEncoder } | null = null;
+  /** `group` is set when the recording shares a stream's encoder instead of owning one. */
+  private recording: { output: IAdvancedRecording; encoder: IVideoEncoder; group?: EncoderGroupState } | null = null;
+  /** Other outputs (instant replay) using the shared audio track. */
+  private audioTrackHolds = 0;
   private recordingStatus: RecordingStatus = { active: false };
 
   constructor(private readonly engine: EngineSession) {
@@ -91,7 +102,7 @@ export class OutputManager extends EventEmitter {
   }
 
   /** Starts every destination that is not already live. */
-  start(destinations: LiveDestination[], encoderId: string): void {
+  start(destinations: LiveDestination[], encoderId: string, options: AdvancedStreamSettings = DEFAULT_ADVANCED_STREAM): void {
     const pending = destinations.filter((destination) => !this.outputs.has(destination.config.id));
     if (pending.length === 0) return;
 
@@ -100,7 +111,7 @@ export class OutputManager extends EventEmitter {
     const configs = pending.map(({ config }) => ({ ...config, profile: { ...config.profile, fps } }));
     const plan = planEncoders(configs);
 
-    this.configureAudioTrack(configs);
+    this.configureAudioTrack(sharedAudioBitrateKbps(configs.map((config) => config.profile)));
 
     for (const group of plan.groups) {
       let encoderGroup: EncoderGroupState;
@@ -118,7 +129,7 @@ export class OutputManager extends EventEmitter {
         const destination = pending.find((entry) => entry.config.id === destinationId);
         if (!destination) continue;
         try {
-          this.startOutput(destination, encoderGroup, group.profile);
+          this.startOutput(destination, encoderGroup, group.profile, options);
         } catch (error) {
           console.error(`[outputs] failed to start destination ${destinationId}`, error);
           const output = this.outputs.get(destinationId);
@@ -176,12 +187,20 @@ export class OutputManager extends EventEmitter {
 
   startRecording(folder: string, encoderId: string, options: RecordingOptions): void {
     if (this.recording) return;
+    // A recording started before any stream still needs its audio track, or it stops at once.
+    this.configureAudioTrack(DEFAULT_RECORDING_AUDIO_KBPS);
     const { osn } = this.engine;
-    const encoder = osn.VideoEncoderFactory.create(encoderId, "seenalyze-recording", {
-      rate_control: "CBR",
-      bitrate: options.bitrateKbps,
-      keyint_sec: 2,
-    });
+    // A shared encoder stays alive until the recording ends: the recording
+    // counts as one more user of its group.
+    const group = options.shareStreamEncoder ? this.largestGroup() : undefined;
+    if (group) group.users.add(RECORDING_USER);
+    const encoder =
+      group?.encoder ??
+      osn.VideoEncoderFactory.create(encoderId, "seenalyze-recording", {
+        rate_control: "CBR",
+        bitrate: options.bitrateKbps,
+        keyint_sec: 2,
+      });
     const output = osn.AdvancedRecordingFactory.create();
     output.path = folder;
     output.format = options.format as IAdvancedRecording["format"];
@@ -190,10 +209,10 @@ export class OutputManager extends EventEmitter {
     output.noSpace = false;
     output.video = this.engine.video;
     output.videoEncoder = encoder;
-    output.mixer = 1 << (AUDIO_TRACK - 1);
+    output.mixer = this.recordingMixer(options.tracks);
     output.useStreamEncoders = false;
     output.signalHandler = (signal) => this.onRecordingSignal(signal);
-    this.recording = { output, encoder };
+    this.recording = { output, encoder, group };
     this.recordingStatus = { active: true, startedAt: Date.now() };
     this.emit("recording", this.recordingState());
     try {
@@ -210,9 +229,47 @@ export class OutputManager extends EventEmitter {
 
   // ----- internals ----------------------------------------------------------
 
-  private configureAudioTrack(configs: DestinationConfig[]): void {
-    if (this.outputs.size > 0 || this.recording) return; // Track is in use; keep it stable.
-    const bitrate = Math.max(...configs.map((config) => config.profile.audioBitrateKbps), 128);
+  /** Instant replay uses the shared audio track; configures it if nothing uses it yet. */
+  holdAudioTrack(): void {
+    this.configureAudioTrack(DEFAULT_RECORDING_AUDIO_KBPS);
+    this.audioTrackHolds += 1;
+  }
+
+  releaseAudioTrack(): void {
+    this.audioTrackHolds = Math.max(0, this.audioTrackHolds - 1);
+  }
+
+  /**
+   * Audio tracks for a recording. Track 1 is shared with streams and set up by
+   * configureAudioTrack; extra tracks are only used by recordings and are
+   * (re)configured here, which is safe because no recording is running.
+   */
+  private recordingMixer(tracks: number | undefined): number {
+    const shared = 1 << (AUDIO_TRACK - 1);
+    const mask = typeof tracks === "number" && Number.isInteger(tracks) ? tracks & 0x3f : 0;
+    if (mask === 0) return shared;
+    const { AudioTrackFactory } = this.engine.osn;
+    for (let track = 1; track <= 6; track += 1) {
+      if (track === AUDIO_TRACK || (mask & (1 << (track - 1))) === 0) continue;
+      AudioTrackFactory.setAtIndex(AudioTrackFactory.create(DEFAULT_RECORDING_AUDIO_KBPS, `Track${track}`), track);
+    }
+    return mask;
+  }
+
+  /** The live encoder group with the highest bitrate, if any stream is live. */
+  private largestGroup(): EncoderGroupState | undefined {
+    let best: { group: EncoderGroupState; kbps: number } | undefined;
+    for (const output of this.outputs.values()) {
+      // Group keys end with the profile fields (see groupKey); the bitrate is the fifth.
+      const kbps = Number(output.group.key.split(":")[4]) || 0;
+      if (!best || kbps > best.kbps) best = { group: output.group, kbps };
+    }
+    return best?.group;
+  }
+
+  private configureAudioTrack(bitrateKbps: number): void {
+    if (this.outputs.size > 0 || this.recording || this.audioTrackHolds > 0) return; // Track is in use; keep it stable.
+    const bitrate = Math.max(bitrateKbps, 128);
     const { AudioTrackFactory } = this.engine.osn;
     AudioTrackFactory.setAtIndex(AudioTrackFactory.create(Math.min(bitrate, 320), "Track1"), AUDIO_TRACK);
   }
@@ -227,13 +284,14 @@ export class OutputManager extends EventEmitter {
       keyint_sec: profile.keyframeSec,
       profile: "high",
       bf: 2,
+      ...encoderPresetSettings(encoderId, profile.encoderPreset),
     });
     const group: EncoderGroupState = { key, encoder, users: new Set(), index: this.nextGroupIndex++ };
     this.groups.set(key, group);
     return group;
   }
 
-  private startOutput(destination: LiveDestination, group: EncoderGroupState, profile: DestinationProfile): void {
+  private startOutput(destination: LiveDestination, group: EncoderGroupState, profile: DestinationProfile, options: AdvancedStreamSettings): void {
     const { osn } = this.engine;
     const { config } = destination;
     const stream = osn.AdvancedStreamingFactory.create();
@@ -258,13 +316,16 @@ export class OutputManager extends EventEmitter {
       }
 
       const delay = osn.DelayFactory.create();
-      delay.enabled = false;
+      delay.enabled = options.streamDelaySec > 0;
+      delay.delaySec = options.streamDelaySec;
+      // Keep the delay across reconnects, as viewers expect a constant delay.
+      delay.preserveDelay = true;
       stream.delay = delay;
 
       const reconnect = osn.ReconnectFactory.create();
       reconnect.enabled = true;
-      reconnect.retryDelay = 2;
-      reconnect.maxRetries = 25;
+      reconnect.retryDelay = options.reconnectDelaySec;
+      reconnect.maxRetries = options.reconnectMaxRetries;
       stream.reconnect = reconnect;
 
       const network = osn.NetworkFactory.create();
@@ -364,7 +425,7 @@ export class OutputManager extends EventEmitter {
 
   private finishRecording(errorKey?: string): void {
     if (!this.recording) return;
-    const { output, encoder } = this.recording;
+    const { output, encoder, group } = this.recording;
     let lastFile: string | undefined;
     try {
       lastFile = output.lastFile();
@@ -372,7 +433,8 @@ export class OutputManager extends EventEmitter {
       console.error("[outputs] could not read the recording file name", error);
     }
     this.engine.osn.AdvancedRecordingFactory.destroy(output);
-    encoder.release();
+    if (group) this.releaseUser(group, RECORDING_USER);
+    else encoder.release();
     this.recording = null;
     this.recordingStatus = { active: false, lastFile, errorKey };
     this.emit("recording", this.recordingState());

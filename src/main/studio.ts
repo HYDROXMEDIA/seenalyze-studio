@@ -3,9 +3,9 @@
 // window never waits on the engine. Implements the StudioApi contract.
 
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import path from "node:path";
-import { app, dialog, powerSaveBlocker, screen, shell, type BrowserWindow } from "electron";
+import { app, dialog, Menu, powerSaveBlocker, screen, shell, type BrowserWindow } from "electron";
 import type { Notice, StudioApi, StudioMethod } from "../shared/ipc";
 import { IPC } from "../shared/ipc";
 import { OVERLAY_KINDS, type DesignRequest, type DesignResult, type OverlayKind } from "../shared/overlays";
@@ -13,10 +13,12 @@ import { clampProfile, PLATFORM_SPECS } from "../shared/platforms";
 import { sceneIssues } from "../shared/stream-check";
 import type {
   AccountDTO,
+  AdvancedStreamSettings,
   BroadcastInfo,
   DestinationConfig,
   DestinationDraft,
   DestinationStatus,
+  ItemPlacement,
   Rect,
   SourceKind,
   StudioPreferences,
@@ -24,8 +26,16 @@ import type {
   StudioSnapshot,
   VideoSettings,
 } from "../shared/types";
-import { RECORDING_BITRATE_RANGE, RECORDING_FORMATS, SCALE_FILTERS } from "../shared/types";
+import { ADVANCED_STREAM_RANGES, DEFAULT_ADVANCED_STREAM, RECORDING_BITRATE_RANGE, RECORDING_FORMATS, SCALE_FILTERS } from "../shared/types";
+import { OutputStatsProbe } from "./output-stats";
 import { EngineClient } from "./engine/client";
+import { PREVIEW_DISPLAY_NAME } from "./engine/preview";
+import { HotkeyManager } from "./hotkeys";
+import { hotkeyProblem, isReservedHotkey, parseHotkeyAction, renameHotkeyTarget, sanitizeHotkeys, type TargetHotkeyKind } from "../shared/hotkeys";
+import { DEFAULT_CAPTURE_PREFERENCES, recordingBitrate, sanitizeCapturePreferences } from "../shared/recording-prefs";
+import { listMicrophones, resolveDefaultMicrophone } from "./audio-inputs";
+import { sanitizeAudioChange, type AudioDeviceChoice } from "../shared/audio";
+import { helperPath } from "./screen-recording/pages";
 import type { LiveDestination } from "./engine/outputs";
 import type { SceneCollection } from "./engine/scenes";
 import type { EngineEvent, EngineState } from "./engine/worker";
@@ -37,7 +47,9 @@ import { StreamDataHub } from "./overlay/data";
 import { OverlayLibrary, summarize } from "./overlay/library";
 import { findPreset, OVERLAY_PRESETS } from "./overlay/presets";
 import type { PreviewEditorWindow } from "./preview-editor-window";
-import { MacPreviewView } from "./preview-mac";
+import { NativeDisplay } from "./native-display";
+import { Projectors, screenChoices, type ProjectorHost } from "./projectors";
+import { sanitizeProjectorTarget } from "../shared/projector";
 import { ScreenRecorder } from "./screen-recording";
 import { SeenalyzeAccountService } from "./seenalyze/account";
 import * as twitch from "./platforms/twitch";
@@ -45,14 +57,21 @@ import { forgetToken, readToken } from "./platforms/tokens";
 import * as youtube from "./platforms/youtube";
 import { deleteSecret, getSecret, hasSecret, secretNames, setSecret } from "./secrets";
 import { debounced, readJson, writeJson } from "./store";
-import { sanitizeTransition, type TransitionChoice } from "../shared/transitions";
-import { sanitizeTransformPatch } from "../shared/transform-geometry";
+import { CollectionFiles, migrateWorkspace, type WorkspaceFields } from "./collections";
+import { Workspace } from "./workspace";
+import { findImportCandidates, importRoots, readImportCandidate, readImportFile, type ConvertedCollection } from "./obs-import";
+import { DEFAULT_AUDIO_FORMAT, sanitizeVideoFormat, type AudioFormat } from "../shared/formats";
+import { availablePresets, isStingerPath, parseTransition, sanitizeTransition, STINGER_EXTENSIONS, type TransitionChoice } from "../shared/transitions";
+import { virtualCameraAvailability, virtualCameraScene, type VirtualCameraProbe } from "../shared/virtual-camera";
+import { sanitizePlacement, sanitizeTransformPatch } from "../shared/transform-geometry";
+import { isEffectKind, sanitizeEffectSnapshots } from "../shared/video-effects";
 
 type AccountRecord =
   | ({ platform: "twitch" } & twitch.TwitchAccount & { login?: string })
   | ({ platform: "youtube" } & youtube.YouTubeAccount);
 
-interface PersistedState {
+/** Workspace fields: scene collection list, profiles and audio formats (see collections.ts). */
+interface PersistedState extends WorkspaceFields {
   version: 1;
   video: VideoSettings;
   encoder: string | null;
@@ -64,6 +83,18 @@ interface PersistedState {
   collection: SceneCollection | null;
   overlayPort: number;
   transition: TransitionChoice;
+  /** Global hotkey combos by action (see shared/hotkeys.ts). */
+  hotkeys: Record<string, string>;
+  /** Stream delay and reconnect behaviour (Settings › Advanced). */
+  advanced: AdvancedStreamSettings;
+  /** First-run setup finished or skipped. Missing in older files, which count as set up. */
+  setupCompleted: boolean;
+  /** Headphones for audio monitoring; null follows the system default. */
+  monitoringDevice: string | null;
+  /** Scene the virtual camera shows; null shows the program output. */
+  virtualCamera: { scene: string | null };
+  /** Studio mode (preview and program side by side). Missing in older files: off. */
+  studioMode: boolean;
 }
 
 interface YouTubeBroadcast {
@@ -89,9 +120,12 @@ const DESIGN_SIZES: Record<OverlayKind, { width: number; height: number }> = {
   scene: { width: 1920, height: 1080 },
   custom: { width: 800, height: 600 },
 };
-const IS_MAC = process.platform === "darwin";
 /** Far off-screen coordinate for a parked (covered) preview surface. */
 const PREVIEW_PARK_OFFSET = -20000;
+/** The studio-mode preview's display (the program keeps PREVIEW_DISPLAY_NAME). */
+const STUDIO_DISPLAY_NAME = "seenalyze-studio-preview";
+/** Studio mode switched: longer than the page's 80 ms wait before it reports the new layout. */
+const STUDIO_LAYOUT_FALLBACK_MS = 300;
 
 const DEFAULT_VIDEO: VideoSettings = {
   baseWidth: 1920,
@@ -106,7 +140,9 @@ const DEFAULT_PREFERENCES: StudioPreferences = {
   recordingFormat: "mkv",
   recordingBitrateKbps: 12000,
   confirmGoLive: false,
+  confirmEndStream: true,
   keepAwakeWhileLive: true,
+  ...DEFAULT_CAPTURE_PREFERENCES,
 };
 
 const ACTIVE_STATES = new Set(["preparing", "connecting", "live", "reconnecting", "stopping"]);
@@ -119,13 +155,35 @@ export class Studio {
   private readonly statuses = new Map<string, DestinationStatus>();
   private readonly youtubeBroadcasts = new Map<string, YouTubeBroadcast>();
   private readonly preparations = new Map<string, { cancelled: boolean }>();
-  private readonly macPreview: MacPreviewView | null;
+  /** The program; in studio mode it moves to the program rect. */
+  private readonly programDisplay: NativeDisplay;
+  /** The editable studio-mode preview (shows `previewScene`). */
+  private readonly studioDisplay: NativeDisplay;
+  /** Where the program goes in studio mode (window points), or null. */
+  private programRect: Rect | null = null;
+  /** Scene in the studio-mode preview. */
+  private previewScene: string | null = null;
+  private readonly projectors: Projectors | null;
   private previewRect: Rect | null = null;
   /** Floating UI covers the preview: keep the surface but park it off-screen. */
   private previewHidden = false;
   private previewQueue: Promise<void> = Promise.resolve();
+  /**
+   * The window's backing scale, from the renderer's devicePixelRatio (0 until
+   * reported). It changes only once the window has really moved to a screen
+   * with another scale, unlike the screen under the window's bounds, which
+   * changes mid-drag.
+   */
+  private previewScale = 0;
   /** Selected scene item, shared by the main window and the preview editor. */
   private selectedItemId: number | null = null;
+  /** Undo/redo steps for canvas edits (move, resize, rotate, crop, presets). */
+  private readonly canvasPast: CanvasEdit[] = [];
+  private readonly canvasFuture: CanvasEdit[] = [];
+  /** Placement at the start of each live drag, keyed by scene and item. */
+  private readonly dragStarts = new Map<string, ItemPlacement>();
+  /** Canvas edits and undo steps run one at a time, in order. */
+  private canvasQueue: Promise<unknown> = Promise.resolve();
   private twitchSignIn: AbortController | null = null;
   private readonly chat = new ChatHub({
     accounts: () => this.state.accounts as ChatAccount[],
@@ -168,22 +226,70 @@ export class Studio {
     this.saveNow().catch((error: unknown) => console.error("[studio] could not save", error));
   }, 400);
   private readonly pushSnapshot = debounced(() => {
+    this.projectors?.refresh();
     this.syncKeepAwake();
     this.send(IPC.snapshot, this.snapshot());
   }, 30);
   private keepAwakeId: number | null = null;
+  private readonly hotkeys = new HotkeyManager(
+    { trigger: (action) => this.runHotkey(action), hold: (action, down) => this.holdHotkey(action, down) },
+    () => this.pushSnapshot(),
+  );
+  /** The running recording was started by going live (auto-record). */
+  private autoRecording = false;
+  private readonly outputStats = new OutputStatsProbe();
+  /** Last virtual camera check; null until the engine has been asked. */
+  private virtualCameraProbe: VirtualCameraProbe | null = null;
+  /** Scene collections and profiles; switching restarts the engine (see workspace.ts). */
+  private readonly workspace: Workspace;
+  /** Audio format the running engine reported. */
+  private engineAudioFormat: AudioFormat | null = null;
 
   constructor(
     private readonly window: BrowserWindow,
     private readonly quit: () => void,
     private readonly editor: PreviewEditorWindow | null = null,
+    projectorPages: Pick<ProjectorHost, "preload" | "load" | "isAppUrl"> | null = null,
   ) {
     this.state = this.loadState();
-    this.macPreview = IS_MAC ? new MacPreviewView(window) : null;
+    this.workspace = new Workspace({
+      state: this.state,
+      files: new CollectionFiles(path.join(app.getPath("userData"), "scene-collections")),
+      locked: () => this.busy || Boolean(this.engineState?.virtualCameraActive),
+      stopEngine: () => this.stopEngineForReload(),
+      startEngine: () => this.startEngineAfterReload(),
+      captureCollection: async () => {
+        if (this.engine.running && this.engineState) this.state.collection = await this.engine.call("saveCollection");
+      },
+      applyVideo: (video) => this.api.setVideoSettings(video),
+      writeState: () => writeJson(STATE_FILE, this.state),
+      settingsChanged: async () => {
+        this.ensureEncoder();
+        await this.syncReplay();
+        this.pushSnapshot();
+      },
+      pushSnapshot: () => this.pushSnapshot(),
+      sanitizeVideo,
+      sanitizePreferences,
+      sanitizeAdvanced,
+      sanitizeProfile: (platform, profile) => clampProfile(platform, profile),
+      defaults: { video: DEFAULT_VIDEO, preferences: DEFAULT_PREFERENCES, advanced: DEFAULT_ADVANCED_STREAM },
+    });
+    this.programDisplay = new NativeDisplay(this.engine, window, PREVIEW_DISPLAY_NAME, null);
+    this.studioDisplay = new NativeDisplay(this.engine, window, STUDIO_DISPLAY_NAME, { kind: "studioPreview" });
+    this.projectors = projectorPages
+      ? new Projectors({
+          ...projectorPages,
+          engine: this.engine,
+          context: () => this.projectorContext(),
+          pickScene: (name) => this.api.setActiveScene(name),
+        })
+      : null;
     this.engine.on("event", (event: EngineEvent) => this.onEngineEvent(event));
     this.engine.on("crash", () => this.onEngineCrash());
-    window.on("minimize", () => this.applyPreview(null));
-    window.on("restore", () => this.applyPreview(this.shownPreviewRect()));
+    window.on("minimize", () => this.applyDisplays(true));
+    window.on("restore", () => this.applyDisplays());
+    window.on("focus", () => this.hotkeys.recheckInputAccess());
     // The editor window shows its own snapshot once it has loaded.
     editor?.window.webContents.on("did-finish-load", () => this.pushSnapshot());
   }
@@ -212,12 +318,19 @@ export class Studio {
         appVersion: app.getVersion(),
         video: this.state.video,
         collection: this.state.collection,
-        transition: this.state.transition,
+        // A stinger whose video was moved or deleted cannot play; fall back to the default.
+        transition: stingerFileOk(this.state.transition) ? this.state.transition : sanitizeTransition(null),
+        defaultMicrophone: await resolveDefaultMicrophone(helperPath("audio-inputs")),
+        monitoringDevice: this.state.monitoringDevice ?? undefined,
+        audioFormat: this.state.audioFormat ?? undefined,
       });
       // Saved chat overlays follow the overlay server if its port changed.
       await this.engine.call("retargetChatOverlays", `http://127.0.0.1:${this.state.overlayPort}`);
       await this.refreshState();
+      this.engineAudioFormat = await this.engine.call("audioFormat").catch(() => null);
       this.ensureEncoder();
+      await this.syncReplay();
+      void this.probeVirtualCamera();
       if (this.engineState?.unavailableSourceCount) this.notify({ kind: "info", key: "notices.sourcesUnavailable" });
     } catch (error) {
       console.error("[studio] engine failed to start", error);
@@ -232,6 +345,7 @@ export class Studio {
 
   async shutdown(): Promise<void> {
     this.shuttingDown = true;
+    this.hotkeys.dispose();
     this.twitchSignIn?.abort();
     for (const preparation of this.preparations.values()) preparation.cancelled = true;
     this.overlay.stop();
@@ -242,7 +356,9 @@ export class Studio {
     } catch (error) {
       console.error("[studio] could not save before quitting", error);
     }
-    this.macPreview?.detach();
+    await this.projectors?.closeAll().catch((error: unknown) => console.error("[studio] projectors did not close cleanly", error));
+    this.programDisplay.reset();
+    this.studioDisplay.reset();
     try {
       await this.screenRecorder.shutdown();
     } catch (error) {
@@ -257,15 +373,119 @@ export class Studio {
     getSnapshot: async () => this.snapshot(),
 
     createScene: async (name) => this.mutate(() => this.engine.call("createScene", name)),
-    removeScene: async (name) => this.mutate(() => this.engine.call("removeScene", name)),
-    renameScene: async (name, nextName) => this.mutate(() => this.engine.call("renameScene", name, nextName)),
-    setActiveScene: async (name) => this.mutate(() => this.engine.call("setActiveScene", name)),
+    removeScene: async (name) => {
+      await this.projectors?.closeShowing("scene", name);
+      // The preview moves off the scene first, to the program or the next scene.
+      if (this.state.studioMode && this.previewScene === name) {
+        const program = this.engineState?.activeScene;
+        const fallback = program && program !== name ? program : this.engineState?.scenes.find((scene) => scene.name !== name)?.name;
+        if (fallback) await this.setPreviewScene(fallback);
+      }
+      await this.mutate(() => this.engine.call("removeScene", name));
+      if (this.state.virtualCamera.scene === name) await this.api.setVirtualCameraScene(null);
+    },
+    renameScene: async (name, nextName) => {
+      // The preview keeps showing the same scene object; only its name changes.
+      const previewing = this.previewScene === name;
+      if (previewing) this.previewScene = String(nextName).trim();
+      try {
+        await this.mutate(() => this.engine.call("renameScene", name, nextName));
+      } catch (error) {
+        if (previewing) this.previewScene = name;
+        throw error;
+      }
+      this.renameHotkeys(["scene"], name, nextName);
+      if (this.state.virtualCamera.scene === name) await this.api.setVirtualCameraScene(nextName.trim());
+    },
+    // In studio mode a scene loads into the preview; Transition sends it to the program.
+    setActiveScene: async (name) => (this.state.studioMode ? this.setPreviewScene(String(name)) : this.mutate(() => this.engine.call("setActiveScene", name))),
+    setStudioMode: async (enabled) => {
+      const next = Boolean(enabled);
+      if (next === this.state.studioMode) return;
+      this.state.studioMode = next;
+      this.persist();
+      // The edited scene can change; its selection does not carry over.
+      this.selectedItemId = null;
+      this.previewScene = next ? (this.engineState?.activeScene ?? null) : null;
+      await this.syncStudioPreview();
+      this.pushSnapshot();
+      // The page lays the canvases out again and reports their new rects,
+      // which places the displays; this only covers an unchanged layout.
+      setTimeout(() => {
+        if (!this.window.isDestroyed() && !this.window.isMinimized()) this.applyDisplays();
+      }, STUDIO_LAYOUT_FALLBACK_MS);
+    },
+    studioTransition: async (quick) => {
+      const scene = this.state.studioMode ? this.previewScene : null;
+      if (!scene || !this.engineState?.scenes.some((entry) => entry.name === scene)) return;
+      await this.mutate(() => (quick === "cut" ? this.engine.call("cutToScene", scene) : this.engine.call("setActiveScene", scene)));
+    },
+    listScreens: async () => screenChoices(),
+    openProjector: async (target, screenId) => {
+      const clean = sanitizeProjectorTarget(target);
+      if (!clean || (screenId !== null && typeof screenId !== "number")) throw new Error("invalid-request");
+      if (!this.projectors) throw new Error("invalid-request");
+      this.projectors.openProjector(clean, screenId);
+    },
     setTransition: async (choice) => {
+      // A stinger without a usable file is an error, not a silent switch to Fade.
+      if (choice?.id === "stinger" && !parseTransition(choice)) throw new Error("stinger-file-invalid");
       const clean = sanitizeTransition(choice);
+      if (!stingerFileOk(clean)) throw new Error("stinger-file-missing");
       await this.engine.call("setTransition", clean);
       this.state.transition = clean;
       this.persist();
       this.pushSnapshot();
+    },
+    setSceneTransition: async (scene, choice) => {
+      const clean = choice === null ? null : parseTransition(choice);
+      if (choice !== null && !clean) throw new Error("invalid-request");
+      if (clean && !stingerFileOk(clean)) throw new Error("stinger-file-missing");
+      await this.mutate(() => this.engine.call("setSceneTransition", String(scene), clean));
+    },
+    pickStingerFile: async () => {
+      const result = await dialog.showOpenDialog(this.window, {
+        properties: ["openFile"],
+        filters: [{ name: "Video", extensions: [...STINGER_EXTENSIONS] }],
+      });
+      const file = result.canceled ? undefined : result.filePaths[0];
+      if (!file) return null;
+      if (!isStingerPath(file) || !isFile(file)) throw new Error("stinger-file-invalid");
+      const durationMs = await this.engine.call("mediaDurationMs", file);
+      return { path: file, durationMs };
+    },
+
+    checkVirtualCamera: async () => {
+      await this.probeVirtualCamera();
+    },
+    installVirtualCamera: async () => {
+      const probe = await this.probeVirtualCamera();
+      if (!probe?.supported || !probe.canInstall) throw new Error("virtual-camera-unavailable");
+      if (probe.installed) return;
+      // The system approval prompt waits for the user.
+      this.virtualCameraProbe = await this.engine.callWithTimeout(5 * 60_000, "installVirtualCamera");
+      this.pushSnapshot();
+      // macOS finishes the install only after the user approves it in System Settings.
+      if (!this.virtualCameraProbe.installed) throw new Error("virtual-camera-approval-needed");
+    },
+    startVirtualCamera: async () => {
+      const probe = this.virtualCameraProbe?.installed ? this.virtualCameraProbe : await this.probeVirtualCamera();
+      if (!probe?.supported) throw new Error("virtual-camera-unavailable");
+      if (!probe.installed) throw new Error("virtual-camera-not-installed");
+      const scene = virtualCameraScene(this.state.virtualCamera.scene, this.engineState?.scenes.map((entry) => entry.name) ?? []);
+      await this.mutate(() => this.engine.call("startVirtualCamera", scene));
+    },
+    stopVirtualCamera: async () => {
+      await this.mutate(() => this.engine.call("stopVirtualCamera"));
+    },
+    setVirtualCameraScene: async (scene) => {
+      const names = this.engineState?.scenes.map((entry) => entry.name) ?? [];
+      if (scene !== null && !names.includes(String(scene))) throw new Error("scene-not-found");
+      const clean = virtualCameraScene(scene, names);
+      this.state.virtualCamera = { scene: clean };
+      this.persist();
+      this.pushSnapshot();
+      if (this.engine.running && this.engineState) await this.engine.call("setVirtualCameraScene", clean);
     },
 
     addSource: async (scene, kind, name) => {
@@ -279,13 +499,22 @@ export class Studio {
     setItemVisible: async (scene, itemId, visible) => this.mutate(() => this.engine.call("setItemVisible", scene, itemId, visible)),
     setItemLocked: async (scene, itemId, locked) => this.mutate(() => this.engine.call("setItemLocked", scene, itemId, locked)),
     moveSceneItem: async (scene, itemId, direction) => this.mutate(() => this.engine.call("moveSceneItem", scene, itemId, direction)),
-    applyTransform: async (scene, itemId, preset) => this.mutate(() => this.engine.call("applyTransform", scene, itemId, preset)),
+    applyTransform: async (scene, itemId, preset) => this.canvasEdit(scene, itemId, () => this.engine.call("applyTransform", scene, itemId, preset)),
     patchItemTransform: async (scene, itemId, patch, commit) => {
       const clean = sanitizeTransformPatch(patch);
-      // Live drag updates only touch the engine; the drag end refreshes and saves.
-      if (!commit) return this.engine.call("patchItemTransform", scene, itemId, clean);
-      return this.mutate(() => this.engine.call("patchItemTransform", scene, itemId, clean));
+      const key = `${scene}\u0000${itemId}`;
+      // Live drag updates only touch the engine; the drag end refreshes, saves
+      // and records the whole drag as one undo step.
+      if (!commit) {
+        return this.inCanvasQueue(async () => {
+          if (!this.dragStarts.has(key)) this.dragStarts.set(key, await this.engine.call("getItemPlacement", scene, itemId));
+          await this.engine.call("patchItemTransform", scene, itemId, clean);
+        });
+      }
+      return this.canvasEdit(scene, itemId, () => this.engine.call("patchItemTransform", scene, itemId, clean), key);
     },
+    undoCanvas: async () => this.inCanvasQueue(() => this.stepCanvas("undo")),
+    redoCanvas: async () => this.inCanvasQueue(() => this.stepCanvas("redo")),
     setSelectedItem: async (scene, itemId) => {
       const next = typeof itemId === "number" && Number.isInteger(itemId) ? itemId : null;
       if (next !== this.selectedItemId) {
@@ -296,7 +525,7 @@ export class Studio {
       await this.engine.call("setSelectedItem", scene, typeof itemId === "number" ? itemId : null);
     },
     getItemTransform: async (scene, itemId) => this.engine.call("getItemTransform", scene, itemId),
-    setItemTransform: async (scene, itemId, transform) => this.mutate(() => this.engine.call("setItemTransform", scene, itemId, transform)),
+    setItemTransform: async (scene, itemId, transform) => this.canvasEdit(scene, itemId, () => this.engine.call("setItemTransform", scene, itemId, transform)),
     getSourceProperties: async (source) => this.engine.call("getProperties", source),
     updateSourceSettings: async (source, settings) => {
       const result = await this.engine.call("updateSettings", source, settings);
@@ -310,7 +539,37 @@ export class Studio {
       this.persist();
       return result;
     },
-    renameSource: async (source, nextName) => this.mutate(() => this.engine.call("renameSource", source, nextName)),
+    renameSource: async (source, nextName) => {
+      await this.mutate(() => this.engine.call("renameSource", source, nextName));
+      this.renameHotkeys(["mute", "pushToTalk", "pushToMute"], source, nextName);
+    },
+
+    moveScene: async (name, direction) => this.mutate(() => this.engine.call("moveScene", String(name), direction === "up" ? "up" : "down")),
+    duplicateScene: async (name) => this.mutate(() => this.engine.call("duplicateScene", String(name))),
+    duplicateSceneItem: async (scene, itemId) => this.mutate(() => this.engine.call("duplicateSceneItem", String(scene), Number(itemId))),
+    getItemPlacement: async (scene, itemId) => this.engine.call("getItemPlacement", String(scene), Number(itemId)),
+    setItemPlacement: async (scene, itemId, placement) => {
+      const clean = sanitizePlacement(placement);
+      if (!clean) throw new Error("invalid-transform");
+      return this.canvasEdit(String(scene), Number(itemId), () => this.engine.call("setItemPlacement", String(scene), Number(itemId), clean));
+    },
+
+    // Effects can change a source's size (crop, scaling), so edits refresh the scene state.
+    listEffects: async (source) => this.engine.call("listEffects", String(source)),
+    addEffect: async (source, kind) => {
+      if (!isEffectKind(kind)) throw new Error("invalid-request");
+      return this.mutate(() => this.engine.call("addEffect", String(source), kind));
+    },
+    removeEffect: async (source, effect) => this.mutate(() => this.engine.call("removeEffect", String(source), String(effect))),
+    setEffectEnabled: async (source, effect, enabled) => this.mutate(() => this.engine.call("setEffectEnabled", String(source), String(effect), Boolean(enabled))),
+    moveEffect: async (source, effect, direction) => this.mutate(() => this.engine.call("moveEffect", String(source), String(effect), direction === "up" ? "up" : "down")),
+    getEffectProperties: async (source, effect) => this.engine.call("getEffectProperties", String(source), String(effect)),
+    updateEffectSettings: async (source, effect, settings) => {
+      if (!settings || typeof settings !== "object" || Array.isArray(settings)) throw new Error("invalid-request");
+      return this.mutate(() => this.engine.call("updateEffectSettings", String(source), String(effect), settings));
+    },
+    copyEffects: async (source) => this.engine.call("copyEffects", String(source)),
+    pasteEffects: async (source, effects) => this.mutate(() => this.engine.call("pasteEffects", String(source), sanitizeEffectSnapshots(effects))),
     pickFile: async (filter, directory) => {
       const result = await dialog.showOpenDialog(this.window, {
         properties: [directory ? "openDirectory" : "openFile"],
@@ -327,19 +586,84 @@ export class Studio {
       }
       return this.mutate(() => this.engine.call("setMuted", source, muted));
     },
+    getAudioDetails: async (source) => this.engine.call("audioDetails", String(source)),
+    changeAudio: async (source, change) => {
+      const clean = sanitizeAudioChange(change);
+      if (!clean) throw new Error("invalid-request");
+      const details = await this.engine.call("changeAudio", String(source), clean);
+      this.persist();
+      return details;
+    },
+    listAudioDevices: async (source) => this.listAudioDevices(String(source)),
+    setAudioDevice: async (source, deviceId) => {
+      if (typeof deviceId !== "string" || !deviceId || deviceId.length > 512) throw new Error("invalid-request");
+      return this.mutate(() => this.engine.call("setAudioDevice", String(source), deviceId));
+    },
+    getMonitoringDevices: async () => this.engine.call("monitoringDevices"),
+    setMonitoringDevice: async (deviceId) => {
+      if (typeof deviceId !== "string" || !deviceId || deviceId.length > 512) throw new Error("invalid-request");
+      await this.engine.call("setMonitoringDevice", deviceId);
+      this.state.monitoringDevice = deviceId === "default" ? null : deviceId;
+      this.persist();
+    },
 
-    setPreviewBounds: async (rect) => {
-      this.previewRect = rect;
+    setPreviewBounds: async (rect, pixelRatio) => {
+      // The renderer measures in CSS pixels and its devicePixelRatio, both
+      // scaled by the page zoom; the preview works in window points and the
+      // window's backing scale.
+      const zoom = this.window.webContents.getZoomFactor();
+      const factor = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+      this.previewRect = rect && {
+        x: Math.round(rect.x * factor),
+        y: Math.round(rect.y * factor),
+        width: Math.round(rect.width * factor),
+        height: Math.round(rect.height * factor),
+      };
+      if (typeof pixelRatio === "number" && Number.isFinite(pixelRatio) && pixelRatio > 0) {
+        this.previewScale = Math.round((pixelRatio / factor) * 100) / 100;
+      }
       if (!rect) this.previewHidden = false;
       this.syncEditor();
-      if (!this.window.isMinimized()) this.applyPreview(this.shownPreviewRect());
+      if (!this.window.isMinimized()) this.applyDisplays();
+    },
+    setProgramBounds: async (rect, pixelRatio) => {
+      // Same units as setPreviewBounds; used only in studio mode.
+      const zoom = this.window.webContents.getZoomFactor();
+      const factor = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+      this.programRect = rect && {
+        x: Math.round(rect.x * factor),
+        y: Math.round(rect.y * factor),
+        width: Math.round(rect.width * factor),
+        height: Math.round(rect.height * factor),
+      };
+      if (typeof pixelRatio === "number" && Number.isFinite(pixelRatio) && pixelRatio > 0) {
+        this.previewScale = Math.round((pixelRatio / factor) * 100) / 100;
+      }
+      // Placed with the setPreviewBounds call that follows, so both rects
+      // change together and no display is made for a size it never keeps.
     },
     setPreviewHidden: async (hidden) => {
       if (this.previewHidden === Boolean(hidden)) return;
       this.previewHidden = Boolean(hidden);
       this.syncEditor();
-      if (!this.window.isMinimized()) this.applyPreview(this.shownPreviewRect());
+      if (!this.window.isMinimized()) this.applyDisplays();
     },
+
+    showMenu: async (entries, at) =>
+      new Promise<number | null>((resolve) => {
+        let chosen: number | null = null;
+        const menu = Menu.buildFromTemplate(
+          entries.map((entry, index) =>
+            entry.separator
+              ? { type: "separator" as const }
+              : entry.checked !== undefined
+                ? { type: "checkbox" as const, checked: entry.checked === true, label: String(entry.label ?? ""), enabled: entry.enabled !== false, click: () => (chosen = index) }
+                : { label: String(entry.label ?? ""), enabled: entry.enabled !== false, click: () => (chosen = index) },
+          ),
+        );
+        // The close callback can run before the item's click; settle after both.
+        menu.popup({ window: this.window, x: Math.round(at.x), y: Math.round(at.y), callback: () => setTimeout(() => resolve(chosen), 0) });
+      }),
 
     setVideoSettings: async (settings) => {
       if (this.busy) throw new Error("settings-locked-live");
@@ -347,8 +671,9 @@ export class Studio {
       await this.engine.call("applyVideo", clean);
       this.state.video = clean;
       // The preview surface is tied to the old canvas; rebuild it.
-      this.applyPreview(null);
-      this.applyPreview(this.shownPreviewRect());
+      this.applyDisplays(true);
+      this.applyDisplays();
+      this.projectors?.rebuild();
       await this.refreshState();
       this.persist();
     },
@@ -358,6 +683,7 @@ export class Studio {
       this.state.encoder = encoderId;
       this.persist();
       this.pushSnapshot();
+      await this.syncReplay();
     },
     chooseRecordingFolder: async () => {
       const result = await dialog.showOpenDialog(this.window, {
@@ -368,10 +694,54 @@ export class Studio {
       this.state.recordingFolder = result.filePaths[0];
       this.persist();
       this.pushSnapshot();
+      await this.syncReplay();
       return this.state.recordingFolder;
     },
     setPreferences: async (patch) => {
+      const streaming = [...this.statuses.values()].some((status) => ACTIVE_STATES.has(status.state));
+      if (streaming && ("confirmGoLive" in patch || "confirmEndStream" in patch || "keepAwakeWhileLive" in patch)) throw new Error("settings-locked-live");
       this.state.preferences = sanitizePreferences({ ...this.state.preferences, ...patch });
+      this.persist();
+      this.pushSnapshot();
+      await this.syncReplay();
+    },
+    setAdvancedSettings: async (patch) => {
+      // Applies to stream outputs, which are configured when a stream starts.
+      if ([...this.statuses.values()].some((status) => ACTIVE_STATES.has(status.state))) throw new Error("settings-locked-live");
+      this.state.advanced = sanitizeAdvanced({ ...this.state.advanced, ...patch });
+      this.persist();
+      this.pushSnapshot();
+    },
+    createCollection: async (name) => this.workspace.createCollection(name),
+    renameCollection: async (id, name) => this.workspace.renameCollection(String(id), name),
+    duplicateCollection: async (id, name) => this.workspace.duplicateCollection(String(id), name),
+    removeCollection: async (id) => this.workspace.removeCollection(String(id)),
+    switchCollection: async (id) => this.workspace.switchCollection(String(id)),
+    createProfile: async (name) => this.workspace.createProfile(name),
+    renameProfile: async (id, name) => this.workspace.renameProfile(String(id), name),
+    duplicateProfile: async (id, name) => this.workspace.duplicateProfile(String(id), name),
+    removeProfile: async (id) => this.workspace.removeProfile(String(id)),
+    switchProfile: async (id) => this.workspace.switchProfile(String(id)),
+    setOutputFormats: async (patch) => this.workspace.setFormats(patch && typeof patch === "object" ? patch : {}),
+    findImports: async () => findImportCandidates(importRoots(process.platform, app.getPath("home"), app.getPath("appData")), process.platform),
+    importCollection: async (candidateId, switchTo) => {
+      const canvas = { width: this.state.video.baseWidth, height: this.state.video.baseHeight };
+      let converted: ConvertedCollection;
+      if (candidateId === null) {
+        const picked = await dialog.showOpenDialog(this.window, { properties: ["openFile"], filters: [{ name: "JSON", extensions: ["json"] }] });
+        const file = picked.canceled ? undefined : picked.filePaths[0];
+        if (!file) return null;
+        converted = readImportFile(file, process.platform, canvas);
+      } else {
+        converted = readImportCandidate(String(candidateId), importRoots(process.platform, app.getPath("home"), app.getPath("appData")), process.platform, canvas);
+      }
+      const result = await this.workspace.importCollection(converted, switchTo === true);
+      // The engine knows which source types are really installed.
+      return result.switched && this.engineState ? { ...result, unavailableSources: this.engineState.unavailableSourceCount } : result;
+    },
+    completeSetup: async () => {
+      if (this.state.setupCompleted) return;
+      this.state.setupCompleted = true;
       this.persist();
       this.pushSnapshot();
     },
@@ -482,13 +852,39 @@ export class Studio {
       if (!existsSync(folder)) throw new Error("recording-folder-missing");
       await this.engine.call("startRecording", folder, this.encoderId(), {
         format: this.state.preferences.recordingFormat,
-        bitrateKbps: this.state.preferences.recordingBitrateKbps,
+        bitrateKbps: recordingBitrate(this.state.preferences, this.state.destinations),
+        shareStreamEncoder: this.state.preferences.recordingMatchStream,
+        tracks: this.state.recordingTracks,
       });
+      this.autoRecording = false;
       await this.refreshState();
     },
     stopRecording: async () => {
       await this.engine.call("stopRecording");
     },
+    saveReplay: async () => {
+      if (!this.engineState?.replay.active) throw new Error("replay-not-running");
+      await this.engine.call("saveReplay");
+    },
+    setHotkey: async (action, combo) => {
+      const parsed = parseHotkeyAction(action);
+      if (!parsed) throw new Error("invalid-request");
+      const next = { ...this.state.hotkeys };
+      if (combo === null) delete next[action];
+      else if (hotkeyProblem(action, combo) === null && !isReservedHotkey(combo, process.platform)) next[action] = combo;
+      else throw new Error("hotkey-invalid");
+      this.state.hotkeys = next;
+      this.persist();
+      this.syncHotkeys();
+      this.pushSnapshot();
+      // Push-to-talk starts muted; holding the key opens the microphone.
+      if (combo && "target" in parsed && parsed.kind === "pushToTalk") {
+        const source = this.engineState?.audio.find((entry) => entry.name === parsed.target);
+        if (source && !source.muted) await this.mutate(() => this.engine.call("setMuted", parsed.target, true));
+      }
+    },
+    setHotkeyCapture: async (active) => this.hotkeys.setCapturing(Boolean(active)),
+    openInputAccessSettings: async () => this.hotkeys.openInputAccessSettings(),
     revealRecording: async () => {
       const last = this.engineState?.recording.lastFile;
       if (last && existsSync(last)) shell.showItemInFolder(last);
@@ -575,6 +971,10 @@ export class Studio {
       return profile;
     },
     signOutSeenalyze: async () => this.account.signOut(),
+    setSeenalyzeLanguage: async (language) => {
+      if (!this.account.signedIn) return;
+      await this.account.saveLanguage(String(language));
+    },
     setChatActive: async (active) => this.chat.setActive(Boolean(active)),
     restartEngine: async () => {
       if (this.engine.running && this.engineState) return;
@@ -583,7 +983,8 @@ export class Studio {
       for (const [id, status] of this.statuses) if (ACTIVE_STATES.has(status.state)) this.statuses.delete(id);
       this.pushSnapshot();
       await this.start();
-      this.applyPreview(this.shownPreviewRect());
+      this.applyDisplays();
+      this.projectors?.reapply();
     },
   };
 
@@ -660,11 +1061,13 @@ export class Studio {
     });
     if (ready.length === 0) return;
     try {
-      await this.engine.call("startOutputs", ready, encoderId);
+      await this.engine.call("startOutputs", ready, encoderId, this.state.advanced);
     } catch (error) {
       console.error("[studio] outputs failed to start", error);
       for (const { config } of ready) this.failDestination(config.id, `errors.codes.${errorKey(error)}`);
+      return;
     }
+    await this.autoStartRecording();
   }
 
   private failDestination(id: string, errorKeyValue: string): void {
@@ -704,6 +1107,7 @@ export class Studio {
     if (broadcast && status.state === "live") broadcast.wentLive = true;
     const ended = previous && ACTIVE_STATES.has(previous.state) && !ACTIVE_STATES.has(status.state);
     if (ended) this.finishYouTubeBroadcast(status.id);
+    if (ended && !this.isStreaming()) this.autoStopRecording();
     if (status.state === "error" && status.errorKey && previous?.state !== "error") {
       const destination = this.state.destinations.find((entry) => entry.id === status.id);
       this.notify({ kind: "error", key: status.errorKey, values: { name: destination?.name ?? "" } });
@@ -733,28 +1137,68 @@ export class Studio {
         break;
       case "recording":
         if (this.engineState) this.engineState.recording = event.status;
+        if (!event.status.active) this.autoRecording = false;
         if (event.status.errorKey) this.notify({ kind: "error", key: event.status.errorKey });
         this.pushSnapshot();
         break;
       case "levels":
         this.send(IPC.audioLevels, event.levels);
         break;
+      case "replay":
+        if (this.engineState) this.engineState.replay = event.status;
+        if (event.status.errorKey) this.notify({ kind: "error", key: event.status.errorKey });
+        this.pushSnapshot();
+        break;
+      case "replaySaved":
+        if (event.file) this.notify({ kind: "success", key: "notices.replaySaved", values: { file: path.basename(event.file), folder: path.dirname(event.file) } });
+        else this.notify({ kind: "error", key: "errors.output.replaySaveFailed" });
+        break;
       case "stats": {
         for (const output of event.outputs) {
           const current = this.statuses.get(output.id);
           if (current) Object.assign(current, { kbps: output.kbps, droppedFrames: output.droppedFrames, totalFrames: output.totalFrames });
         }
-        this.send(IPC.stats, event.stats);
+        this.outputStats.refresh(this.recordingFolder(), this.engineState?.recording ?? { active: false });
+        this.send(IPC.stats, { ...event.stats, ...this.outputStats.latest() });
         if (event.outputs.length > 0) this.pushSnapshot();
         break;
       }
     }
   }
 
+  /**
+   * Stops the engine for a collection or audio-format switch: saves the
+   * collection it holds into the state first, then tears it down like a quit.
+   * Displays are reset as after a crash and rebuilt by startEngineAfterReload.
+   */
+  private async stopEngineForReload(): Promise<void> {
+    if (this.engine.running && this.engineState) this.state.collection = await this.engine.call("saveCollection");
+    this.engineState = null;
+    this.selectedItemId = null;
+    this.canvasPast.length = 0;
+    this.canvasFuture.length = 0;
+    this.dragStarts.clear();
+    this.programDisplay.reset();
+    this.studioDisplay.reset();
+    this.projectors?.reset();
+    this.editor?.setRect(null);
+    this.pushSnapshot();
+    await this.engine.shutdown();
+  }
+
+  private async startEngineAfterReload(): Promise<void> {
+    this.engineErrorKey = undefined;
+    await this.start();
+    this.applyDisplays();
+    this.projectors?.reapply();
+  }
+
   private onEngineCrash(): void {
     this.engineErrorKey = "engine-stopped";
     this.engineState = null;
-    this.macPreview?.detach();
+    this.programDisplay.reset();
+    this.studioDisplay.reset();
+    this.projectors?.reset();
     this.editor?.setRect(null);
     for (const preparation of this.preparations.values()) preparation.cancelled = true;
     for (const status of this.statuses.values()) {
@@ -785,31 +1229,91 @@ export class Studio {
     this.editor.setRect(visible ? this.previewRect : null);
   }
 
-  /** Serializes preview updates; only the newest pending rect matters. */
-  private applyPreview(rect: Rect | null): void {
+  /**
+   * Serializes preview updates; only the newest pending rects matter. The
+   * renderer reports the rects again whenever the window's backing scale
+   * changes (moved to another screen, or the screen's scaling changed): on
+   * Windows displays are sized in physical pixels, and on macOS their views
+   * must be rebuilt for the new scale (see preview-mac.ts). Outside studio
+   * mode the program fills the preview rect; in studio mode the editable
+   * preview takes it and the program moves to the program rect. `hide`
+   * removes every display (minimized, or rebuilt for a new canvas).
+   */
+  private applyDisplays(hide = false): void {
+    const studio = this.state.studioMode && !hide;
+    const programRect = hide ? null : studio ? this.parked(this.programRect) : this.shownPreviewRect();
+    const studioRect = studio ? this.shownPreviewRect() : null;
     this.previewQueue = this.previewQueue
       .then(async () => {
         if (!this.engine.running || !this.engineState) return;
-        if (!rect || rect.width < 2 || rect.height < 2) {
-          this.editor?.setRect(null);
-          this.macPreview?.detach();
-          await this.engine.call("hidePreview");
-          return;
+        if (!studioRect) this.editor?.setRect(null);
+        const scale = this.previewScale || screen.getDisplayMatching(this.window.getBounds()).scaleFactor;
+        const alive = () => this.engine.running && this.engineState !== null && !this.window.isDestroyed();
+        // Remove before adding, so the editable rect is never covered twice.
+        const order = studioRect ? [this.programDisplay, this.studioDisplay] : [this.studioDisplay, this.programDisplay];
+        let created = false;
+        for (const display of order) {
+          const rect = display === this.studioDisplay ? studioRect : programRect;
+          // Studio mode before its program rect is known: leave the program where it is.
+          if (display === this.programDisplay && studio && !rect) continue;
+          created = (await display.show(rect, scale, alive)) || created;
+          if (!alive()) return;
         }
-        const result = await this.engine.call("setPreview", {
-          rect,
-          windowHandle: new Uint8Array(this.window.getNativeWindowHandle()),
-          scale: screen.getDisplayMatching(this.window.getBounds()).scaleFactor,
-          mac: IS_MAC,
-        });
-        if (this.macPreview) {
-          if (result.surface !== undefined) this.macPreview.attach(result.surface);
-          this.macPreview.move(rect);
-          this.syncEditor();
-          if (result.surface !== undefined) this.editor?.raise();
-        }
+        this.syncEditor();
+        if (created) this.editor?.raise();
       })
       .catch((error: unknown) => console.error("[studio] preview update failed", error));
+  }
+
+  /** A rect moved off-screen while floating UI covers the preview. */
+  private parked(rect: Rect | null): Rect | null {
+    if (!rect || !this.previewHidden) return rect;
+    return { ...rect, x: PREVIEW_PARK_OFFSET, y: PREVIEW_PARK_OFFSET };
+  }
+
+  // ----- studio mode and projectors -----------------------------------------
+
+  /** The scene the editing UI works on: the preview scene in studio mode, otherwise the program scene. */
+  private editingScene(): string | null {
+    const program = this.engineState?.activeScene ?? null;
+    return this.state.studioMode ? (this.previewScene ?? program) : program;
+  }
+
+  /** Puts the studio-mode preview on a scene that exists (or empties it when studio mode is off). */
+  private async syncStudioPreview(): Promise<void> {
+    if (!this.engine.running || !this.engineState) return;
+    if (!this.state.studioMode) {
+      this.previewScene = null;
+      await this.engine.call("setStudioPreview", null);
+      return;
+    }
+    const scenes = this.engineState.scenes.map((scene) => scene.name);
+    const next = this.previewScene && scenes.includes(this.previewScene) ? this.previewScene : this.engineState.activeScene;
+    await this.engine.call("setStudioPreview", next);
+    this.previewScene = next;
+  }
+
+  private async setPreviewScene(name: string): Promise<void> {
+    if (!this.engineState?.scenes.some((scene) => scene.name === name)) throw new Error("scene-not-found");
+    await this.engine.call("setStudioPreview", name);
+    this.previewScene = name;
+    this.pushSnapshot();
+  }
+
+  private projectorContext() {
+    const engine = this.engineState;
+    const scenes = engine?.scenes ?? [];
+    const pictureless = new Set(["microphone", "desktopAudio", "applicationAudio", "scene"]);
+    const sources = new Set(scenes.flatMap((scene) => scene.items.filter((item) => !pictureless.has(item.kind)).map((item) => item.sourceName)));
+    return {
+      ready: this.engine.running && engine !== null,
+      studioMode: this.state.studioMode,
+      programScene: engine?.activeScene ?? null,
+      previewScene: this.state.studioMode ? this.editingScene() : null,
+      scenes: scenes.map((scene) => scene.name),
+      sources: [...sources],
+      aspect: this.state.video.baseWidth / this.state.video.baseHeight,
+    };
   }
 
   // ----- destinations & accounts --------------------------------------------
@@ -894,7 +1398,7 @@ export class Studio {
       engineErrorKey: this.engineErrorKey ? `errors.codes.${this.engineErrorKey}` : undefined,
       scenes: engine?.scenes ?? [],
       availableSourceKinds: engine?.availableSourceKinds ?? [],
-      activeScene: engine?.activeScene ?? null,
+      activeScene: this.editingScene(),
       audio: engine?.audio ?? [],
       video: this.state.video,
       encoders: engine?.encoders ?? [],
@@ -904,13 +1408,32 @@ export class Studio {
       recording: engine?.recording ?? { active: false },
       recordingFolder: this.recordingFolder(),
       preferences: this.state.preferences,
+      advanced: this.state.advanced,
+      setupPending: !this.state.setupCompleted,
       screenRecording: this.screenRecorder.state,
       accounts,
       platformsConfigured: { twitch: twitch.twitchConfigured(), youtube: youtube.youtubeConfigured() },
       permissions: permissionSnapshot(),
       overlayData: this.overlayData.status(),
       transition: this.state.transition,
+      availableTransitions: availablePresets(engine?.transitionTypes ?? []).map((preset) => preset.id),
+      virtualCamera: {
+        availability: virtualCameraAvailability(this.virtualCameraProbe),
+        active: engine?.virtualCameraActive ?? false,
+        scene: this.state.virtualCamera.scene,
+      },
       selectedItemId: this.selectedItemId,
+      canvasHistory: { canUndo: this.canvasPast.length > 0, canRedo: this.canvasFuture.length > 0 },
+      replayBuffer: engine?.replay ?? { active: false },
+      hotkeys: { bindings: this.state.hotkeys, ...this.hotkeys.status() },
+      workspace: {
+        collections: this.state.collections,
+        profiles: this.state.profiles,
+        switching: this.workspace.switching,
+        audioFormat: this.state.audioFormat ?? this.engineAudioFormat ?? DEFAULT_AUDIO_FORMAT,
+        recordingTracks: this.state.recordingTracks,
+      },
+      studioMode: { enabled: this.state.studioMode, programScene: engine?.activeScene ?? null },
     };
   }
 
@@ -932,7 +1455,142 @@ export class Studio {
 
   private async refreshState(): Promise<void> {
     this.engineState = await this.engine.call("state");
+    // The preview scene may be gone (removed), or be another object with the
+    // same name (another collection loaded): point the preview at it again.
+    if (this.state.studioMode) await this.syncStudioPreview();
+    this.syncHotkeys();
     this.pushSnapshot();
+  }
+
+  // ----- hotkeys, instant replay, auto-record -------------------------------
+
+  /** Registers the combos whose scene or audio source exists right now. */
+  private syncHotkeys(): void {
+    const scenes = new Set(this.engineState?.scenes.map((scene) => scene.name) ?? []);
+    const audio = new Set(this.engineState?.audio.map((source) => source.name) ?? []);
+    const effective = Object.fromEntries(
+      Object.entries(this.state.hotkeys).filter(([action]) => {
+        const parsed = parseHotkeyAction(action);
+        if (!parsed) return false;
+        if (!("target" in parsed)) return true;
+        return parsed.kind === "scene" ? scenes.has(parsed.target) : audio.has(parsed.target);
+      }),
+    );
+    this.hotkeys.apply(effective);
+  }
+
+  private renameHotkeys(kinds: readonly TargetHotkeyKind[], from: string, to: string): void {
+    const next = renameHotkeyTarget(this.state.hotkeys, kinds, from, to.trim());
+    if (next === this.state.hotkeys) return;
+    this.state.hotkeys = next;
+    this.persist();
+    this.syncHotkeys();
+    this.pushSnapshot();
+  }
+
+  private runHotkey(action: string): void {
+    const parsed = parseHotkeyAction(action);
+    if (!parsed || !this.engineState || this.shuttingDown) return;
+    const task = async (): Promise<void> => {
+      switch (parsed.kind) {
+        case "goLive":
+          return this.hotkeyGoLive();
+        case "endStream": {
+          const ids = [...this.statuses.values()].filter((status) => ACTIVE_STATES.has(status.state)).map((status) => status.id);
+          if (ids.length > 0) await this.api.endStream(ids);
+          return;
+        }
+        case "toggleRecording":
+          return this.engineState?.recording.active ? this.api.stopRecording() : this.api.startRecording();
+        case "saveReplay":
+          return this.api.saveReplay();
+        case "transition":
+          return this.api.studioTransition(null);
+        case "toggleVirtualCamera":
+          return this.engineState?.virtualCameraActive ? this.api.stopVirtualCamera() : this.api.startVirtualCamera();
+        case "scene":
+          return this.api.setActiveScene(parsed.target);
+        case "mute": {
+          const source = this.engineState?.audio.find((entry) => entry.name === parsed.target);
+          if (source) await this.api.setMuted(source.name, !source.muted);
+          return;
+        }
+        default:
+          return;
+      }
+    };
+    task().catch((error: unknown) => this.notify({ kind: "error", key: `errors.codes.${errorKey(error)}` }));
+  }
+
+  private holdHotkey(action: string, down: boolean): void {
+    const parsed = parseHotkeyAction(action);
+    if (!parsed || !("target" in parsed) || !this.engineState || this.shuttingDown) return;
+    if (parsed.kind !== "pushToTalk" && parsed.kind !== "pushToMute") return;
+    const muted = parsed.kind === "pushToTalk" ? !down : down;
+    this.api.setMuted(parsed.target, muted).catch((error: unknown) => this.notify({ kind: "error", key: `errors.codes.${errorKey(error)}` }));
+  }
+
+  /** Goes live on every enabled destination that is ready; the hotkey itself is the confirmation. */
+  private async hotkeyGoLive(): Promise<void> {
+    const ids = this.state.destinations.filter((destination) => destination.enabled && !this.isLive(destination.id)).map((destination) => destination.id);
+    if (ids.length === 0) return;
+    const check = await this.checkStream(ids);
+    for (const issue of check.issues) {
+      if (!issue.blocking) continue;
+      const destination = this.state.destinations.find((entry) => entry.id === issue.destinationId);
+      this.notify({ kind: "error", key: issue.key, values: { name: destination?.name ?? "" } });
+    }
+    if (check.readyDestinationIds.length > 0) await this.goLive(check.readyDestinationIds);
+  }
+
+  /** Asks the engine whether the virtual camera can start; never installs anything. */
+  private async probeVirtualCamera(): Promise<VirtualCameraProbe | null> {
+    if (!this.engine.running || !this.engineState || this.shuttingDown) return this.virtualCameraProbe;
+    try {
+      this.virtualCameraProbe = await this.engine.call("virtualCameraProbe");
+    } catch (error) {
+      console.warn("[studio] virtual camera check failed", error);
+    }
+    this.pushSnapshot();
+    return this.virtualCameraProbe;
+  }
+
+  /** Runs, restarts or stops instant replay to match the preferences. */
+  private async syncReplay(): Promise<void> {
+    if (!this.engine.running || !this.engineState || this.shuttingDown) return;
+    const prefs = this.state.preferences;
+    const folder = this.recordingFolder();
+    const options =
+      prefs.replayBufferEnabled && this.state.encoder && existsSync(folder)
+        ? { folder, format: prefs.recordingFormat, bitrateKbps: prefs.recordingBitrateKbps, seconds: prefs.replayBufferSeconds }
+        : null;
+    try {
+      await this.engine.call("configureReplay", this.state.encoder ?? "", options);
+    } catch (error) {
+      console.error("[studio] instant replay could not be updated", error);
+      this.notify({ kind: "error", key: "errors.output.replayFailed" });
+    }
+  }
+
+  private async autoStartRecording(): Promise<void> {
+    if (!this.state.preferences.autoRecord || this.engineState?.recording.active || !this.isStreaming()) return;
+    try {
+      await this.api.startRecording();
+      this.autoRecording = true;
+    } catch (error) {
+      console.error("[studio] automatic recording failed to start", error);
+      this.notify({ kind: "error", key: `errors.codes.${errorKey(error)}` });
+    }
+  }
+
+  private autoStopRecording(): void {
+    if (!this.autoRecording || this.state.preferences.keepRecordingAfterStream || !this.engineState?.recording.active) return;
+    this.autoRecording = false;
+    this.engine.call("stopRecording").catch((error: unknown) => console.error("[studio] automatic recording failed to stop", error));
+  }
+
+  private isStreaming(): boolean {
+    return [...this.statuses.values()].some((status) => ACTIVE_STATES.has(status.state));
   }
 
   private async mutate<T>(call: () => Promise<T>): Promise<T> {
@@ -940,6 +1598,53 @@ export class Studio {
     await this.refreshState();
     this.persist();
     return result;
+  }
+
+  private inCanvasQueue<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.canvasQueue.then(task);
+    this.canvasQueue = run.catch(() => undefined);
+    return run;
+  }
+
+  /** Applies a canvas edit and records it as one undo step. */
+  private canvasEdit(scene: string, itemId: number, apply: () => Promise<void>, dragKey?: string): Promise<void> {
+    return this.inCanvasQueue(async () => {
+      const started = dragKey === undefined ? undefined : this.dragStarts.get(dragKey);
+      if (dragKey !== undefined) this.dragStarts.delete(dragKey);
+      const before = started ?? (await this.engine.call("getItemPlacement", scene, itemId));
+      await this.mutate(async () => {
+        await apply();
+        const after = await this.engine.call("getItemPlacement", scene, itemId);
+        if (JSON.stringify(after) === JSON.stringify(before)) return;
+        this.canvasPast.push({ scene, itemId, before, after });
+        if (this.canvasPast.length > CANVAS_HISTORY_LIMIT) this.canvasPast.shift();
+        this.canvasFuture.length = 0;
+      });
+    });
+  }
+
+  /** Undoes or redoes the newest canvas edit whose item still exists. */
+  private async stepCanvas(direction: "undo" | "redo"): Promise<void> {
+    const from = direction === "undo" ? this.canvasPast : this.canvasFuture;
+    const to = direction === "undo" ? this.canvasFuture : this.canvasPast;
+    for (let edit = from.pop(); edit; edit = from.pop()) {
+      try {
+        await this.engine.call("setItemPlacement", edit.scene, edit.itemId, direction === "undo" ? edit.before : edit.after);
+      } catch (error) {
+        // A locked item keeps its step so it can be undone once unlocked;
+        // steps for removed items or scenes are dropped.
+        if (errorKey(error) === "item-locked") {
+          from.push(edit);
+          throw error;
+        }
+        continue;
+      }
+      to.push(edit);
+      await this.refreshState();
+      this.persist();
+      return;
+    }
+    this.pushSnapshot();
   }
 
   private isLive(destinationId: string): boolean {
@@ -953,6 +1658,33 @@ export class Studio {
       this.state.encoder = available.find((encoder) => encoder.hardware)?.id ?? available[0]?.id ?? null;
       this.persist();
     }
+  }
+
+  /**
+   * Push-to-talk / push-to-mute (hotkeys): flips a source's mute without
+   * closing a microphone's device, refreshing all state or saving, so it is
+   * cheap enough for every key press and release.
+   */
+  async setTalkMuted(source: string, muted: boolean): Promise<void> {
+    const entry = this.engineState?.audio.find((item) => item.name === source);
+    if (!entry) throw new Error("source-not-found");
+    if (!muted && entry.microphone) await this.ensureCapturePermission("microphone");
+    await this.engine.call("setTalkMuted", source, muted);
+    if (entry.muted !== muted) {
+      entry.muted = muted;
+      this.pushSnapshot();
+    }
+  }
+
+  /** Devices for a mixer row; a muted microphone's devices are listed without opening it where possible. */
+  private async listAudioDevices(source: string): Promise<AudioDeviceChoice | null> {
+    const result = await this.engine.call("audioDevices", source, false);
+    if (!result || !("closed" in result)) return result;
+    const devices = await listMicrophones(helperPath("audio-inputs"));
+    if (devices.length > 0) {
+      return { current: result.current, options: [{ value: "default", label: "" }, ...devices.map((device) => ({ value: device.uid, label: device.name }))] };
+    }
+    return this.engine.call("audioDevices", source, true) as Promise<AudioDeviceChoice | null>;
   }
 
   private encoderId(): string {
@@ -994,6 +1726,15 @@ export class Studio {
       collection: saved.collection ?? null,
       overlayPort: saved.overlayPort ?? DEFAULT_OVERLAY_PORT,
       transition: sanitizeTransition(saved.transition),
+      hotkeys: sanitizeHotkeys(saved.hotkeys),
+      advanced: sanitizeAdvanced({ ...DEFAULT_ADVANCED_STREAM, ...saved.advanced }),
+      // Only a brand-new install (no saved state) sees the first-run setup.
+      setupCompleted: typeof saved.setupCompleted === "boolean" ? saved.setupCompleted : Object.keys(saved).length > 0,
+      monitoringDevice: typeof saved.monitoringDevice === "string" && saved.monitoringDevice ? saved.monitoringDevice : null,
+      virtualCamera: { scene: typeof saved.virtualCamera?.scene === "string" && saved.virtualCamera.scene ? saved.virtualCamera.scene : null },
+      studioMode: saved.studioMode === true,
+      // Older files get one collection (the one above) and one profile (the settings above).
+      ...migrateWorkspace(saved as Record<string, unknown>, randomUUID),
     };
   }
 
@@ -1001,6 +1742,19 @@ export class Studio {
     // Only replace the saved collection with one the engine actually produced.
     if (this.engine.running && this.engineState) this.state.collection = await this.engine.call("saveCollection");
     writeJson(STATE_FILE, this.state);
+  }
+}
+
+/** A stinger's video must still exist; other transitions need no file. */
+function stingerFileOk(choice: TransitionChoice): boolean {
+  return !choice.stinger || isFile(choice.stinger.path);
+}
+
+function isFile(file: string): boolean {
+  try {
+    return statSync(file).isFile();
+  } catch {
+    return false;
   }
 }
 
@@ -1020,8 +1774,9 @@ function sanitizeVideo(settings: VideoSettings): VideoSettings {
     baseHeight: even(settings.baseHeight, 1080),
     outputWidth: even(settings.outputWidth, 1920),
     outputHeight: even(settings.outputHeight, 1080),
-    fps,
     scaleFilter: SCALE_FILTERS.includes(settings.scaleFilter) ? settings.scaleFilter : "bicubic",
+    // Fractional and custom frame rates, color format/space/range (Settings › Video › Advanced).
+    ...sanitizeVideoFormat(settings, fps),
   };
 }
 
@@ -1034,11 +1789,34 @@ function sanitizePreferences(value: StudioPreferences): StudioPreferences {
         ? bitrate
         : DEFAULT_PREFERENCES.recordingBitrateKbps,
     confirmGoLive: typeof value.confirmGoLive === "boolean" ? value.confirmGoLive : DEFAULT_PREFERENCES.confirmGoLive,
+    confirmEndStream: typeof value.confirmEndStream === "boolean" ? value.confirmEndStream : DEFAULT_PREFERENCES.confirmEndStream,
     keepAwakeWhileLive: typeof value.keepAwakeWhileLive === "boolean" ? value.keepAwakeWhileLive : DEFAULT_PREFERENCES.keepAwakeWhileLive,
+    ...sanitizeCapturePreferences(value),
+  };
+}
+
+function sanitizeAdvanced(value: AdvancedStreamSettings): AdvancedStreamSettings {
+  const whole = (input: unknown, range: { min: number; max: number }, fallback: number) => {
+    const n = Math.round(Number(input));
+    return Number.isFinite(n) && n >= range.min && n <= range.max ? n : fallback;
+  };
+  return {
+    streamDelaySec: whole(value.streamDelaySec, ADVANCED_STREAM_RANGES.streamDelaySec, DEFAULT_ADVANCED_STREAM.streamDelaySec),
+    reconnectDelaySec: whole(value.reconnectDelaySec, ADVANCED_STREAM_RANGES.reconnectDelaySec, DEFAULT_ADVANCED_STREAM.reconnectDelaySec),
+    reconnectMaxRetries: whole(value.reconnectMaxRetries, ADVANCED_STREAM_RANGES.reconnectMaxRetries, DEFAULT_ADVANCED_STREAM.reconnectMaxRetries),
   };
 }
 
 /** Error codes are kebab-case strings thrown by the main process modules. */
+const CANVAS_HISTORY_LIMIT = 100;
+
+interface CanvasEdit {
+  scene: string;
+  itemId: number;
+  before: ItemPlacement;
+  after: ItemPlacement;
+}
+
 export function errorKey(error: unknown): string {
   const message = error instanceof Error ? error.message : "";
   return /^[a-z0-9]+(-[a-z0-9]+)*$/u.test(message) ? message : "generic";

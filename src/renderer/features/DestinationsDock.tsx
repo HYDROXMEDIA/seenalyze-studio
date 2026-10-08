@@ -1,4 +1,4 @@
-import { MoreHorizontalIcon, PencilIcon, PlayIcon, PlusIcon, RadioTowerIcon, SquareIcon, Trash2Icon, TypeIcon } from "lucide-react";
+import { MoreHorizontalIcon, PlusIcon, RadioTowerIcon } from "lucide-react";
 import { useState } from "react";
 import { useTranslations } from "use-intl";
 import { estimateUploadKbps, planEncoders, recommendedUploadKbps } from "../../shared/planner";
@@ -16,11 +16,7 @@ import {
   AlertDialogTitle,
   DialogFooter,
   DialogHeader,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  NativeMenu,
 } from "@/components/ui/overlays";
 import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
@@ -53,6 +49,7 @@ export function DestinationsDock() {
   const run = useAction();
   const destinations = useStudio((state) => state.snapshot?.destinations ?? []);
   const statuses = useStudio((state) => state.snapshot?.destinationStatus ?? []);
+  const askBeforeEnd = useStudio((state) => state.snapshot?.preferences.confirmEndStream ?? true);
   const [dialog, setDialog] = useState<DestinationDialogState | null>(null);
   const [infoFor, setInfoFor] = useState<DestinationConfig | null>(null);
   const [removing, setRemoving] = useState<DestinationConfig | null>(null);
@@ -69,23 +66,16 @@ export function DestinationsDock() {
     <Dock
       title={t("title")}
       actions={
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label={t("add")}>
-              <PlusIcon />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => add("youtube")}>
-              <PlatformIcon platform="youtube" className="size-4" />
-              {t("platforms.youtube")}
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => add("twitch")}>
-              <PlatformIcon platform="twitch" className="size-4" />
-              {t("platforms.twitch")}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <NativeMenu
+          items={[
+            { label: t("platforms.youtube"), onSelect: () => add("youtube") },
+            { label: t("platforms.twitch"), onSelect: () => add("twitch") },
+          ]}
+        >
+          <Button variant="ghost" size="icon-sm" aria-label={t("add")}>
+            <PlusIcon />
+          </Button>
+        </NativeMenu>
       }
     >
       {destinations.length === 0 ? (
@@ -134,39 +124,21 @@ export function DestinationsDock() {
                     aria-label={t("include", { name: destination.name })}
                     onCheckedChange={(checked) => void run(() => studio.setDestinationEnabled(destination.id, checked))}
                   />
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon-sm" aria-label={tc("more")}>
-                        <MoreHorizontalIcon />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {active ? (
-                        <DropdownMenuItem onSelect={() => setEnding(destination)}>
-                          <SquareIcon />
-                          {t("endOne")}
-                        </DropdownMenuItem>
-                      ) : (
-                        <DropdownMenuItem disabled={pending} onSelect={() => void goLive([destination.id])}>
-                          <PlayIcon />
-                          {t("goLiveOne")}
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem disabled={destination.mode !== "account"} onSelect={() => setInfoFor(destination)}>
-                        <TypeIcon />
-                        {t("streamInfo")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem disabled={active} onSelect={() => setDialog({ mode: "edit", platform: destination.platform, destination })}>
-                        <PencilIcon />
-                        {tc("edit")}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem variant="destructive" disabled={active} onSelect={() => setRemoving(destination)}>
-                        <Trash2Icon />
-                        {tc("remove")}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <NativeMenu
+                    items={[
+                      active
+                        ? { label: t("endOne"), onSelect: () => (askBeforeEnd ? setEnding(destination) : void run(() => studio.endStream([destination.id]))) }
+                        : { label: t("goLiveOne"), disabled: pending, onSelect: () => void goLive([destination.id]) },
+                      { label: t("streamInfo"), disabled: destination.mode !== "account", onSelect: () => setInfoFor(destination) },
+                      { label: tc("edit"), disabled: active, onSelect: () => setDialog({ mode: "edit", platform: destination.platform, destination }) },
+                      "separator",
+                      { label: tc("remove"), disabled: active, onSelect: () => setRemoving(destination) },
+                    ]}
+                  >
+                    <Button variant="ghost" size="icon-sm" aria-label={tc("more")}>
+                      <MoreHorizontalIcon />
+                    </Button>
+                  </NativeMenu>
                 </li>
               );
             })}

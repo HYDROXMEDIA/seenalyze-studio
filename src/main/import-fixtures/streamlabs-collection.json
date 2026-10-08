@@ -1,0 +1,56 @@
+{
+  "nodeType": "RootNode",
+  "data": {
+    "sources": {
+      "nodeType": "SourcesNode",
+      "data": {
+        "items": [
+          {
+            "id": "wasapi_output_capture_1", "name": "Desktop Audio", "type": "wasapi_output_capture",
+            "settings": { "device_id": "default" }, "volume": 1, "forceMono": false,
+            "syncOffset": { "sec": 0, "nsec": 0 }, "audioMixers": 255, "monitoringType": 0, "muted": false, "channel": 1,
+            "filters": { "nodeType": "FiltersNode", "data": { "items": [] } }
+          },
+          {
+            "id": "image_source_abc", "name": "Logo", "type": "image_source",
+            "settings": { "file": "/fixture/logo.png" }, "volume": 1, "forceMono": false,
+            "syncOffset": { "sec": 0, "nsec": 0 }, "audioMixers": 255, "monitoringType": 0, "muted": false,
+            "filters": { "nodeType": "FiltersNode", "data": { "items": [
+              { "name": "Sharp", "type": "sharpness_filter_v2", "visible": true, "settings": { "sharpness": 0.2 } }
+            ] } }
+          },
+          {
+            "id": "dshow_input_def", "name": "Logo", "type": "dshow_input",
+            "settings": {}, "volume": 0.5, "forceMono": true,
+            "syncOffset": 250, "audioMixers": 1, "monitoringType": 2, "muted": false,
+            "filters": { "nodeType": "FiltersNode", "data": { "items": [
+              { "name": "Gate", "type": "noise_gate_filter", "visible": false, "settings": { "open_threshold": -20 } }
+            ] } }
+          }
+        ]
+      }
+    },
+    "scenes": {
+      "nodeType": "ScenesNode",
+      "data": {
+        "activeId": "scene_2",
+        "items": [
+          {
+            "id": "scene_1", "name": "Intro",
+            "sceneItems": { "nodeType": "SceneItemsNode", "data": { "items": [
+              { "id": "i1", "sourceId": "image_source_abc", "type": "item", "x": 100, "y": 50, "scaleX": 0.5, "scaleY": 0.5, "visible": true, "locked": false, "rotation": 0, "crop": { "top": 0, "bottom": 0, "left": 0, "right": 0 } },
+              { "id": "f1", "type": "folder", "name": "Folder" },
+              { "id": "i2", "sourceId": "dshow_input_def", "type": "item", "x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "visible": false, "locked": true, "rotation": 90, "crop": { "top": 5, "bottom": 0, "left": 0, "right": 0 } }
+            ] } }
+          },
+          {
+            "id": "scene_2", "name": "Main",
+            "sceneItems": { "nodeType": "SceneItemsNode", "data": { "items": [
+              { "id": "i3", "sourceId": "scene_1", "type": "item", "x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "visible": true, "locked": false, "rotation": 0, "crop": {} }
+            ] } }
+          }
+        ]
+      }
+    }
+  }
+}

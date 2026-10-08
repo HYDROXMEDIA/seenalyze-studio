@@ -1,4 +1,4 @@
-import { CircleIcon, ClapperboardIcon, FolderOpenIcon, MonitorIcon, RadioIcon, Settings2Icon, SquareIcon } from "lucide-react";
+import { CircleIcon, ClapperboardIcon, FolderOpenIcon, HistoryIcon, MonitorIcon, RadioIcon, Settings2Icon, SquareIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslations } from "use-intl";
 import { Dock } from "@/components/Dock";
@@ -19,6 +19,7 @@ import { formatDuration } from "@/lib/utils";
 import { useStudio } from "@/store/studio";
 import { isActive } from "./DestinationsDock";
 import { useGoLive } from "./use-go-live";
+import { VirtualCameraControl } from "./VirtualCameraControl";
 
 function useNow(active: boolean): number {
   const [now, setNow] = useState(() => Date.now());
@@ -38,10 +39,12 @@ export function ControlsDock() {
   const statuses = useStudio((state) => state.snapshot?.destinationStatus ?? []);
   const recording = useStudio((state) => state.snapshot?.recording ?? { active: false });
   const screenRecording = useStudio((state) => state.snapshot?.screenRecording.active ?? false);
+  const replayActive = useStudio((state) => state.snapshot?.replayBuffer.active ?? false);
   const setView = useStudio((state) => state.setView);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [confirmStart, setConfirmStart] = useState(false);
   const askBeforeLive = useStudio((state) => state.snapshot?.preferences.confirmGoLive ?? false);
+  const askBeforeEnd = useStudio((state) => state.snapshot?.preferences.confirmEndStream ?? true);
   const { goLive, pending, dialog } = useGoLive();
 
   const activeIds = statuses.filter((status) => isActive(status)).map((status) => status.id);
@@ -54,7 +57,7 @@ export function ControlsDock() {
     <Dock title={t("title")}>
       <div className="grid gap-2 p-3">
         {live ? (
-          <Button variant="destructive" size="lg" onClick={() => setConfirmEnd(true)}>
+          <Button variant="destructive" size="lg" onClick={() => (askBeforeEnd ? setConfirmEnd(true) : void run(() => studio.endStream(activeIds)))}>
             <SquareIcon className="fill-current" />
             {t("endStream")}
           </Button>
@@ -91,6 +94,15 @@ export function ControlsDock() {
             {t("showRecording")}
           </Button>
         )}
+
+        {replayActive && (
+          <Button variant="outline" onClick={() => void run(() => studio.saveReplay())}>
+            <HistoryIcon />
+            {t("saveClip")}
+          </Button>
+        )}
+
+        <VirtualCameraControl />
 
         <Button variant="outline" onClick={() => void run(() => studio.toggleScreenRecording())}>
           {screenRecording ? <SquareIcon className="fill-red-500 text-red-500" /> : <MonitorIcon />}

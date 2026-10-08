@@ -4,6 +4,7 @@ import { IPC, STUDIO_ERROR_PREFIX, STUDIO_METHODS, type StudioMethod } from "../
 import { setVendorRoot } from "./engine/osn";
 import { appendLog, installAppLog } from "./log";
 import { PREVIEW_EDITOR_HASH, PREVIEW_EDITOR_METHODS, PreviewEditorWindow } from "./preview-editor-window";
+import { PROJECTOR_HASH } from "./projectors";
 import { registerMediaScheme } from "./screen-recording";
 import { STUDIO_SCHEME } from "./seenalyze/account";
 import { errorKey, Studio, vendorRoot } from "./studio";
@@ -18,6 +19,7 @@ let shutdownStarted = false;
 
 const DEV_URL = process.env.ELECTRON_RENDERER_URL;
 const PRELOAD = path.join(__dirname, "../preload/index.js");
+const PROJECTOR_PRELOAD = path.join(__dirname, "../preload/projector.js");
 
 function loadRenderer(window: BrowserWindow, hash?: string): void {
   if (DEV_URL) window.loadURL(hash ? `${DEV_URL}#${hash}` : DEV_URL);
@@ -172,6 +174,16 @@ app.whenReady().then(() => {
       app.quit();
     },
     previewEditor,
+    {
+      preload: PROJECTOR_PRELOAD,
+      load: (window) => {
+        window.webContents.on("console-message", (event) => {
+          if (event.level === "error") appendLog("error", `[projector] ${event.message}`);
+        });
+        loadRenderer(window, PROJECTOR_HASH);
+      },
+      isAppUrl,
+    },
   );
   mainWindow.webContents.once("did-finish-load", () => void studio?.start());
   for (const link of pendingLinks.splice(0)) handleAppLink(link);

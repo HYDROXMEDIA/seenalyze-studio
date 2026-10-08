@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { useTranslations } from "use-intl";
-import { PLATFORM_SPECS } from "../../shared/platforms";
+import { bitrateFit, bitrateRange, PLATFORM_SPECS } from "../../shared/platforms";
 import type { ConnectionMode, DestinationConfig, DestinationProfile, DeviceCodePrompt, Platform } from "../../shared/types";
+import { DestinationAdvancedOptions as AdvancedOptions } from "./DestinationAdvancedOptions";
 import { PlatformIcon } from "@/components/PlatformIcon";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
@@ -62,6 +63,9 @@ function DestinationForm({ state, onClose }: { state: DestinationDialogState; on
   const [pending, setPending] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [twitchPrompt, setTwitchPrompt] = useState<DeviceCodePrompt | null>(null);
+  const canvasFps = useStudio((store) => store.snapshot?.video.fps ?? profile.fps);
+  const range = bitrateRange(platform, profile.height, canvasFps);
+  const fit = bitrateFit(range, profile.videoBitrateKbps);
 
   // A freshly connected account is used automatically until the user picks one.
   const selectedAccountId = accounts.some((account) => account.id === accountId) ? accountId : (accounts[0]?.id ?? "");
@@ -219,9 +223,15 @@ function DestinationForm({ state, onClose }: { state: DestinationDialogState; on
             />
           </Field>
         </div>
-        {profile.videoBitrateKbps > spec.maxVideoBitrateKbps && (
+        {profile.videoBitrateKbps > spec.maxVideoBitrateKbps ? (
           <p className="text-sm text-yellow-600 dark:text-yellow-400">{t("bitrateCapped", { max: spec.maxVideoBitrateKbps })}</p>
+        ) : (
+          <p className={cn("-mt-2 text-xs", fit === "ok" ? "text-muted-foreground" : "text-yellow-600 dark:text-yellow-400")} aria-live="polite">
+            {fit === "ok" ? t("bitrateRange", { min: range.min, max: range.max }) : t(fit === "low" ? "bitrateLow" : "bitrateHigh", { min: range.min, max: range.max })}
+          </p>
         )}
+
+        <AdvancedOptions platform={platform} profile={profile} onChange={setProfile} />
       </div>
 
       <DialogFooter>

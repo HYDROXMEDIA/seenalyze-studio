@@ -21,9 +21,12 @@ import { MixerDock } from "@/features/MixerDock";
 import { Preview } from "@/features/Preview";
 import { ScenesDock } from "@/features/ScenesDock";
 import { SettingsPage } from "@/features/SettingsPage";
+import { SetupWizard } from "@/features/setup/SetupWizard";
 import { OverlaysPage } from "@/features/overlays/OverlaysPage";
 import { SourcesDock } from "@/features/SourcesDock";
 import { studio } from "@/lib/studio";
+import { useArrowNudge } from "@/lib/use-arrow-nudge";
+import { useCanvasUndo } from "@/lib/use-canvas-undo";
 import { useChat } from "@/store/chat";
 import { useStudio } from "@/store/studio";
 
@@ -38,6 +41,8 @@ export function App() {
   const setLevels = useStudio((state) => state.setLevels);
   const [quitRequested, setQuitRequested] = useState(false);
   const [restarting, setRestarting] = useState(false);
+  useCanvasUndo();
+  useArrowNudge();
 
   useEffect(() => {
     let cancelled = false;
@@ -127,6 +132,7 @@ export function App() {
           </AlertDialogContent>
         )}
       </AlertDialog>
+      <SetupWizard />
       <Toaster position="bottom-right" theme={dark ? "dark" : "light"} richColors closeButton />
     </div>
   );

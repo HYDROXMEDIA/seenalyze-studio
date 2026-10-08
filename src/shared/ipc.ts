@@ -11,6 +11,7 @@ import type {
   SeenalyzeAccount,
 } from "./overlays";
 import type {
+  AdvancedStreamSettings,
   AudioLevel,
   ChatEvent,
   ChatState,
@@ -22,6 +23,9 @@ import type {
   DeviceCodePrompt,
   EngineStats,
   PropertyDTO,
+  ProjectorTarget,
+  ScreenChoice,
+  ItemPlacement,
   ItemTransformPatch,
   Rect,
   SourceKind,
@@ -35,6 +39,10 @@ import type {
   VideoSettings,
 } from "./types";
 import type { TransitionChoice } from "./transitions";
+import type { AudioChange, AudioDeviceChoice, AudioSourceDetails, MonitoringDevices } from "./audio";
+import type { EffectKind, EffectList, EffectSnapshot } from "./video-effects";
+import type { AudioFormat } from "./formats";
+import type { ImportCandidate, ImportResult } from "./workspace";
 
 export interface StudioApi {
   getSnapshot(): Promise<StudioSnapshot>;
@@ -46,6 +54,20 @@ export interface StudioApi {
   setActiveScene(name: string): Promise<void>;
   /** Picks the scene transition preset and its duration; applies immediately. */
   setTransition(choice: TransitionChoice): Promise<void>;
+  /** Sets the transition used when switching into a scene; null uses the default. */
+  setSceneTransition(scene: string, choice: TransitionChoice | null): Promise<void>;
+  /** Lets the user choose a stinger video; resolves with it and its length (0 when unknown). */
+  pickStingerFile(): Promise<{ path: string; durationMs: number } | null>;
+
+  // Virtual camera
+  /** Checks again whether the virtual camera can start (after the user approved it). */
+  checkVirtualCamera(): Promise<void>;
+  /** Installs the virtual camera's system component; the system asks the user to approve it. */
+  installVirtualCamera(): Promise<void>;
+  startVirtualCamera(): Promise<void>;
+  stopVirtualCamera(): Promise<void>;
+  /** Scene the virtual camera shows; null shows the program output. */
+  setVirtualCameraScene(scene: string | null): Promise<void>;
 
   // Sources
   /** Resolves with the final (unique) source name. */
@@ -61,28 +83,113 @@ export interface StudioApi {
   patchItemTransform(scene: string, itemId: number, patch: ItemTransformPatch, commit: boolean): Promise<void>;
   /** Marks the item the preview draws its selection outline for (null clears). */
   setSelectedItem(scene: string, itemId: number | null): Promise<void>;
+  /** Undoes / redoes the newest canvas edit (move, resize, rotate, crop, position presets). */
+  undoCanvas(): Promise<void>;
+  redoCanvas(): Promise<void>;
   getItemTransform(scene: string, itemId: number): Promise<SourceTransformDTO>;
   setItemTransform(scene: string, itemId: number, transform: SourceTransform): Promise<void>;
   getSourceProperties(source: string): Promise<PropertyDTO[]>;
   updateSourceSettings(source: string, settings: Record<string, unknown>): Promise<PropertyDTO[]>;
   clickSourceButton(source: string, property: string): Promise<PropertyDTO[]>;
   renameSource(source: string, nextName: string): Promise<void>;
+
+  // Scene and source management
+  moveScene(name: string, direction: "up" | "down"): Promise<void>;
+  /** Copies a scene with its items; resolves with the copy's name. */
+  duplicateScene(name: string): Promise<string>;
+  /** Copies an item right above itself; resolves with the new item. */
+  duplicateSceneItem(scene: string, itemId: number): Promise<{ sourceName: string; itemId: number }>;
+  /** Copy transform: the item's full placement. */
+  getItemPlacement(scene: string, itemId: number): Promise<ItemPlacement>;
+  /** Paste transform (one undo step). */
+  setItemPlacement(scene: string, itemId: number, placement: ItemPlacement): Promise<void>;
+
+  // Video effects
+  listEffects(source: string): Promise<EffectList>;
+  addEffect(source: string, kind: EffectKind): Promise<EffectList>;
+  removeEffect(source: string, effect: string): Promise<EffectList>;
+  setEffectEnabled(source: string, effect: string, enabled: boolean): Promise<EffectList>;
+  moveEffect(source: string, effect: string, direction: "up" | "down"): Promise<EffectList>;
+  getEffectProperties(source: string, effect: string): Promise<PropertyDTO[]>;
+  updateEffectSettings(source: string, effect: string, settings: Record<string, unknown>): Promise<PropertyDTO[]>;
+  copyEffects(source: string): Promise<EffectSnapshot[]>;
+  /** Appends copied effects to a source. */
+  pasteEffects(source: string, effects: EffectSnapshot[]): Promise<EffectList>;
   pickFile(filter: string | undefined, directory: boolean): Promise<string | null>;
 
   // Audio
   setVolume(source: string, deflection: number): Promise<void>;
   setMuted(source: string, muted: boolean): Promise<void>;
+  /** Filters, monitoring, sync offset and mono of an audio source. */
+  getAudioDetails(source: string): Promise<AudioSourceDetails>;
+  changeAudio(source: string, change: AudioChange): Promise<AudioSourceDetails>;
+  /** Devices a desktop-audio or microphone source can use; null when it has no device choice. */
+  listAudioDevices(source: string): Promise<AudioDeviceChoice | null>;
+  setAudioDevice(source: string, deviceId: string): Promise<void>;
+  /** Headphones that monitored sources play on (one setting for the whole app). */
+  getMonitoringDevices(): Promise<MonitoringDevices>;
+  setMonitoringDevice(deviceId: string): Promise<void>;
 
   // Preview
-  setPreviewBounds(rect: Rect | null): Promise<void>;
+  /**
+   * The rect the preview occupies (CSS pixels of the main window) and the
+   * page's devicePixelRatio, reported again whenever either changes.
+   */
+  setPreviewBounds(rect: Rect | null, pixelRatio?: number): Promise<void>;
+  /**
+   * Studio mode only: where the program goes, in the same units as
+   * setPreviewBounds. Takes effect with the setPreviewBounds call that follows.
+   */
+  setProgramBounds(rect: Rect | null, pixelRatio?: number): Promise<void>;
   /** Parks the preview off-screen while floating UI covers it, without tearing it down. */
   setPreviewHidden(hidden: boolean): Promise<void>;
+
+  // Studio mode and projectors
+  /** Studio mode: scene clicks load the preview; studioTransition sends it to the program. */
+  setStudioMode(enabled: boolean): Promise<void>;
+  /** Sends the preview scene to the program with the scene's transition, or with a cut. */
+  studioTransition(quick: "cut" | null): Promise<void>;
+  /** Screens a projector can fill. */
+  listScreens(): Promise<ScreenChoice[]>;
+  /** Opens a projector window, filling a screen when `screenId` is set. */
+  openProjector(target: ProjectorTarget, screenId: number | null): Promise<void>;
+  /**
+   * Shows a native popup menu at a point in the window (CSS pixels). Native
+   * menus draw above the preview surface, so it never has to hide for them.
+   * Resolves with the chosen entry's index, or null when dismissed.
+   */
+  showMenu(entries: MenuEntry[], at: { x: number; y: number }): Promise<number | null>;
 
   // Settings
   setVideoSettings(settings: VideoSettings): Promise<void>;
   setEncoder(encoderId: string): Promise<void>;
   chooseRecordingFolder(): Promise<string | null>;
   setPreferences(patch: Partial<StudioPreferences>): Promise<void>;
+  /** Stream delay and reconnect behaviour; refused while live. */
+  setAdvancedSettings(patch: Partial<AdvancedStreamSettings>): Promise<void>;
+  /** Marks the first-run setup as finished (or skipped). */
+  completeSetup(): Promise<void>;
+
+  // Scene collections and profiles (switching is refused while live, recording or on the virtual camera)
+  /** Creates an empty collection and switches to it. */
+  createCollection(name: string): Promise<void>;
+  renameCollection(id: string, name: string): Promise<void>;
+  /** Copies a collection under a new name without switching to it. */
+  duplicateCollection(id: string, name: string): Promise<void>;
+  removeCollection(id: string): Promise<void>;
+  switchCollection(id: string): Promise<void>;
+  /** Creates a profile with default settings and switches to it. */
+  createProfile(name: string): Promise<void>;
+  renameProfile(id: string, name: string): Promise<void>;
+  duplicateProfile(id: string, name: string): Promise<void>;
+  removeProfile(id: string): Promise<void>;
+  switchProfile(id: string): Promise<void>;
+  /** Audio sample rate and speakers (null = engine default; restarts the engine) and recorded tracks. */
+  setOutputFormats(patch: { audio?: AudioFormat | null; recordingTracks?: number }): Promise<void>;
+  /** Scene collections of OBS Studio and Streamlabs Desktop found on this computer. */
+  findImports(): Promise<ImportCandidate[]>;
+  /** Imports a found collection, or a file the user picks when `candidateId` is null; null when cancelled. */
+  importCollection(candidateId: string | null, switchTo: boolean): Promise<ImportResult | null>;
 
   // Destinations
   saveDestination(draft: DestinationDraft): Promise<string>;
@@ -105,6 +212,16 @@ export interface StudioApi {
   startRecording(): Promise<void>;
   stopRecording(): Promise<void>;
   revealRecording(): Promise<void>;
+  /** Saves the last seconds kept by instant replay to the recording folder. */
+  saveReplay(): Promise<void>;
+
+  // Hotkeys
+  /** Binds a combo (canonical accelerator) to an action; null clears it. */
+  setHotkey(action: string, combo: string | null): Promise<void>;
+  /** Suspends hotkeys while the user presses a new combo in Settings. */
+  setHotkeyCapture(active: boolean): Promise<void>;
+  /** Opens the system setting that lets held keys (push-to-talk) work. */
+  openInputAccessSettings(): Promise<void>;
 
   // Screen recording with the editor
   /** Opens the recording picker, or stops the screen recording that is running. */
@@ -150,6 +267,8 @@ export interface StudioApi {
   getSeenalyzeAccount(): Promise<SeenalyzeAccount | null>;
   signInSeenalyze(): Promise<SeenalyzeAccount>;
   signOutSeenalyze(): Promise<void>;
+  /** Saves the interface language to the signed-in account. */
+  setSeenalyzeLanguage(language: string): Promise<void>;
 
   // Events
   onSnapshot(listener: (snapshot: StudioSnapshot) => void): () => void;
@@ -159,6 +278,15 @@ export interface StudioApi {
   /** Fired when the user tries to close the window while live or recording. */
   onQuitRequest(listener: () => void): () => void;
   onChat(listener: (event: ChatEvent) => void): () => void;
+}
+
+/** One row of a native popup menu; `separator` rows ignore the other fields. */
+export interface MenuEntry {
+  label?: string;
+  enabled?: boolean;
+  separator?: boolean;
+  /** Shows a check mark (the current choice in a list). */
+  checked?: boolean;
 }
 
 export interface Notice {
@@ -187,6 +315,13 @@ export const STUDIO_METHODS: readonly StudioMethod[] = [
   "renameScene",
   "setActiveScene",
   "setTransition",
+  "setSceneTransition",
+  "pickStingerFile",
+  "checkVirtualCamera",
+  "installVirtualCamera",
+  "startVirtualCamera",
+  "stopVirtualCamera",
+  "setVirtualCameraScene",
   "addSource",
   "listSourceChoices",
   "addExistingSource",
@@ -197,21 +332,64 @@ export const STUDIO_METHODS: readonly StudioMethod[] = [
   "applyTransform",
   "patchItemTransform",
   "setSelectedItem",
+  "undoCanvas",
+  "redoCanvas",
   "getItemTransform",
   "setItemTransform",
   "getSourceProperties",
   "updateSourceSettings",
   "clickSourceButton",
   "renameSource",
+  "moveScene",
+  "duplicateScene",
+  "duplicateSceneItem",
+  "getItemPlacement",
+  "setItemPlacement",
+  "listEffects",
+  "addEffect",
+  "removeEffect",
+  "setEffectEnabled",
+  "moveEffect",
+  "getEffectProperties",
+  "updateEffectSettings",
+  "copyEffects",
+  "pasteEffects",
   "pickFile",
   "setVolume",
   "setMuted",
+  "getAudioDetails",
+  "changeAudio",
+  "listAudioDevices",
+  "setAudioDevice",
+  "getMonitoringDevices",
+  "setMonitoringDevice",
   "setPreviewBounds",
   "setPreviewHidden",
+  "setProgramBounds",
+  "setStudioMode",
+  "studioTransition",
+  "listScreens",
+  "openProjector",
+  "showMenu",
   "setVideoSettings",
   "setEncoder",
   "chooseRecordingFolder",
   "setPreferences",
+  "setAdvancedSettings",
+  "completeSetup",
+  "createCollection",
+  "renameCollection",
+  "duplicateCollection",
+  "removeCollection",
+  "switchCollection",
+  "createProfile",
+  "renameProfile",
+  "duplicateProfile",
+  "removeProfile",
+  "switchProfile",
+  "setOutputFormats",
+  "findImports",
+  "importCollection",
   "saveDestination",
   "removeDestination",
   "setDestinationEnabled",
@@ -228,6 +406,10 @@ export const STUDIO_METHODS: readonly StudioMethod[] = [
   "startRecording",
   "stopRecording",
   "revealRecording",
+  "saveReplay",
+  "setHotkey",
+  "setHotkeyCapture",
+  "openInputAccessSettings",
   "toggleScreenRecording",
   "openRecordingEditor",
   "setAppearance",
@@ -253,6 +435,7 @@ export const STUDIO_METHODS: readonly StudioMethod[] = [
   "getSeenalyzeAccount",
   "signInSeenalyze",
   "signOutSeenalyze",
+  "setSeenalyzeLanguage",
 ];
 
 /** Errors crossing IPC carry a translation key instead of English text. */

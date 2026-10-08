@@ -95,7 +95,7 @@ export function OverlayPreview({
             title={t("label")}
             sandbox="allow-scripts"
             className="absolute top-0 left-0 origin-top-left border-0"
-            style={{ width, height, transform: `scale(${scale})` }}
+            style={{ width, height, transform: `scale(${scale})`, colorScheme: "normal" }}
           />
           <div className="pointer-events-none absolute inset-0 rounded-sm outline outline-1 outline-dashed outline-white/25" />
         </div>

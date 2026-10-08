@@ -1,7 +1,10 @@
 // Domain types shared by the main process, preload bridge and renderer.
 // Nothing here may reference Electron, Node or libobs objects directly.
 
-import type { TransitionChoice } from "./transitions";
+import type { TransitionChoice, TransitionPresetId } from "./transitions";
+import type { VirtualCameraStatus } from "./virtual-camera";
+import type { ColorFormat, ColorRange, ColorSpace } from "./formats";
+import type { WorkspaceSnapshot } from "./workspace";
 
 export type Platform = "youtube" | "twitch";
 
@@ -15,6 +18,13 @@ export interface VideoSettings {
   fps: number;
   /** Filter used when the output resolution differs from the canvas. */
   scaleFilter: ScaleFilter;
+  /** Exact fractional frame rate (e.g. 30000/1001); absent = whole `fps` (see formats.ts). */
+  fpsNum?: number;
+  fpsDen?: number;
+  /** Advanced color settings; absent = NV12, Rec. 709, limited range. */
+  colorFormat?: ColorFormat;
+  colorSpace?: ColorSpace;
+  colorRange?: ColorRange;
 }
 
 export const SCALE_FILTERS = ["bilinear", "bicubic", "lanczos", "area"] as const;
@@ -27,13 +37,50 @@ export type RecordingFormat = (typeof RECORDING_FORMATS)[number];
 export interface StudioPreferences {
   recordingFormat: RecordingFormat;
   recordingBitrateKbps: number;
-  /** Ask before going live. Ending a stream always asks. */
+  /** Ask before going live. */
   confirmGoLive: boolean;
+  /** Ask before ending a live stream. */
+  confirmEndStream: boolean;
   /** Prevent the computer from sleeping while streaming or recording. */
   keepAwakeWhileLive: boolean;
+  /** Record at the stream's quality, sharing its encoder when a stream is live. */
+  recordingMatchStream: boolean;
+  /** Start recording whenever a stream starts. */
+  autoRecord: boolean;
+  /** Keep an automatic recording running after the stream ends. */
+  keepRecordingAfterStream: boolean;
+  /** Keep the last seconds of the program in memory so they can be saved as a clip. */
+  replayBufferEnabled: boolean;
+  replayBufferSeconds: number;
 }
 
+export const REPLAY_SECONDS_RANGE = { min: 5, max: 300 } as const;
+
 export const RECORDING_BITRATE_RANGE = { min: 2500, max: 100000 } as const;
+
+/** Stream output behaviour (Settings › Advanced). Applies to streams started afterwards. */
+export interface AdvancedStreamSettings {
+  /** 0 = off. */
+  streamDelaySec: number;
+  reconnectDelaySec: number;
+  reconnectMaxRetries: number;
+}
+
+export const ADVANCED_STREAM_RANGES = {
+  streamDelaySec: { min: 0, max: 600 },
+  reconnectDelaySec: { min: 1, max: 30 },
+  reconnectMaxRetries: { min: 1, max: 100 },
+} as const;
+
+export const DEFAULT_ADVANCED_STREAM: AdvancedStreamSettings = {
+  streamDelaySec: 0,
+  reconnectDelaySec: 2,
+  reconnectMaxRetries: 25,
+};
+
+/** Speed/quality trade-off of the video encoder; "balanced" keeps the encoder's own default. */
+export const ENCODER_PRESETS = ["performance", "balanced", "quality"] as const;
+export type EncoderPreset = (typeof ENCODER_PRESETS)[number];
 
 export interface EncoderOption {
   /** Engine encoder name, e.g. "apple_h264", "nvenc", "x264". */
@@ -50,6 +97,8 @@ export interface DestinationProfile {
   audioBitrateKbps: number;
   keyframeSec: number;
   codec: VideoCodec;
+  /** Absent in profiles saved before the setting existed; treated as "balanced". */
+  encoderPreset?: EncoderPreset;
 }
 
 export type ConnectionMode = "account" | "manual";
@@ -108,6 +157,21 @@ export interface RecordingStatus {
   errorKey?: string;
 }
 
+export interface ReplayStatus {
+  /** The buffer is running and a clip can be saved. */
+  active: boolean;
+  errorKey?: string;
+}
+
+/** Global hotkeys: saved combos per action and what keeps some from working. */
+export interface HotkeyStatus {
+  bindings: Record<string, string>;
+  /** Combos another app or the system already holds. */
+  unavailable: string[];
+  /** Held keys (push-to-talk) need input access on macOS. */
+  inputAccess: "granted" | "needed" | "unused";
+}
+
 export interface ScreenRecordingStatus {
   active: boolean;
   paused: boolean;
@@ -119,6 +183,10 @@ export interface EngineStats {
   renderLagFrames: number;
   totalFrames: number;
   memoryMb: number;
+  /** Free space where recordings are saved, added by the main process. */
+  diskFreeMb?: number;
+  /** Measured recording bitrate while recording, added by the main process. */
+  recordingKbps?: number;
 }
 
 export type SourceKind =
@@ -174,6 +242,8 @@ export interface ItemTransformDTO {
   /** Source size after crop, in source pixels. */
   sourceWidth: number;
   sourceHeight: number;
+  /** Source pixels cut from each edge. */
+  crop?: { left: number; top: number; right: number; bottom: number };
 }
 
 /** Interactive transform change from the preview editor. */
@@ -183,11 +253,27 @@ export interface ItemTransformPatch {
   rotation?: number;
   /** Only applied to items with a bounds type. */
   bounds?: { x: number; y: number };
+  /** Source pixels cut from each edge (Alt-drag on a handle). */
+  crop?: { left: number; top: number; right: number; bottom: number };
+}
+
+/** Everything that places an item on the canvas; used to undo canvas edits. */
+export interface ItemPlacement {
+  position: { x: number; y: number };
+  scale: { x: number; y: number };
+  rotation: number;
+  alignment: number;
+  boundsType: number;
+  boundsAlignment: number;
+  bounds: { x: number; y: number };
+  crop: { left: number; top: number; right: number; bottom: number };
 }
 
 export interface SceneDTO {
   name: string;
   items: SceneItemDTO[];
+  /** Transition used when switching into this scene; absent: the default transition. */
+  transition?: TransitionChoice;
 }
 
 export interface AudioSourceDTO {
@@ -252,6 +338,9 @@ export interface StudioSnapshot {
   recording: RecordingStatus;
   recordingFolder: string;
   preferences: StudioPreferences;
+  advanced: AdvancedStreamSettings;
+  /** True until a new user finishes or skips the first-run setup. */
+  setupPending: boolean;
   screenRecording: ScreenRecordingStatus;
   accounts: AccountDTO[];
   platformsConfigured: Record<Platform, boolean>;
@@ -260,8 +349,19 @@ export interface StudioSnapshot {
   overlayData: { twitchFollows: "connecting" | "connected" | "needsReconnect" | "offline" | "unavailable" };
   /** Scene transition used when switching scenes. */
   transition: TransitionChoice;
+  /** Transition presets the engine can play. */
+  availableTransitions: TransitionPresetId[];
+  virtualCamera: VirtualCameraStatus;
   /** Scene item selected for editing (shared by the sources list and the preview editor). */
   selectedItemId: number | null;
+  /** Whether canvas edits can be undone or redone. */
+  canvasHistory: { canUndo: boolean; canRedo: boolean };
+  replayBuffer: ReplayStatus;
+  hotkeys: HotkeyStatus;
+  /** Scene collections, profiles and advanced audio formats. */
+  workspace: WorkspaceSnapshot;
+  /** Studio mode: scene clicks load the preview (activeScene), Transition sends it to the program. */
+  studioMode: StudioModeState;
 }
 
 // ----- permissions -----------------------------------------------------------
@@ -386,4 +486,30 @@ export interface StreamCheck {
   readyDestinationIds: string[];
   scene: string | null;
   issues: { key: string; blocking: boolean; destinationId?: string; count?: number }[];
+}
+
+// ----- studio mode and projectors ----------------------------------------------
+
+export interface StudioModeState {
+  enabled: boolean;
+  /** Scene on the program output (in studio mode, activeScene is the preview scene). */
+  programScene: string | null;
+}
+
+/** What a projector window shows. */
+export type ProjectorTarget =
+  | { kind: "program" }
+  | { kind: "preview" }
+  | { kind: "multiview" }
+  | { kind: "scene"; name: string }
+  | { kind: "source"; name: string };
+
+/** What one native display shows (resolved to an engine source by the engine). */
+export type DisplaySpec = { kind: "program" } | { kind: "studioPreview" } | { kind: "scene"; name: string } | { kind: "source"; name: string };
+
+/** A screen a projector can fill. */
+export interface ScreenChoice {
+  id: number;
+  label: string;
+  primary: boolean;
 }

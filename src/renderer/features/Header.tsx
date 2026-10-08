@@ -7,10 +7,11 @@ import { isMac } from "@/lib/studio";
 import { cn } from "@/lib/utils";
 import { useStudio } from "@/store/studio";
 import { isActive } from "./DestinationsDock";
+import { StatsButton } from "./StatsPanel";
+import { StudioModeControls } from "./projector/StudioModeControls";
 
 export function Header() {
   const t = useTranslations("header");
-  const stats = useStudio((state) => state.stats);
   const live = useStudio((state) => state.snapshot?.destinationStatus.some((status) => status.state === "live") ?? false);
   const connecting = useStudio((state) => state.snapshot?.destinationStatus.some((status) => isActive(status) && status.state !== "live") ?? false);
   const recording = useStudio((state) => state.snapshot?.recording.active ?? false);
@@ -39,13 +40,8 @@ export function Header() {
         )}
       </div>
       <div className="ml-auto flex items-center gap-4 text-xs text-muted-foreground tabular-nums">
-        {stats && (
-          <>
-            <span>{t("cpu", { value: stats.cpu.toFixed(1) })}</span>
-            <span>{t("fps", { value: stats.fps.toFixed(0) })}</span>
-            <span className={cn(stats.renderLagFrames > 0 && "text-yellow-500")}>{t("lagged", { value: stats.renderLagFrames })}</span>
-          </>
-        )}
+        <StatsButton />
+        {view === "studio" && <StudioModeControls />}
         {view === "studio" && (
           <Button variant="ghost" size="sm" className="app-no-drag" onClick={() => setView("overlays")}>
             <LayersIcon aria-hidden className="size-4" />

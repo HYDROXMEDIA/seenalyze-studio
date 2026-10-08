@@ -1,7 +1,5 @@
 import {
   AppWindowIcon,
-  ArrowDownIcon,
-  ArrowUpIcon,
   CameraIcon,
   ClapperboardIcon,
   EyeIcon,
@@ -11,19 +9,14 @@ import {
   ImageIcon,
   LockIcon,
   LayersIcon,
-  MaximizeIcon,
   MessagesSquareIcon,
   MicIcon,
   MonitorIcon,
   MoreHorizontalIcon,
   PaletteIcon,
-  PencilIcon,
   PlusIcon,
   ScanIcon,
-  Settings2Icon,
-  Trash2Icon,
   TypeIcon,
-  UndoIcon,
   UnlockIcon,
   Volume2Icon,
   type LucideIcon,
@@ -43,19 +36,18 @@ import {
   AlertDialogTitle,
   DialogFooter,
   DialogHeader,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  NativeMenu,
 } from "@/components/ui/overlays";
 import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
 import { cn } from "@/lib/utils";
+import { useClipboard } from "@/store/clipboard";
 import { useStudio } from "@/store/studio";
 import { AddSourceDialog } from "./AddSourceDialog";
+import { EffectsDialog } from "./EffectsDialog";
 import { SourcePropertiesDialog } from "./SourcePropertiesDialog";
 import { SourceTransformDialog } from "./SourceTransformDialog";
+import { useProjectorMenu } from "./projector/use-projector-menu";
 
 export const SOURCE_ICONS: Record<SourceKind | "other", LucideIcon> = {
   display: MonitorIcon,
@@ -99,6 +91,9 @@ export function SourcesDock() {
   const [renaming, setRenaming] = useState<string | null>(null);
   const [removing, setRemoving] = useState<SceneItemDTO | null>(null);
   const [transforming, setTransforming] = useState<{ scene: string; itemId: number } | null>(null);
+  const [effectsOf, setEffectsOf] = useState<string | null>(null);
+  const clipboard = useClipboard();
+  const projectorMenu = useProjectorMenu();
 
   if (!scene) return <Dock title={t("title")}>{null}</Dock>;
 
@@ -126,6 +121,9 @@ export function SourcesDock() {
         // Keyed on the scene so switching scenes cross-fades the list.
         <div key={scene.name} className="animate-ui-fade">
           {scene.items.map((item, index) => {
+            // Audio-only sources and nested scenes have no picture of their own to change.
+            const pictureless = ["microphone", "desktopAudio", "applicationAudio"].includes(item.kind);
+            const effectless = pictureless || item.kind === "scene";
             return (
               <ListRow key={item.id} active={item.id === selectedItemId} onClick={() => selectItem(item.id)}>
                 <SourceIcon kind={item.kind} className={cn("size-4 shrink-0 text-muted-foreground", !item.visible && "opacity-40")} />
@@ -155,61 +153,73 @@ export function SourcesDock() {
                 >
                   {item.visible ? <EyeIcon /> : <EyeOffIcon className="text-muted-foreground" />}
                 </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon-sm" aria-label={tc("more")} onClick={(event) => event.stopPropagation()}>
-                      <MoreHorizontalIcon />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
-                    <DropdownMenuItem onSelect={() => setEditing(item.sourceName)}>
-                      <Settings2Icon />
-                      {t("properties")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setRenaming(item.sourceName)}>
-                      <PencilIcon />
-                      {tc("rename")}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem disabled={item.locked || ["microphone", "desktopAudio", "applicationAudio"].includes(item.kind)} onSelect={() => setTransforming({ scene: scene.name, itemId: item.id })}>
-                      <ScanIcon />
-                      {t("editTransform")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem disabled={item.locked} onSelect={() => void run(() => studio.applyTransform(scene.name, item.id, "fit"))}>
-                      <ScanIcon />
-                      {t("fit")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem disabled={item.locked} onSelect={() => void run(() => studio.applyTransform(scene.name, item.id, "stretch"))}>
-                      <MaximizeIcon />
-                      {t("stretch")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem disabled={item.locked} onSelect={() => void run(() => studio.applyTransform(scene.name, item.id, "center"))}>
-                      <ScanIcon />
-                      {t("center")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem disabled={item.locked} onSelect={() => void run(() => studio.applyTransform(scene.name, item.id, "reset"))}>
-                      <UndoIcon />
-                      {t("resetTransform")}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem disabled={index === 0} onSelect={() => void run(() => studio.moveSceneItem(scene.name, item.id, "up"))}>
-                      <ArrowUpIcon />
-                      {t("moveUp")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      disabled={index === scene.items.length - 1}
-                      onSelect={() => void run(() => studio.moveSceneItem(scene.name, item.id, "down"))}
-                    >
-                      <ArrowDownIcon />
-                      {t("moveDown")}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem variant="destructive" disabled={item.locked} onSelect={() => setRemoving(item)}>
-                      <Trash2Icon />
-                      {tc("remove")}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <NativeMenu
+                  items={[
+                    { label: t("properties"), onSelect: () => setEditing(item.sourceName) },
+                    { label: t("effects"), disabled: effectless, onSelect: () => setEffectsOf(item.sourceName) },
+                    { label: tc("rename"), onSelect: () => setRenaming(item.sourceName) },
+                    {
+                      label: t("duplicate"),
+                      onSelect: () =>
+                        void run(() => studio.duplicateSceneItem(scene.name, item.id)).then((copy) => {
+                          if (copy) selectItem(copy.itemId);
+                        }),
+                    },
+                    "separator",
+                    {
+                      label: t("editTransform"),
+                      disabled: item.locked || pictureless,
+                      onSelect: () => setTransforming({ scene: scene.name, itemId: item.id }),
+                    },
+                    { label: t("fit"), disabled: item.locked, onSelect: () => void run(() => studio.applyTransform(scene.name, item.id, "fit")) },
+                    { label: t("stretch"), disabled: item.locked, onSelect: () => void run(() => studio.applyTransform(scene.name, item.id, "stretch")) },
+                    { label: t("center"), disabled: item.locked, onSelect: () => void run(() => studio.applyTransform(scene.name, item.id, "center")) },
+                    { label: t("resetTransform"), disabled: item.locked, onSelect: () => void run(() => studio.applyTransform(scene.name, item.id, "reset")) },
+                    "separator",
+                    {
+                      label: t("copyTransform"),
+                      disabled: pictureless,
+                      onSelect: () =>
+                        void run(() => studio.getItemPlacement(scene.name, item.id)).then((placement) => {
+                          if (placement) clipboard.copyPlacement(placement);
+                        }),
+                    },
+                    {
+                      label: t("pasteTransform"),
+                      disabled: pictureless || item.locked || !clipboard.placement,
+                      onSelect: () => {
+                        const placement = clipboard.placement;
+                        if (placement) void run(() => studio.setItemPlacement(scene.name, item.id, placement));
+                      },
+                    },
+                    {
+                      label: t("copyEffects"),
+                      disabled: effectless,
+                      onSelect: () =>
+                        void run(() => studio.copyEffects(item.sourceName)).then((effects) => {
+                          if (effects) clipboard.copyEffects(effects);
+                        }),
+                    },
+                    {
+                      label: t("pasteEffects"),
+                      disabled: effectless || !clipboard.effects?.length,
+                      onSelect: () => {
+                        const effects = clipboard.effects;
+                        if (effects?.length) void run(() => studio.pasteEffects(item.sourceName, effects));
+                      },
+                    },
+                    "separator",
+                    { label: t("moveUp"), disabled: index === 0, onSelect: () => void run(() => studio.moveSceneItem(scene.name, item.id, "up")) },
+                    { label: t("moveDown"), disabled: index === scene.items.length - 1, onSelect: () => void run(() => studio.moveSceneItem(scene.name, item.id, "down")) },
+                    "separator",
+                    ...(pictureless ? [] : [...projectorMenu(item.kind === "scene" ? { kind: "scene", name: item.sourceName } : { kind: "source", name: item.sourceName }), "separator" as const]),
+                    { label: tc("remove"), disabled: item.locked, onSelect: () => setRemoving(item) },
+                  ]}
+                >
+                  <Button variant="ghost" size="icon-sm" aria-label={tc("more")}>
+                    <MoreHorizontalIcon />
+                  </Button>
+                </NativeMenu>
               </ListRow>
             );
           })}
@@ -218,6 +228,7 @@ export function SourcesDock() {
 
       <AddSourceDialog open={adding} scene={scene.name} onOpenChange={setAdding} onAdded={(name) => setEditing(name)} />
       <SourcePropertiesDialog source={editing} onClose={() => setEditing(null)} />
+      <EffectsDialog source={effectsOf} onClose={() => setEffectsOf(null)} />
       <SourceTransformDialog target={transforming} onClose={() => setTransforming(null)} />
       <NameDialog
         open={renaming !== null}

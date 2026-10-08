@@ -1,11 +1,12 @@
-// Dialog, alert dialog, dropdown menu and select primitives. Every root tracks
-// its open state with usePreviewOcclusion so the native preview steps aside
-// while a floating surface is visible.
+// Dialog, alert dialog, popover, native menu and select primitives. Every web
+// root tracks its open state with usePreviewOcclusion so the native preview
+// steps aside while a floating surface is visible; native menus draw above it.
 
-import { AlertDialog as AlertPrimitive, Dialog as DialogPrimitive, DropdownMenu as MenuPrimitive, Popover as PopoverPrimitive, Select as SelectPrimitive } from "radix-ui";
+import { AlertDialog as AlertPrimitive, Dialog as DialogPrimitive, Popover as PopoverPrimitive, Select as SelectPrimitive, Slot } from "radix-ui";
 import { CheckIcon, ChevronDownIcon, XIcon } from "lucide-react";
-import { useState, type ComponentProps } from "react";
+import { useState, type ComponentProps, type MouseEvent, type ReactElement } from "react";
 import { useTranslations } from "use-intl";
+import { studio } from "@/lib/studio";
 import { cn } from "@/lib/utils";
 import { usePreviewOcclusion, type OcclusionKind } from "@/store/studio";
 import { Button } from "./button";
@@ -138,45 +139,35 @@ export function AlertDialogCancel(props: ComponentProps<typeof AlertPrimitive.Ca
   );
 }
 
-// ----- Dropdown menu ---------------------------------------------------------
+// ----- Native menu ---------------------------------------------------------
 
-export function DropdownMenu({ open, defaultOpen, onOpenChange, ...props }: ComponentProps<typeof MenuPrimitive.Root>) {
-  // Anchored popup: the preview hides only while the menu actually overlaps it.
-  return <MenuPrimitive.Root {...props} {...useTrackedOpen(open, defaultOpen, onOpenChange, "popper")} />;
-}
-export const DropdownMenuTrigger = MenuPrimitive.Trigger;
+export type NativeMenuItem = { label: string; onSelect: () => void; disabled?: boolean; checked?: boolean } | "separator";
 
-export function DropdownMenuContent({ className, sideOffset = 4, ...props }: ComponentProps<typeof MenuPrimitive.Content>) {
+/**
+ * Opens an OS menu below the child trigger. Native menus draw above the
+ * preview surface, so the preview stays visible while they are open.
+ */
+export function NativeMenu({ items, children }: { items: NativeMenuItem[]; children: ReactElement }) {
+  const [open, setOpen] = useState(false);
+  const show = async (event: MouseEvent<HTMLElement>) => {
+    event.stopPropagation();
+    if (open) return;
+    const box = event.currentTarget.getBoundingClientRect();
+    setOpen(true);
+    try {
+      const entries = items.map((item) => (item === "separator" ? { separator: true } : { label: item.label, enabled: !item.disabled, checked: item.checked }));
+      const index = await studio.showMenu(entries, { x: box.left, y: box.bottom + 4 });
+      const chosen = index === null ? undefined : items[index];
+      if (chosen && chosen !== "separator" && !chosen.disabled) chosen.onSelect();
+    } finally {
+      setOpen(false);
+    }
+  };
   return (
-    <MenuPrimitive.Portal>
-      <MenuPrimitive.Content
-        sideOffset={sideOffset}
-        className={cn("z-50 min-w-[10rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-ui-pop", className)}
-        {...props}
-      />
-    </MenuPrimitive.Portal>
+    <Slot.Root aria-haspopup="menu" aria-expanded={open} data-state={open ? "open" : "closed"} onClick={(event: MouseEvent<HTMLElement>) => void show(event).catch(console.error)}>
+      {children}
+    </Slot.Root>
   );
-}
-
-export function DropdownMenuItem({
-  className,
-  variant = "default",
-  ...props
-}: ComponentProps<typeof MenuPrimitive.Item> & { variant?: "default" | "destructive" }) {
-  return (
-    <MenuPrimitive.Item
-      className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
-        variant === "destructive" && "text-red-600 focus:bg-red-600/10 focus:text-red-600 dark:text-red-400",
-        className,
-      )}
-      {...props}
-    />
-  );
-}
-
-export function DropdownMenuSeparator({ className, ...props }: ComponentProps<typeof MenuPrimitive.Separator>) {
-  return <MenuPrimitive.Separator className={cn("-mx-1 my-1 h-px bg-border", className)} {...props} />;
 }
 
 // ----- Select ----------------------------------------------------------------

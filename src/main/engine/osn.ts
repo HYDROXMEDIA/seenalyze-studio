@@ -9,8 +9,10 @@ import type * as OSNModule from "../../../vendor/obs-studio-node/module";
 export type OSN = typeof OSNModule;
 export type {
   IAdvancedRecording,
+  IAdvancedReplayBuffer,
   IAdvancedStreaming,
   IFader,
+  IFilter,
   IInput,
   IProperties,
   IProperty,

@@ -50,6 +50,9 @@
   --muted: oklch(0.96 0 0);
   /* Letterbox space around the preview canvas (distinct from the black canvas). */
   --preview-surface: oklch(0.9 0 0);
+  /* Edge of the live canvas and the snap guides drawn while editing. */
+  --canvas-border: oklch(0.5 0 0);
+  --snap-guide: oklch(0.7 0.16 220);
   --muted-foreground: oklch(0.55 0 0);
   --accent: oklch(0.96 0 0);
   --accent-foreground: oklch(0.28 0 0);
@@ -75,6 +78,8 @@
   --secondary-foreground: oklch(1 0 0);
   --muted: oklch(0.12 0 0);
   --preview-surface: #232325;
+  --canvas-border: oklch(1 0 0 / 45%);
+  --snap-guide: oklch(0.78 0.14 220);
   --muted-foreground: oklch(0.75 0 0);
   --accent: oklch(0.12 0 0);
   --accent-foreground: oklch(1 0 0);
@@ -201,91 +206,174 @@
 }
 
 /*
- * Scene transition thumbnails: scene B replaces scene A on a loop. Cheap
- * transform/opacity/clip-path loops; static (showing B) with reduced motion.
+ * Scene transition thumbnails: scene B replaces scene A the way the transition
+ * does. Only the thumbnail being hovered, focused or selected plays (one loop
+ * at a time keeps paint cost negligible next to the native preview); every
+ * other thumbnail rests on a still frame from the middle of its transition.
  */
+@property --tt-blind {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+@property --tt-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
 .transition-thumb {
   position: relative;
   overflow: hidden;
   isolation: isolate;
+  background: #0b0b10;
+  --tt-ease: cubic-bezier(0.65, 0, 0.35, 1);
+  --tt-x: 0%;
+  --tt-y: 0%;
 }
 .transition-thumb > .tt-a,
 .transition-thumb > .tt-b,
 .transition-thumb > .tt-mid {
   position: absolute;
   inset: 0;
-  animation-duration: 2.4s;
+  animation-duration: 2.6s;
   animation-iteration-count: infinite;
-  animation-timing-function: ease-in-out;
+  animation-timing-function: var(--tt-ease);
+  animation-fill-mode: both;
+  /* Still frame: paused near the middle of the transition. */
+  animation-play-state: paused;
+  animation-delay: -1.05s;
 }
-.transition-thumb > .tt-mid {
-  opacity: 0;
+.tt-host:hover .transition-thumb > *,
+.tt-host:focus-visible .transition-thumb > *,
+.tt-host[aria-pressed="true"] .transition-thumb > * {
+  animation-play-state: running;
+  animation-delay: 0s;
 }
+.transition-thumb > .tt-mid { opacity: 0; }
+
+/* Mini scene content so motion direction reads at thumbnail size. */
+.transition-thumb > .tt-a::before,
+.transition-thumb > .tt-b::before,
+.transition-thumb > .tt-a::after,
+.transition-thumb > .tt-b::after {
+  content: "";
+  position: absolute;
+  background: rgb(255 255 255 / 0.85);
+}
+.transition-thumb > .tt-a::before,
+.transition-thumb > .tt-b::before {
+  left: 10%;
+  bottom: 14%;
+  width: 42%;
+  height: 11%;
+  border-radius: 999px;
+}
+.transition-thumb > .tt-a::after,
+.transition-thumb > .tt-b::after {
+  right: 10%;
+  top: 14%;
+  width: 22%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.35);
+}
+.transition-thumb > .tt-b::after {
+  left: 10%;
+  right: auto;
+  border-radius: 22%;
+}
+
+/* Fade family */
 .transition-thumb[data-kind="fade"] > .tt-b { animation-name: tt-fade; }
-.transition-thumb[data-kind="cut"] > .tt-b { animation-name: tt-cut; animation-timing-function: steps(1, end); }
+.transition-thumb[data-kind="cut"] > .tt-b { animation-name: tt-cut; }
 .transition-thumb[data-kind="fadeBlack"] > .tt-mid,
 .transition-thumb[data-kind="fadeWhite"] > .tt-mid { animation-name: tt-dip; }
 .transition-thumb[data-kind="fadeBlack"] > .tt-b,
-.transition-thumb[data-kind="fadeWhite"] > .tt-b { animation-name: tt-cut; animation-timing-function: steps(1, end); }
+.transition-thumb[data-kind="fadeWhite"] > .tt-b { animation-name: tt-cut; }
+
+/* Slide: both scenes move. Swipe: B moves over A, which recedes. */
+.transition-thumb[data-dir="left"] { --tt-x: 100%; }
+.transition-thumb[data-dir="right"] { --tt-x: -100%; }
+.transition-thumb[data-dir="up"] { --tt-y: 100%; }
+.transition-thumb[data-dir="down"] { --tt-y: -100%; }
 .transition-thumb[data-kind^="slide"] > .tt-a { animation-name: tt-out; }
 .transition-thumb[data-kind^="slide"] > .tt-b,
 .transition-thumb[data-kind^="swipe"] > .tt-b { animation-name: tt-in; }
-.transition-thumb[data-dir="left"] { --tt-x: 100%; --tt-y: 0%; }
-.transition-thumb[data-dir="right"] { --tt-x: -100%; --tt-y: 0%; }
-.transition-thumb[data-dir="up"] { --tt-x: 0%; --tt-y: 100%; }
-.transition-thumb[data-dir="down"] { --tt-x: 0%; --tt-y: -100%; }
+.transition-thumb[data-kind^="swipe"] > .tt-a { animation-name: tt-recede; }
+.transition-thumb[data-kind^="swipe"] > .tt-b { box-shadow: 0 0 18px rgb(0 0 0 / 0.45); }
+
+/* Wipes */
 .transition-thumb[data-kind="wipeLinear"] > .tt-b { animation-name: tt-wipe-linear; }
 .transition-thumb[data-kind="wipeBarnDoor"] > .tt-b { animation-name: tt-wipe-barn; }
 .transition-thumb[data-kind="wipeIris"] > .tt-b { animation-name: tt-wipe-iris; }
-.transition-thumb[data-kind="wipeClock"] > .tt-b { animation-name: tt-wipe-clock; animation-timing-function: linear; }
-
-@keyframes tt-fade { 0%, 25% { opacity: 0; } 55%, 100% { opacity: 1; } }
-@keyframes tt-cut { 0%, 40% { opacity: 0; } 41%, 100% { opacity: 1; } }
-@keyframes tt-dip { 0%, 20% { opacity: 0; } 40% { opacity: 1; } 60%, 100% { opacity: 0; } }
-@keyframes tt-out { 0%, 25% { transform: translate(0, 0); } 55%, 100% { transform: translate(calc(var(--tt-x) * -1), calc(var(--tt-y) * -1)); } }
-@keyframes tt-in { 0%, 25% { transform: translate(var(--tt-x), var(--tt-y)); } 55%, 100% { transform: translate(0, 0); } }
-@keyframes tt-wipe-linear { 0%, 25% { clip-path: inset(0 100% 0 0); } 55%, 100% { clip-path: inset(0 0 0 0); } }
-@keyframes tt-wipe-barn { 0%, 25% { clip-path: inset(0 50% 0 50%); } 55%, 100% { clip-path: inset(0 0 0 0); } }
-@keyframes tt-wipe-iris { 0%, 25% { clip-path: circle(0% at 50% 50%); } 55%, 100% { clip-path: circle(75% at 50% 50%); } }
-@keyframes tt-wipe-clock {
-  0%, 25% { clip-path: polygon(50% 50%, 50% -50%, 50% -50%, 50% -50%, 50% -50%, 50% -50%); }
-  32% { clip-path: polygon(50% 50%, 50% -50%, 150% 50%, 150% 50%, 150% 50%, 150% 50%); }
-  40% { clip-path: polygon(50% 50%, 50% -50%, 150% 50%, 50% 150%, 50% 150%, 50% 150%); }
-  48% { clip-path: polygon(50% 50%, 50% -50%, 150% 50%, 50% 150%, -50% 50%, -50% 50%); }
-  55%, 100% { clip-path: polygon(50% 50%, 50% -50%, 150% 50%, 50% 150%, -50% 50%, 50% -50%); }
+.transition-thumb[data-kind="wipeClock"] > .tt-b {
+  -webkit-mask-image: conic-gradient(#000 var(--tt-angle), transparent 0);
+  mask-image: conic-gradient(#000 var(--tt-angle), transparent 0);
+  animation-name: tt-wipe-clock;
 }
-
 .transition-thumb[data-kind="wipeBlinds"] > .tt-b {
-  -webkit-mask-image: linear-gradient(to bottom, #000 var(--tt-blind, 0%), transparent var(--tt-blind, 0%));
-  mask-image: linear-gradient(to bottom, #000 var(--tt-blind, 0%), transparent var(--tt-blind, 0%));
+  -webkit-mask-image: linear-gradient(to bottom, #000 var(--tt-blind), transparent var(--tt-blind));
+  mask-image: linear-gradient(to bottom, #000 var(--tt-blind), transparent var(--tt-blind));
   -webkit-mask-size: 100% 25%;
   mask-size: 100% 25%;
-  animation-name: tt-blinds-reveal;
+  animation-name: tt-blinds;
 }
-@property --tt-blind {
-  syntax: "<percentage>";
-  inherits: false;
-  initial-value: 0%;
-}
-@keyframes tt-blinds-reveal { 0%, 25% { --tt-blind: 0%; } 55%, 100% { --tt-blind: 100%; } }
 .transition-thumb[data-kind="wipeCheckerboard"] > .tt-b {
   -webkit-mask-image: conic-gradient(#000 25%, transparent 0 50%, #000 0 75%, transparent 0);
   mask-image: conic-gradient(#000 25%, transparent 0 50%, #000 0 75%, transparent 0);
   -webkit-mask-size: 25% 50%;
   mask-size: 25% 50%;
   animation-name: tt-checker;
-  animation-timing-function: steps(1, end);
 }
+.transition-thumb[data-kind="shuffle"] > .tt-a { animation-name: tt-shuffle-out; }
+.transition-thumb[data-kind="shuffle"] > .tt-b { animation-name: tt-shuffle-in; }
+.transition-thumb[data-kind="stinger"] > .tt-mid { animation-name: tt-sting; }
+.transition-thumb[data-kind="stinger"] > .tt-b { animation-name: tt-cut; }
+
+@keyframes tt-shuffle-out {
+  0%, 22% { transform: translate3d(0, 0, 0); opacity: 1; }
+  62%, 100% { transform: translate3d(0, -60%, 0); opacity: 0; }
+}
+@keyframes tt-shuffle-in {
+  0%, 22% { transform: translate3d(0, 60%, 0); opacity: 0; }
+  62%, 100% { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+@keyframes tt-sting {
+  0%, 22% { opacity: 1; transform: translate3d(100%, 0, 0); }
+  42% { opacity: 1; transform: translate3d(0, 0, 0); }
+  62%, 100% { opacity: 1; transform: translate3d(-100%, 0, 0); }
+}
+
+@keyframes tt-fade { 0%, 22% { opacity: 0; } 62%, 100% { opacity: 1; } }
+@keyframes tt-cut { 0%, 41.9% { opacity: 0; } 42%, 100% { opacity: 1; } }
+@keyframes tt-dip { 0%, 22% { opacity: 0; } 42% { opacity: 1; } 62%, 100% { opacity: 0; } }
+@keyframes tt-out {
+  0%, 22% { transform: translate3d(0, 0, 0); }
+  62%, 100% { transform: translate3d(calc(var(--tt-x) * -1), calc(var(--tt-y) * -1), 0); }
+}
+@keyframes tt-in {
+  0%, 22% { transform: translate3d(var(--tt-x), var(--tt-y), 0); }
+  62%, 100% { transform: translate3d(0, 0, 0); }
+}
+@keyframes tt-recede {
+  0%, 22% { transform: scale(1); opacity: 1; }
+  62%, 100% { transform: scale(0.92); opacity: 0.5; }
+}
+@keyframes tt-wipe-linear { 0%, 22% { clip-path: inset(0 100% 0 0); } 62%, 100% { clip-path: inset(0 0 0 0); } }
+@keyframes tt-wipe-barn { 0%, 22% { clip-path: inset(0 50% 0 50%); } 62%, 100% { clip-path: inset(0 0 0 0); } }
+@keyframes tt-wipe-iris { 0%, 22% { clip-path: circle(0% at 50% 50%); } 62%, 100% { clip-path: circle(72% at 50% 50%); } }
+@keyframes tt-wipe-clock { 0%, 22% { --tt-angle: 0deg; } 62%, 100% { --tt-angle: 360deg; } }
+@keyframes tt-blinds { 0%, 22% { --tt-blind: 0%; } 62%, 100% { --tt-blind: 100%; } }
 @keyframes tt-checker {
-  0%, 30% { opacity: 0; -webkit-mask-size: 25% 50%; mask-size: 25% 50%; }
-  31%, 45% { opacity: 1; -webkit-mask-size: 25% 50%; mask-size: 25% 50%; }
+  0%, 29.9% { opacity: 0; }
+  30%, 45.9% { opacity: 1; -webkit-mask-size: 25% 50%; mask-size: 25% 50%; }
   46%, 100% { opacity: 1; -webkit-mask-image: none; mask-image: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .transition-thumb > .tt-a,
-  .transition-thumb > .tt-b,
-  .transition-thumb > .tt-mid {
-    animation: none;
+  .tt-host .transition-thumb > * {
+    animation-play-state: paused !important;
+    animation-delay: -1.05s !important;
   }
 }

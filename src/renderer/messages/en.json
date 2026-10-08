@@ -21,7 +21,10 @@
     "fps": "{value} FPS",
     "lagged": "{value} lagged frames",
     "chat": "Chat",
-    "overlays": "Overlays"
+    "overlays": "Overlays",
+    "statsOpen": "Show performance details",
+    "studioMode": "Studio mode",
+    "projectors": "Projectors"
   },
   "engine": {
     "failedTitle": "The studio couldn't start",
@@ -41,7 +44,12 @@
     "defaultName": "Scene",
     "empty": "No scenes yet",
     "removeTitle": "Remove \"{name}\"?",
-    "removeDescription": "The scene and its layout are removed. Sources used in other scenes stay."
+    "removeDescription": "The scene and its layout are removed. Sources used in other scenes stay.",
+    "duplicate": "Duplicate",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "transitionInto": "Transition into this scene",
+    "onProgram": "On program"
   },
   "transitions": {
     "title": "Scene transition",
@@ -68,7 +76,47 @@
       "wipeIris": "Iris",
       "wipeBarnDoor": "Barn door",
       "wipeBlinds": "Blinds",
-      "wipeCheckerboard": "Checkerboard"
+      "wipeCheckerboard": "Checkerboard",
+      "shuffle": "Shuffle",
+      "stinger": "Stinger"
+    },
+    "back": "Back",
+    "sceneTitle": "Transition into {name}",
+    "sceneDescription": "Choose the transition used when switching to this scene.",
+    "useDefault": "Default ({name})",
+    "perScene": "Scene transitions",
+    "addOverride": "Set for a scene",
+    "removeOverride": "Use the default for {name}",
+    "stinger": {
+      "length": "{seconds} s",
+      "changeFile": "Change",
+      "point": "Switch point",
+      "pointUnit": "Unit",
+      "units": {
+        "percent": "%",
+        "ms": "ms"
+      },
+      "percentValue": "{value}%",
+      "msValue": "{value} ms",
+      "matte": "Track matte",
+      "mattes": {
+        "none": "None",
+        "sideBySide": "Side by side",
+        "stacked": "Stacked",
+        "mask": "Mask only"
+      },
+      "audio": "Stinger sound",
+      "audioOptions": {
+        "stream": "On stream",
+        "monitor": "Only me",
+        "both": "Stream and me"
+      },
+      "sceneAudio": "Scene audio",
+      "fades": {
+        "fadeOutIn": "Fade out, then in",
+        "crossfade": "Crossfade"
+      },
+      "invertMatte": "Invert matte"
     }
   },
   "sources": {
@@ -115,7 +163,13 @@
       "color": "Color",
       "browser": "Web page",
       "chatOverlay": "Chat overlay"
-    }
+    },
+    "effects": "Effects",
+    "duplicate": "Duplicate",
+    "copyTransform": "Copy size and position",
+    "pasteTransform": "Paste size and position",
+    "copyEffects": "Copy effects",
+    "pasteEffects": "Paste effects"
   },
   "properties": {
     "title": "{name} properties",
@@ -131,6 +185,31 @@
     "bold": "Bold",
     "italic": "Italic"
   },
+  "effects": {
+    "title": "{name} effects",
+    "add": "Add effect",
+    "more": "More effects",
+    "applied": "Applied effects",
+    "toggle": "Turn {name} on or off",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "removeTitle": "Remove {name}?",
+    "noSettings": "This effect has no settings",
+    "unavailable": "No effects are available on this computer.",
+    "kinds": {
+      "chromaKey": "Chroma key",
+      "colorCorrection": "Color correction",
+      "crop": "Crop / pad",
+      "lut": "Apply LUT",
+      "colorKey": "Color key",
+      "lumaKey": "Luma key",
+      "sharpen": "Sharpen",
+      "mask": "Image mask",
+      "scale": "Scaling / aspect ratio",
+      "scroll": "Scroll",
+      "renderDelay": "Render delay"
+    }
+  },
   "transformEditor": {
     "title": "{name} layout",
     "loadingTitle": "Source layout",
@@ -143,9 +222,28 @@
     "sizing": "Sizing",
     "anchor": "Anchor",
     "crop": "Crop",
-    "cropEdges": { "left": "Left", "top": "Top", "right": "Right", "bottom": "Bottom" },
-    "sizingOptions": { "fit": "Fit", "stretch": "Stretch", "scale": "Scale" },
-    "anchorOptions": { "topLeft": "Top left", "top": "Top", "topRight": "Top right", "left": "Left", "center": "Center", "right": "Right", "bottomLeft": "Bottom left", "bottom": "Bottom", "bottomRight": "Bottom right" },
+    "cropEdges": {
+      "left": "Left",
+      "top": "Top",
+      "right": "Right",
+      "bottom": "Bottom"
+    },
+    "sizingOptions": {
+      "fit": "Fit",
+      "stretch": "Stretch",
+      "scale": "Scale"
+    },
+    "anchorOptions": {
+      "topLeft": "Top left",
+      "top": "Top",
+      "topRight": "Top right",
+      "left": "Left",
+      "center": "Center",
+      "right": "Right",
+      "bottomLeft": "Bottom left",
+      "bottom": "Bottom",
+      "bottomRight": "Bottom right"
+    },
     "saved": "Source layout saved",
     "discardTitle": "Discard your changes?",
     "discardDescription": "Your source layout changes haven't been saved.",
@@ -176,7 +274,69 @@
     "muted": "Muted",
     "volume": "{name} volume",
     "mute": "Mute {name}",
-    "unmute": "Unmute {name}"
+    "unmute": "Unmute {name}",
+    "audioSettings": "{name} audio",
+    "device": "{name} device",
+    "loadingDevices": "Loading devices",
+    "systemDefault": "System default",
+    "noDevices": "No devices to choose from",
+    "loadFailed": "Couldn't load the audio settings.",
+    "cleanupMic": "Clean up my mic",
+    "cleanupAudio": "Clean up audio",
+    "cleanupHint": "Reduces background noise and evens out the volume.",
+    "monitoring": "Hear it in headphones",
+    "monitoringModes": {
+      "off": "Off",
+      "monitor": "Headphones only",
+      "monitorAndOutput": "Headphones and stream"
+    },
+    "headphones": "Headphones",
+    "advanced": "Advanced",
+    "syncOffset": "Sync offset (ms)",
+    "mono": "Mono",
+    "filters": "Filters",
+    "addFilter": "Add filter",
+    "noFilters": "No filters yet",
+    "enableFilter": "Turn {name} on or off",
+    "moveUp": "Move {name} up",
+    "moveDown": "Move {name} down",
+    "removeFilter": "Remove {name}",
+    "noSidechain": "None",
+    "filterKinds": {
+      "noiseSuppression": "Noise suppression",
+      "noiseGate": "Noise gate",
+      "gain": "Gain",
+      "compressor": "Compressor",
+      "limiter": "Limiter",
+      "expander": "Expander",
+      "invertPolarity": "Invert polarity"
+    },
+    "params": {
+      "method": "Method",
+      "suppress_level": "Suppression level",
+      "open_threshold": "Open threshold",
+      "close_threshold": "Close threshold",
+      "attack_time": "Attack",
+      "hold_time": "Hold",
+      "release_time": "Release",
+      "db": "Gain",
+      "ratio": "Ratio",
+      "threshold": "Threshold",
+      "output_gain": "Output gain",
+      "sidechain_source": "Duck under",
+      "detector": "Detection"
+    },
+    "choices": {
+      "rnnoise": "Best quality",
+      "speex": "Lowest CPU use",
+      "RMS": "RMS",
+      "peak": "Peak"
+    },
+    "units": {
+      "dB": "dB",
+      "ms": "ms",
+      "ratio": ":1"
+    }
   },
   "destinations": {
     "title": "Destinations",
@@ -222,7 +382,27 @@
     "resolution": "Resolution",
     "resolutionOption": "{height}p",
     "bitrate": "Video bitrate (kbps)",
-    "bitrateCapped": "This platform accepts up to {max} kbps; the bitrate will be lowered."
+    "bitrateCapped": "This platform accepts up to {max} kbps; the bitrate will be lowered.",
+    "bitrateRange": "Recommended: {min}–{max} kbps",
+    "bitrateLow": "Below the recommended {min}–{max} kbps. The picture may look blurry.",
+    "bitrateHigh": "Above the recommended {min}–{max} kbps. Viewers may see buffering.",
+    "advanced": {
+      "title": "Advanced",
+      "audioBitrate": "Audio bitrate",
+      "keyframe": "Keyframe interval",
+      "kbps": "{value} kbps",
+      "seconds": "{value} s",
+      "recommended": "Recommended",
+      "audioShared": "All destinations share one audio track at the lowest bitrate chosen.",
+      "preset": "Encoder speed",
+      "presets": {
+        "performance": "Performance",
+        "balanced": "Balanced",
+        "quality": "Quality"
+      },
+      "presetHint": "Quality looks better but uses more of your computer.",
+      "presetUnavailable": "Your encoder sets its own speed."
+    }
   },
   "twitchCode": {
     "title": "Connect Twitch",
@@ -257,13 +437,28 @@
     "endTitle": "End the stream?",
     "endDescription": "{count, plural, one {Your stream ends now.} other {All # streams end now.}}",
     "startTitle": "Go live now?",
-    "startDescription": "{count, plural, one {Your stream starts on 1 destination.} other {Your stream starts on # destinations.}}"
+    "startDescription": "{count, plural, one {Your stream starts on 1 destination.} other {Your stream starts on # destinations.}}",
+    "saveClip": "Save clip",
+    "virtualCamera": {
+      "start": "Virtual camera",
+      "stop": "Stop camera",
+      "program": "Program output",
+      "source": "Camera picture",
+      "setupTitle": "Set up the virtual camera",
+      "setupMac": "macOS asks once to allow the camera in System Settings › General › Login Items & Extensions › Camera Extensions. Allow it, then choose Check again.",
+      "setupWindows": "Windows asks once for administrator approval to add the camera.",
+      "unavailableTitle": "Virtual camera unavailable",
+      "unavailableDescription": "This version can't add the system camera it needs on this computer.",
+      "checkAgain": "Check again",
+      "install": "Install"
+    }
   },
   "settings": {
     "title": "Settings",
     "saved": "Settings saved",
     "video": "Video",
     "lockedWhileLive": "End your stream and recording to change video settings.",
+    "streamingLockedWhileLive": "End your stream to change these options.",
     "canvas": "Canvas",
     "resolutionValue": "{width} × {height}",
     "fps": "Frame rate",
@@ -284,10 +479,47 @@
     "disconnectTitle": "Disconnect {name}?",
     "disconnectDescription": "Destinations using this account switch to stream key mode and are turned off.",
     "appearance": "Appearance",
+    "language": "Language",
+    "languageSyncError": "Couldn't save the language to your SEENALYZE account.",
     "themes": {
       "dark": "Dark",
       "light": "Light",
       "system": "System"
+    },
+    "colorTheme": {
+      "title": "Color theme",
+      "classic": "Classic",
+      "vibrant": "Vibrant",
+      "custom": "Custom",
+      "editing": "Editing mode",
+      "presets": {
+        "neutral": "Neutral",
+        "red": "Red",
+        "orange": "Orange",
+        "amber": "Amber",
+        "green": "Green",
+        "teal": "Teal",
+        "blue": "Blue",
+        "indigo": "Indigo",
+        "violet": "Violet",
+        "pink": "Pink",
+        "neonMint": "Neon mint",
+        "electricLime": "Electric lime",
+        "hotPink": "Hot pink",
+        "cyberYellow": "Cyber yellow",
+        "sunset": "Sunset",
+        "electricPurple": "Electric purple",
+        "lagoon": "Lagoon"
+      },
+      "roles": {
+        "background": "Background",
+        "card": "Panels",
+        "foreground": "Text",
+        "primary": "Buttons and selection",
+        "accent": "Hover and highlight",
+        "border": "Borders",
+        "live": "Live and recording"
+      }
     },
     "back": "Back to studio",
     "discardTitle": "Discard your changes?",
@@ -335,10 +567,37 @@
     },
     "recordingLockedWhileActive": "Stop recording to change these options.",
     "confirmGoLive": "Ask before going live",
-    "confirmGoLiveHint": "Shows a confirmation before your stream starts. Ending a stream always asks.",
+    "confirmGoLiveHint": "Shows a confirmation before your stream starts.",
     "keepAwake": "Keep the computer awake while live",
     "keepAwakeHint": "Stops your computer and display from sleeping while you stream or record.",
-    "recordingBitrate": "{kbps} kbps"
+    "recordingBitrate": "{kbps} kbps",
+    "advanced": "Advanced",
+    "recommended": "Recommended",
+    "confirmEndStream": "Ask before ending a stream",
+    "confirmEndStreamHint": "Shows a confirmation before your stream ends.",
+    "setupAgain": "Guided setup",
+    "setupAgainHint": "Choose your goal, encoder, channels and a starter layout again.",
+    "setupAgainAction": "Run setup",
+    "advancedOptions": {
+      "streamDelay": "Delay my stream",
+      "streamDelayHint": "Viewers see your stream this many seconds later.",
+      "delaySeconds": "Delay (seconds)",
+      "reconnectDelay": "Retry after (seconds)",
+      "reconnectRetries": "Reconnect attempts",
+      "reconnectHint": "Changes apply the next time you go live."
+    },
+    "hotkeys": "Hotkeys",
+    "recordingSameAsStream": "Same as stream",
+    "recordingCustomBitrate": "Bitrate (kbps)",
+    "recordingBitrateRange": "Use a value from {min} to {max} kbps.",
+    "recordingAutomation": "Automatic recording",
+    "autoRecord": "Also record when I go live",
+    "keepRecordingAfterStream": "Keep recording after the stream ends",
+    "replayBuffer": "Instant replay",
+    "replayBufferHint": "Keeps the last moments ready to save as a clip.",
+    "replayLength": "Keep the last",
+    "replaySeconds": "{seconds} s",
+    "replayLengthRange": "Use a value from {min} to {max} seconds."
   },
   "quit": {
     "title": "Quit while live?",
@@ -347,7 +606,8 @@
   },
   "notices": {
     "accountConnected": "{name} connected",
-    "sourcesUnavailable": "Some saved sources couldn't be opened. Reconnect your devices or check permissions, then restart. Their settings are kept."
+    "sourcesUnavailable": "Some saved sources couldn't be opened. Reconnect your devices or check permissions, then restart. Their settings are kept.",
+    "replaySaved": "Clip saved to {folder}"
   },
   "errors": {
     "output": {
@@ -360,7 +620,9 @@
       "encoder": "{name}: the encoder stopped. Try another encoder in Settings.",
       "startFailed": "{name}: the stream couldn't start.",
       "recordingFailed": "The recording stopped unexpectedly.",
-      "generic": "{name}: the stream stopped unexpectedly."
+      "generic": "{name}: the stream stopped unexpectedly.",
+      "replayFailed": "Instant replay stopped unexpectedly.",
+      "replaySaveFailed": "The clip couldn't be saved."
     },
     "codes": {
       "generic": "Something went wrong. Please try again.",
@@ -422,7 +684,29 @@
       "design-invalid": "The design couldn't be used, so your credits were refunded. Try describing it differently.",
       "design-refund-pending": "The design failed. Your credits will be refunded shortly.",
       "design-unavailable": "The designer is unavailable right now. Your credits were not used.",
-      "transition-unavailable": "This transition isn't available on this computer."
+      "transition-unavailable": "This transition isn't available on this computer.",
+      "effect-not-found": "That effect no longer exists.",
+      "effect-unavailable": "This effect isn't available on this computer.",
+      "effects-unsupported": "Effects only work on sources with a picture.",
+      "audio-filter-not-found": "That filter no longer exists.",
+      "audio-filter-unavailable": "This filter isn't available on this computer.",
+      "audio-filter-limit": "This source already has the most filters it can have.",
+      "replay-not-running": "Turn on instant replay in Settings first.",
+      "hotkey-invalid": "These keys can't be used as a hotkey.",
+      "stinger-file-missing": "The stinger video was moved or deleted. Choose it again.",
+      "stinger-file-invalid": "Choose a WebM, MOV, MP4 or MKV video.",
+      "virtual-camera-unavailable": "The virtual camera isn't available on this computer.",
+      "virtual-camera-not-installed": "Set up the virtual camera first.",
+      "virtual-camera-approval-needed": "Allow the camera in System Settings, then choose Check again.",
+      "workspace-locked": "Stop streaming, recording and the virtual camera first.",
+      "workspace-entry-not-found": "That item no longer exists.",
+      "last-collection": "You need at least one scene collection.",
+      "last-profile": "You need at least one profile.",
+      "too-many-entries": "You've reached the limit. Remove one first.",
+      "collection-unreadable": "This scene collection couldn't be read.",
+      "import-invalid": "That file isn't a scene collection.",
+      "import-not-found": "That scene collection no longer exists.",
+      "import-too-large": "That file is too large to import."
     }
   },
   "permissions": {
@@ -882,6 +1166,215 @@
         "windowUnavailable": "Window unavailable",
         "recordFailed": "The recording could not start"
       }
+    }
+  },
+  "stats": {
+    "title": "Performance",
+    "cpu": "CPU",
+    "memory": "Memory",
+    "fps": "Frame rate",
+    "renderLag": "Lagged frames",
+    "diskFree": "Free disk space",
+    "recordingBitrate": "Recording bitrate",
+    "destinations": "Destinations",
+    "notStreaming": "Not streaming",
+    "notRecording": "Not recording",
+    "unknown": "Unknown",
+    "percent": "{value}%",
+    "megabytes": "{value} MB",
+    "gigabytes": "{value} GB",
+    "kbps": "{value} kbps",
+    "framesOf": "{value} of {total} ({percent}%)",
+    "dropped": "{value} of {total} dropped ({percent}%)"
+  },
+  "setup": {
+    "progress": "Step {step} of {total}",
+    "recommended": "Recommended",
+    "done": "You're all set",
+    "skipSetup": "Skip setup",
+    "skipStep": "Skip",
+    "back": "Back",
+    "continue": "Continue",
+    "finish": "Finish",
+    "hardwareFound": "Hardware encoding found. Your computer stays responsive while live.",
+    "softwareOnly": "No hardware encoder found, so a lighter 720p setup is suggested.",
+    "fpsStandard": "Standard ({fps} fps)",
+    "fpsSmooth": "Smooth ({fps} fps)",
+    "suggestedBitrate": "Suggested bitrate: {kbps} kbps",
+    "connected": "Connected",
+    "useStreamKeyLater": "Add with a stream key later",
+    "steps": {
+      "goal": {
+        "title": "What do you want to do?",
+        "description": "Settings are suggested to match."
+      },
+      "video": {
+        "title": "Video",
+        "description": "Picked for your screen and computer."
+      },
+      "accounts": {
+        "title": "Connect your channels",
+        "description": "Connected channels are added as destinations."
+      },
+      "layout": {
+        "title": "Starter layout",
+        "description": "Adds a new scene you can change any time."
+      }
+    },
+    "goals": {
+      "stream": "Stream",
+      "record": "Record",
+      "both": "Stream and record"
+    },
+    "layouts": {
+      "screenCamera": "Screen + camera",
+      "cameraOnly": "Camera only",
+      "screenOnly": "Screen only",
+      "none": "Keep my scenes"
+    }
+  },
+  "hotkeys": {
+    "streamGroup": "Stream and recording",
+    "scenesGroup": "Scenes",
+    "audioGroup": "Audio",
+    "actions": {
+      "goLive": "Go live",
+      "endStream": "End stream",
+      "toggleRecording": "Start or stop recording",
+      "saveReplay": "Save clip",
+      "scene": "Switch to {name}",
+      "mute": "Mute or unmute",
+      "pushToTalk": "Push to talk",
+      "pushToMute": "Push to mute",
+      "targeted": "{action}: {name}",
+      "toggleVirtualCamera": "Start or stop virtual camera",
+      "transition": "Transition (studio mode)"
+    },
+    "notSet": "Not set",
+    "pressKeys": "Press keys…",
+    "setLabel": "Change hotkey for {action}",
+    "clear": "Clear",
+    "clearLabel": "Clear hotkey for {action}",
+    "conflict": "Also used for {actions}",
+    "unavailable": "Another app is already using these keys.",
+    "reserved": "These keys are used by the system.",
+    "needsModifier": "Add Ctrl or Alt so typing still works.",
+    "needsModifierMac": "Add ⌃, ⌥ or ⌘ so typing still works.",
+    "invalid": "These keys can't be used.",
+    "inputAccess": "Push to talk needs Accessibility access.",
+    "openSettings": "Open settings"
+  },
+  "studioMode": {
+    "preview": "Preview",
+    "program": "Program",
+    "previewLabel": "Preview scene",
+    "programLabel": "Program output",
+    "transition": "Transition",
+    "transitionWith": "Send the preview to the program with {name}",
+    "quick": "More transition options",
+    "cut": "Cut",
+    "chooseTransition": "Change transition…"
+  },
+  "projector": {
+    "open": "Open projector",
+    "fullscreen": "Full screen projector",
+    "fullscreenOn": "Full screen projector on {screen}",
+    "program": "Program",
+    "preview": "Preview",
+    "multiview": "Multiview",
+    "inWindow": "{target} in a window",
+    "onScreen": "{target} full screen",
+    "onNamedScreen": "{target} full screen on {screen}",
+    "cellPreview": "Preview: {scene}",
+    "cellProgram": "Program: {scene}",
+    "leaveFullscreen": "Leave full screen",
+    "close": "Close projector"
+  },
+  "workspace": {
+    "collectionButton": "Scene collection: {name}",
+    "untitled": "My scenes",
+    "newCollection": "New collection…",
+    "duplicate": "Duplicate…",
+    "rename": "Rename…",
+    "remove": "Remove…",
+    "importFrom": "Import from OBS or Streamlabs…",
+    "newCollectionTitle": "New scene collection",
+    "duplicateTitle": "Duplicate scene collection",
+    "renameTitle": "Rename scene collection",
+    "removeCollectionTitle": "Remove \"{name}\"?",
+    "removeCollectionDescription": "Its scenes and sources are deleted. This can't be undone.",
+    "defaultCollectionName": "Scenes",
+    "copyName": "{name} copy",
+    "profile": "Profile",
+    "profileUntitled": "Default",
+    "profileHint": "Video, encoder and recording settings.",
+    "profileLocked": "Stop streaming, recording and the virtual camera to switch profiles.",
+    "profileActions": "Profile actions",
+    "newProfile": "New profile…",
+    "newProfileTitle": "New profile",
+    "duplicateProfileTitle": "Duplicate profile",
+    "renameProfileTitle": "Rename profile",
+    "defaultProfileName": "Profile",
+    "removeProfileTitle": "Remove profile \"{name}\"?",
+    "removeProfileDescription": "Its settings are deleted. This can't be undone.",
+    "advanced": "Advanced",
+    "frameRate": "Exact frame rate",
+    "frameRateWhole": "{fps} fps",
+    "frameRateCustom": "Custom",
+    "numerator": "Numerator",
+    "denominator": "Denominator",
+    "colorFormat": "Color format",
+    "colorFormats": {
+      "nv12": "NV12 (recommended)",
+      "i420": "I420",
+      "i444": "I444 (full color)"
+    },
+    "colorSpace": "Color space",
+    "colorSpaces": {
+      "709": "Rec. 709 (recommended)",
+      "601": "Rec. 601",
+      "srgb": "sRGB"
+    },
+    "colorRange": "Color range",
+    "colorRanges": {
+      "partial": "Limited (recommended)",
+      "full": "Full"
+    },
+    "audio": "Audio",
+    "sampleRate": "Sample rate",
+    "sampleRateValue": "{rate} kHz",
+    "speakers": "Channels",
+    "speakerLayouts": {
+      "mono": "Mono",
+      "stereo": "Stereo",
+      "2_1": "2.1",
+      "4_0": "4.0",
+      "4_1": "4.1",
+      "5_1": "5.1",
+      "7_1": "7.1"
+    },
+    "audioRestartHint": "Changing this restarts the studio for a moment.",
+    "recordingTracks": "Audio tracks to record",
+    "track": "Track {number}",
+    "trackStream": "Track 1 is the audio you stream.",
+    "sourceTracks": "Audio tracks",
+    "import": {
+      "title": "Import scenes",
+      "description": "Copies scenes, sources, filters and the transition. Stream keys are never copied.",
+      "searching": "Looking for scene collections…",
+      "none": "No OBS Studio or Streamlabs scene collections found on this computer.",
+      "apps": {
+        "obs": "OBS Studio",
+        "streamlabs": "Streamlabs Desktop"
+      },
+      "counts": "Scenes: {scenes} · Sources: {sources}",
+      "import": "Import",
+      "chooseFile": "Choose file…",
+      "done": "Imported \"{name}\"",
+      "missing": "Sources that need an app or plugin not available here: {count}.",
+      "skippedFilters": "Filters without an equivalent here, left out: {count}.",
+      "setupFound": "Scenes from OBS Studio or Streamlabs were found.",
+      "setupAction": "Import"
     }
   }
 }

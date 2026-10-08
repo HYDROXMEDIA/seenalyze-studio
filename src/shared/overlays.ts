@@ -162,6 +162,8 @@ export interface SeenalyzeAccount {
   displayName: string | null;
   avatarUrl: string | null;
   canUseDesigner: boolean;
+  /** Interface language saved on the account, or null when none is set. */
+  language?: string | null;
 }
 
 export interface DesignRequest {

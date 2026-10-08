@@ -4,6 +4,7 @@ import path from "node:path";
 import en from "./en.json";
 import { INPUT_IDS } from "../../main/engine/source-types";
 import { TRANSFORM_ANCHORS } from "../../shared/transforms";
+import { COLOR_PRESETS, THEME_ROLES } from "../lib/color-theme";
 
 type Tree = { [key: string]: string | Tree };
 
@@ -35,6 +36,9 @@ describe("en messages", () => {
       ...["account", "manual"].map((k) => `destinations.modes.${k}`),
       ...["apple_h264", "nvenc", "amd", "qsv", "x264"].map((k) => `settings.encoders.${k}`),
       ...["dark", "light", "system"].map((k) => `settings.themes.${k}`),
+      ...COLOR_PRESETS.map((preset) => `settings.colorTheme.presets.${preset.id}`),
+      ...THEME_ROLES.map((role) => `settings.colorTheme.roles.${role}`),
+      ...["classic", "vibrant", "custom"].map((k) => `settings.colorTheme.${k}`),
       ...["video", "recording", "accounts", "appearance"].map((k) => `settings.${k}`),
       ...["public", "unlisted", "private"].map((k) => `streamInfo.privacyOptions.${k}`),
       ...["connecting", "connected", "waiting", "offline", "error"].map((k) => `chat.states.${k}`),

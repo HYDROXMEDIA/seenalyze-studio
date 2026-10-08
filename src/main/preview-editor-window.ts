@@ -9,7 +9,7 @@ import type { Rect } from "../shared/types";
 export const PREVIEW_EDITOR_HASH = "preview-editor";
 
 /** Methods the editor window may call; everything else is rejected. */
-export const PREVIEW_EDITOR_METHODS: ReadonlySet<string> = new Set(["getSnapshot", "patchItemTransform", "setSelectedItem"]);
+export const PREVIEW_EDITOR_METHODS: ReadonlySet<string> = new Set(["getSnapshot", "patchItemTransform", "setSelectedItem", "undoCanvas", "redoCanvas"]);
 
 export class PreviewEditorWindow {
   readonly window: BrowserWindow;
