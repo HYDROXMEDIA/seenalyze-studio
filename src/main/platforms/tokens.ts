@@ -32,7 +32,14 @@ export function storeToken(accountId: string, response: TokenResponse, previous?
 
 export function readToken(accountId: string): StoredToken | null {
   const raw = getSecret(secretNames.token(accountId));
-  return raw ? (JSON.parse(raw) as StoredToken) : null;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as StoredToken;
+  } catch {
+    console.warn("[tokens] stored sign-in unreadable; signing out");
+    deleteSecret(secretNames.token(accountId));
+    return null;
+  }
 }
 
 export function forgetToken(accountId: string): void {

@@ -38,6 +38,11 @@ app.whenReady().then(async () => {
 
     let target = "Check B";
     for (const preset of TRANSITION_PRESETS) {
+      // The stinger plays a video the user picks; it has no file to play here.
+      if (preset.id === "stinger") {
+        log("stinger skipped (needs a video file)");
+        continue;
+      }
       await studio.api.setTransition({ id: preset.id, durationMs: preset.defaultDurationMs });
       const duration = (await studio.api.getSnapshot()).transition.durationMs;
       await studio.api.setActiveScene(target);

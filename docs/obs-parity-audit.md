@@ -1,5 +1,27 @@
 # OBS parity and friction audit (2026-10-08)
 
+## Status after implementation (2026-10-08)
+- **Built, phases 1–3:**
+  - Audio: cleanup switch, filters, monitoring and headphones device, sync offset, mono, device pickers, dB readout, stereo meters, per-source tracks.
+  - Hotkeys, including push-to-talk.
+  - Instant replay; custom and "same as stream" recording bitrate; auto-record.
+  - Video effects; scene reorder/duplicate; source duplicate; copy/paste of transform and effects; nudge; Alt-crop.
+  - First-run setup; platform bitrate hints; destination Advanced options (audio bitrate, keyframe interval, encoder speed); stream delay and reconnect; stats panel; confirm before ending a stream.
+  - Studio Mode, projectors, multiview; stinger and shuffle transitions; per-scene transition overrides; virtual camera.
+  - Scene collections and profiles; OBS/Streamlabs import; fractional FPS, colour format/space/range, sample rate and channels, multi-track recording.
+- **Not possible with the bundled engine (obs-studio-node 0.26.29b21):**
+  - Recording pause and program screenshot (no API).
+  - Audio balance (no binding).
+  - Move transition (not installed).
+  - T-bar (no manual transition control).
+  - P010/HDR (no format; outputs are H.264).
+  - Virtual camera on macOS: needs a signed camera system extension that the bundled engine cannot install. It is shown as unavailable unless the extension is already present.
+- **Verified headless:**
+  - Typecheck and lint pass; `bun test src` passes 267 tests.
+  - The `check:sources`, `check:responsiveness`, `check:audio`, `check:transitions`, `check:remove-source`, `check:presets` and `check:multistream` scripts pass.
+  - The macOS preview harness passes, including Studio Mode and projector displays.
+- **Live checks still pending:** see the agents' notes on filters persisting after a restart, monitoring audio, stinger playback, replay saving, push-to-talk, collection switching, OBS import with real files, and Windows hardware.
+
 Compared SEENALYZE STUDIO against OBS Studio 31/32, using the official KB screenshots of all seven OBS Settings tabs plus the KB and release notes, and against Streamlabs Desktop, Meld Studio, XSplit, PRISM, StreamYard, Restream and Ecamm Live. Twitch Studio was discontinued in May 2024 and is used only as a historical reference.
 
 Legend: ✅ have it · 🟡 partial · ❌ missing. Priority P1 = core and frequently used, P2 = valuable, P3 = power-user.

@@ -47,6 +47,7 @@ bun run dist:mac | dist:win
 - The preview is a native surface above the web UI. Every overlay root in `components/ui/overlays.tsx` hides it while open; new floating UI must use those primitives.
 - Stream keys and OAuth tokens: only through `src/main/secrets.ts` (Electron safeStorage). Never log, persist in JSON, or send them to the renderer.
 - OAuth client IDs come from `config/studio.config.json` (gitignored; see the example). Never read `.env` files.
+- Exception: with explicit maintainer approval for a specific task, blind `.env` operations are allowed (presence-only checks and piping values via stdin into a named target such as `gh secret set`), following "Blind `.env` operations" in `~/Desktop/dev/AGENTS.md` §10. Values must never be shown, logged, or written anywhere.
 - All UI text goes through `use-intl` with keys in `src/renderer/messages/en.json`; main-process errors are kebab-case codes mapped under `errors.codes.*`. `messages.test.ts` enforces coverage.
 - Overlays are untrusted code (AI-generated). They run only inside the overlay CSP (no external scripts or network except images) and the editor previews them in a sandboxed frame. User content must be inserted as text (`SEENALYZE.renderSegments` / `textContent`); only `SEENALYZE.platformLogo()` output may use `innerHTML`.
 - To add a Windows engine build, pin its SHA-256 in `native-deps.json` after verifying the archive.
@@ -54,3 +55,7 @@ bun run dist:mac | dist:win
 
 ## Verification
 Run `bun run typecheck`, `bun run lint`, `bun test src` after changes. For engine/output changes, also run `bun run check:multistream` and `bun run check:responsiveness`. For screen-recording changes, run `bun run check:screen-recording`; live capture, camera, system audio and caption model setup need a manual pass because they require device access or large downloads. Do not drive the user's screen to verify; use these headless checks. Windows behaviour has not been verified on hardware yet — say so when reporting.
+
+## No silent errors
+
+No error may fail silently here. Every caught error must be logged (without secrets) and either recovered from, rolled back to the last valid step with a clear user-facing error and retry, or surfaced loudly (visible error, or non-zero exit for scripts). Empty or swallowing `catch` blocks, unhandled rejections, and output-hiding shell tricks are forbidden. Full rule: "No Silent Errors" in `~/Desktop/dev/AGENTS.md` §10a.

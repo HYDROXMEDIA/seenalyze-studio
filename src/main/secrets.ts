@@ -22,7 +22,10 @@ function save(file: SecretFile): void {
 }
 
 export function secureStorageAvailable(): boolean {
-  return safeStorage.isEncryptionAvailable();
+  if (!safeStorage.isEncryptionAvailable()) return false;
+  // On Linux without a keyring Electron falls back to a fixed, publicly known
+  // password ("basic_text"), which is obfuscation rather than encryption.
+  return process.platform !== "linux" || safeStorage.getSelectedStorageBackend() !== "basic_text";
 }
 
 export function setSecret(name: string, value: string): void {
@@ -35,7 +38,16 @@ export function setSecret(name: string, value: string): void {
 export function getSecret(name: string): string | null {
   const encrypted = load()[name];
   if (!encrypted) return null;
-  return safeStorage.decryptString(Buffer.from(encrypted, "base64"));
+  try {
+    return safeStorage.decryptString(Buffer.from(encrypted, "base64"));
+  } catch (error) {
+    // The OS key changed (keychain reset, profile copied to another machine or
+    // user). The value can never be recovered, so drop it: callers then ask the
+    // user to enter the key or sign in again instead of failing every time.
+    console.warn(`[secrets] stored ${name.split(":")[0]} could not be decrypted and was removed`, error instanceof Error ? error.message : "unknown error");
+    deleteSecret(name);
+    return null;
+  }
 }
 
 export function hasSecret(name: string): boolean {
