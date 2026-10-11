@@ -100,7 +100,7 @@ async function downloadVerified(url: string, destination: string, expectedHash: 
     if (hash.digest('hex') !== expectedHash) throw new Error('Speech download verification failed. Try setup again.');
     await fs.rename(partial, destination);
   } finally {
-    await fs.rm(partial, { force: true }).catch(() => undefined);
+    await fs.rm(partial, { force: true }).catch((error: unknown) => console.warn('[speech] partial download could not be removed', error));
   }
 }
 
@@ -130,12 +130,13 @@ async function installRuntime(variant: Variant): Promise<string> {
 export async function installWindowsSpeech(): Promise<string> {
   if (process.arch !== 'x64') throw new Error('The Windows preview requires a 64-bit Intel or AMD PC.');
   // Runtimes from earlier versions of the app are replaced by the faster builds.
-  await fs.rm(join(app.getPath('userData'), 'tools', 'windows-speech', VERSION), { recursive: true, force: true }).catch(() => undefined);
+  await fs.rm(join(app.getPath('userData'), 'tools', 'windows-speech', VERSION), { recursive: true, force: true }).catch((error: unknown) => console.warn('[speech] earlier runtime could not be removed', error));
   let installed = false;
   if (await hasNvidiaGpu()) {
-    installed = await installRuntime('cuda').then(() => true, async () => {
+    installed = await installRuntime('cuda').then(() => true, async (error: unknown) => {
       // A GPU build that cannot start (for example an old driver) is removed in favor of the processor build.
-      await fs.rm(root('cuda'), { recursive: true, force: true }).catch(() => undefined);
+      console.warn('[speech] graphics-card runtime could not start; using the processor runtime', error);
+      await fs.rm(root('cuda'), { recursive: true, force: true }).catch((cleanup: unknown) => console.warn('[speech] graphics-card runtime could not be removed', cleanup));
       return false;
     });
   }

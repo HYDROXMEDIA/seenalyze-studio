@@ -39,7 +39,7 @@ export interface ProjectorApi {
   pick(index: number): Promise<void>;
   /** Fills a screen; null leaves full screen. */
   setFullscreen(screenId: number | null): Promise<void>;
-  /** Native menu at the pointer; resolves with the chosen index or null. */
+  /** System menu at the pointer (a projector is all video surface, which page content cannot draw over); resolves with the chosen index or null. */
   showMenu(entries: MenuEntry[]): Promise<number | null>;
   close(): Promise<void>;
   onView(listener: (view: ProjectorView) => void): () => void;

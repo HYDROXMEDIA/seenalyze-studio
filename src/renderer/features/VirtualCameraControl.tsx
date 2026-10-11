@@ -10,8 +10,9 @@ import {
   AlertDialogTitle,
   DialogFooter,
   DialogHeader,
-  NativeMenu,
+  ActionMenu,
 } from "@/components/ui/overlays";
+import { Tooltip } from "@/components/ui/tooltip";
 import { isMac, studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
 import { useStudio } from "@/store/studio";
@@ -60,13 +61,13 @@ export function VirtualCameraControl() {
 
   return (
     <>
-      <div className="flex gap-1">
+      <div className="flex min-w-0 gap-1">
         <Button variant="outline" className="min-w-0 flex-1" disabled={busy} aria-pressed={camera.active} onClick={toggle}>
           {camera.active ? <SquareIcon className="fill-current" /> : <VideoIcon />}
-          {camera.active ? t("stop") : t("start")}
+          <span className="min-w-0 truncate">{camera.active ? t("stop") : t("start")}</span>
           {camera.scene && <span className="min-w-0 truncate text-muted-foreground">{camera.scene}</span>}
         </Button>
-        <NativeMenu
+        <ActionMenu
           items={[
             { label: t("program"), disabled: camera.scene === null, onSelect: () => void run(() => studio.setVirtualCameraScene(null)) },
             ...(scenes.length > 0 ? ["separator" as const] : []),
@@ -77,10 +78,12 @@ export function VirtualCameraControl() {
             })),
           ]}
         >
-          <Button variant="outline" size="icon" aria-label={t("source")} title={t("source")}>
-            <ChevronDownIcon />
-          </Button>
-        </NativeMenu>
+          <Tooltip label={t("source")}>
+            <Button variant="outline" size="icon" aria-label={t("source")}>
+              <ChevronDownIcon />
+            </Button>
+          </Tooltip>
+        </ActionMenu>
       </div>
 
       <AlertDialog open={showSetup} onOpenChange={setSetupOpen}>

@@ -54,69 +54,73 @@ export function ControlsDock() {
   const now = useNow(live || recording.active);
 
   return (
-    <Dock title={t("title")}>
-      <div className="grid gap-2 p-3">
-        {live ? (
-          <Button variant="destructive" size="lg" onClick={() => (askBeforeEnd ? setConfirmEnd(true) : void run(() => studio.endStream(activeIds)))}>
-            <SquareIcon className="fill-current" />
-            {t("endStream")}
-          </Button>
-        ) : (
-          <Button
-            variant="live"
-            size="lg"
-            disabled={enabledIds.length === 0 || pending}
-            onClick={() => (askBeforeLive ? setConfirmStart(true) : void goLive(enabledIds))}
-          >
-            <RadioIcon />
-            {enabledIds.length > 1 ? t("goLiveMany", { count: enabledIds.length }) : t("goLive")}
-          </Button>
-        )}
-        {live && Number.isFinite(liveSince) && (
-          <p className="text-center text-xs text-muted-foreground tabular-nums">{t("liveFor", { time: formatDuration(now - liveSince) })}</p>
-        )}
+    <Dock title={t("title")} fitContent className="max-h-[max(18rem,45vh)]">
+      {/* Two columns of buttons once the dock is wide enough (two-row layout on narrow, tall windows). */}
+      <div className="@container">
+        <div className="grid grid-cols-1 gap-2 p-3 @xs:grid-cols-2 short:gap-1.5 short:p-2 [&>button]:min-w-0 short:[&_button]:h-8">
+          {live ? (
+            <Button variant="destructive" size="lg" className="@xs:col-span-2" onClick={() => (askBeforeEnd ? setConfirmEnd(true) : void run(() => studio.endStream(activeIds)))}>
+              <SquareIcon className="fill-current" />
+              <span className="truncate">{t("endStream")}</span>
+            </Button>
+          ) : (
+            <Button
+              variant="live"
+              size="lg"
+              className="@xs:col-span-2"
+              disabled={enabledIds.length === 0 || pending}
+              onClick={() => (askBeforeLive ? setConfirmStart(true) : void goLive(enabledIds))}
+            >
+              <RadioIcon />
+              <span className="truncate">{enabledIds.length > 1 ? t("goLiveMany", { count: enabledIds.length }) : t("goLive")}</span>
+            </Button>
+          )}
+          {live && Number.isFinite(liveSince) && (
+            <p className="text-center text-xs text-muted-foreground tabular-nums @xs:col-span-2">{t("liveFor", { time: formatDuration(now - liveSince) })}</p>
+          )}
 
-        {recording.active ? (
-          <Button variant="outline" onClick={() => void run(() => studio.stopRecording())}>
-            <SquareIcon className="fill-red-500 text-red-500" />
-            {t("stopRecording")}
-            {recording.startedAt && <span className="text-muted-foreground tabular-nums">{formatDuration(now - recording.startedAt)}</span>}
-          </Button>
-        ) : (
-          <Button variant="outline" onClick={() => void run(() => studio.startRecording())}>
-            <CircleIcon className="fill-red-500 text-red-500" />
-            {t("startRecording")}
-          </Button>
-        )}
-        {!recording.active && recording.lastFile && (
-          <Button variant="ghost" size="sm" onClick={() => void run(() => studio.revealRecording())}>
-            <FolderOpenIcon />
-            {t("showRecording")}
-          </Button>
-        )}
+          {recording.active ? (
+            <Button variant="outline" onClick={() => void run(() => studio.stopRecording())}>
+              <SquareIcon className="fill-red-500 text-red-500" />
+              <span className="truncate">{t("stopRecording")}</span>
+              {recording.startedAt && <span className="text-muted-foreground tabular-nums">{formatDuration(now - recording.startedAt)}</span>}
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={() => void run(() => studio.startRecording())}>
+              <CircleIcon className="fill-red-500 text-red-500" />
+              <span className="truncate">{t("startRecording")}</span>
+            </Button>
+          )}
+          {!recording.active && recording.lastFile && (
+            <Button variant="ghost" size="sm" onClick={() => void run(() => studio.revealRecording())}>
+              <FolderOpenIcon />
+              <span className="truncate">{t("showRecording")}</span>
+            </Button>
+          )}
 
-        {replayActive && (
-          <Button variant="outline" onClick={() => void run(() => studio.saveReplay())}>
-            <HistoryIcon />
-            {t("saveClip")}
+          {replayActive && (
+            <Button variant="outline" onClick={() => void run(() => studio.saveReplay())}>
+              <HistoryIcon />
+              <span className="truncate">{t("saveClip")}</span>
+            </Button>
+          )}
+
+          <VirtualCameraControl />
+
+          <Button variant="outline" onClick={() => void run(() => studio.toggleScreenRecording())}>
+            {screenRecording ? <SquareIcon className="fill-red-500 text-red-500" /> : <MonitorIcon />}
+            <span className="truncate">{screenRecording ? t("stopScreenRecording") : t("recordScreen")}</span>
           </Button>
-        )}
+          <Button variant="ghost" size="sm" onClick={() => void run(() => studio.openRecordingEditor())}>
+            <ClapperboardIcon />
+            <span className="truncate">{t("editRecording")}</span>
+          </Button>
 
-        <VirtualCameraControl />
-
-        <Button variant="outline" onClick={() => void run(() => studio.toggleScreenRecording())}>
-          {screenRecording ? <SquareIcon className="fill-red-500 text-red-500" /> : <MonitorIcon />}
-          {screenRecording ? t("stopScreenRecording") : t("recordScreen")}
-        </Button>
-        <Button variant="ghost" size="sm" onClick={() => void run(() => studio.openRecordingEditor())}>
-          <ClapperboardIcon />
-          {t("editRecording")}
-        </Button>
-
-        <Button variant="secondary" onClick={() => setView("settings")}>
-          <Settings2Icon />
-          {t("settings")}
-        </Button>
+          <Button variant="secondary" onClick={() => setView("settings")}>
+            <Settings2Icon />
+            <span className="truncate">{t("settings")}</span>
+          </Button>
+        </div>
       </div>
       {dialog}
 

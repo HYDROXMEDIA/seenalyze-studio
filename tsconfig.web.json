@@ -14,8 +14,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "jsx": "react-jsx",
-    "baseUrl": ".",
-    "paths": { "@/*": ["src/renderer/*"] }
+    "paths": { "@/*": ["./src/renderer/*"] }
   },
   "include": ["src/renderer/**/*.ts", "src/renderer/**/*.tsx", "src/shared/**/*.ts"],
   "exclude": ["src/**/*.test.ts"]

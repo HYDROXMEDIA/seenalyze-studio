@@ -13,13 +13,14 @@ import {
   AlertDialogTitle,
   DialogFooter,
   DialogHeader,
-  NativeMenu,
+  ActionMenu,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/overlays";
+import { Tooltip } from "@/components/ui/tooltip";
 import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
 import { useStudio } from "@/store/studio";
@@ -61,7 +62,7 @@ export function ProfileCard({ locked, dirty }: { locked: boolean; dirty: boolean
             ))}
           </SelectContent>
         </Select>
-        <NativeMenu
+        <ActionMenu
           items={[
             { label: t("newProfile"), disabled: busy || dirty, onSelect: () => setNaming({ kind: "create" }) },
             ...(active
@@ -74,10 +75,12 @@ export function ProfileCard({ locked, dirty }: { locked: boolean; dirty: boolean
               : []),
           ]}
         >
-          <Button variant="outline" size="icon" aria-label={t("profileActions")} title={t("profileActions")}>
-            <MoreHorizontalIcon />
-          </Button>
-        </NativeMenu>
+          <Tooltip label={t("profileActions")}>
+            <Button variant="outline" size="icon" aria-label={t("profileActions")}>
+              <MoreHorizontalIcon />
+            </Button>
+          </Tooltip>
+        </ActionMenu>
       </div>
       <p className="text-xs text-muted-foreground">{locked ? t("profileLocked") : t("profileHint")}</p>
 

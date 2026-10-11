@@ -108,7 +108,7 @@ export function App() {
             <Preview />
             {chatOpen && <ChatPanel />}
           </div>
-          <div className="grid h-72 shrink-0 grid-cols-[1fr_1.3fr_1.3fr_1.5fr_0.9fr] gap-3">
+          <div className="dock-grid shrink-0">
             <ScenesDock />
             <SourcesDock />
             <MixerDock />

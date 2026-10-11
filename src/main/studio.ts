@@ -5,8 +5,9 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, statSync } from "node:fs";
 import path from "node:path";
-import { app, dialog, Menu, powerSaveBlocker, screen, shell, type BrowserWindow } from "electron";
+import { app, dialog, powerSaveBlocker, screen, shell, type BrowserWindow } from "electron";
 import type { Notice, StudioApi, StudioMethod } from "../shared/ipc";
+import { softwareFallback } from "../shared/encoder-fallback";
 import { IPC } from "../shared/ipc";
 import { OVERLAY_KINDS, type DesignRequest, type DesignResult, type OverlayKind } from "../shared/overlays";
 import { clampProfile, PLATFORM_SPECS } from "../shared/platforms";
@@ -146,6 +147,8 @@ const DEFAULT_PREFERENCES: StudioPreferences = {
 };
 
 const ACTIVE_STATES = new Set(["preparing", "connecting", "live", "reconnecting", "stopping"]);
+/** Gathers every destination of a failed encoder group before restarting them on the software encoder. */
+const ENCODER_RETRY_DELAY_MS = 300;
 
 export class Studio {
   private state: PersistedState;
@@ -155,6 +158,11 @@ export class Studio {
   private readonly statuses = new Map<string, DestinationStatus>();
   private readonly youtubeBroadcasts = new Map<string, YouTubeBroadcast>();
   private readonly preparations = new Map<string, { cancelled: boolean }>();
+  /** Destinations being restarted on the software encoder after a graphics-card encoder failed. */
+  private readonly encoderRetries = new Set<string>();
+  /** Destinations already retried on the software encoder, so a second failure is shown instead of looping. */
+  private readonly encoderRetried = new Set<string>();
+  private encoderRetryTimer: NodeJS.Timeout | null = null;
   /** The program; in studio mode it moves to the program rect. */
   private readonly programDisplay: NativeDisplay;
   /** The editable studio-mode preview (shows `previewScene`). */
@@ -244,6 +252,8 @@ export class Studio {
   private readonly workspace: Workspace;
   /** Audio format the running engine reported. */
   private engineAudioFormat: AudioFormat | null = null;
+  /** The microphone check failure was already shown this session. */
+  private microphoneCheckNoticeShown = false;
 
   constructor(
     private readonly window: BrowserWindow,
@@ -275,14 +285,16 @@ export class Studio {
       sanitizeProfile: (platform, profile) => clampProfile(platform, profile),
       defaults: { video: DEFAULT_VIDEO, preferences: DEFAULT_PREFERENCES, advanced: DEFAULT_ADVANCED_STREAM },
     });
-    this.programDisplay = new NativeDisplay(this.engine, window, PREVIEW_DISPLAY_NAME, null);
-    this.studioDisplay = new NativeDisplay(this.engine, window, STUDIO_DISPLAY_NAME, { kind: "studioPreview" });
+    const previewFailed = () => this.notify({ kind: "error", key: "errors.codes.preview-failed" });
+    this.programDisplay = new NativeDisplay(this.engine, window, PREVIEW_DISPLAY_NAME, null, previewFailed);
+    this.studioDisplay = new NativeDisplay(this.engine, window, STUDIO_DISPLAY_NAME, { kind: "studioPreview" }, previewFailed);
     this.projectors = projectorPages
       ? new Projectors({
           ...projectorPages,
           engine: this.engine,
           context: () => this.projectorContext(),
           pickScene: (name) => this.api.setActiveScene(name),
+          previewFailed,
         })
       : null;
     this.engine.on("event", (event: EngineEvent) => this.onEngineEvent(event));
@@ -312,6 +324,7 @@ export class Studio {
       console.error("[studio] overlay server failed to start", error);
     }
     try {
+      const defaultMicrophone = await resolveDefaultMicrophone(helperPath("audio-inputs"));
       await this.engine.start({
         vendorRoot: vendorRoot(),
         dataDir: app.getPath("userData"),
@@ -320,7 +333,7 @@ export class Studio {
         collection: this.state.collection,
         // A stinger whose video was moved or deleted cannot play; fall back to the default.
         transition: stingerFileOk(this.state.transition) ? this.state.transition : sanitizeTransition(null),
-        defaultMicrophone: await resolveDefaultMicrophone(helperPath("audio-inputs")),
+        defaultMicrophone: defaultMicrophone.ok ? defaultMicrophone.value : undefined,
         monitoringDevice: this.state.monitoringDevice ?? undefined,
         audioFormat: this.state.audioFormat ?? undefined,
       });
@@ -332,6 +345,7 @@ export class Studio {
       await this.syncReplay();
       void this.probeVirtualCamera();
       if (this.engineState?.unavailableSourceCount) this.notify({ kind: "info", key: "notices.sourcesUnavailable" });
+      if (!defaultMicrophone.ok) this.notifyMicrophoneCheckFailed();
     } catch (error) {
       console.error("[studio] engine failed to start", error);
       this.engineErrorKey = errorKey(error) === "generic" ? "engine-init-failed" : errorKey(error);
@@ -499,6 +513,7 @@ export class Studio {
     setItemVisible: async (scene, itemId, visible) => this.mutate(() => this.engine.call("setItemVisible", scene, itemId, visible)),
     setItemLocked: async (scene, itemId, locked) => this.mutate(() => this.engine.call("setItemLocked", scene, itemId, locked)),
     moveSceneItem: async (scene, itemId, direction) => this.mutate(() => this.engine.call("moveSceneItem", scene, itemId, direction)),
+    reorderSceneItem: async (scene, itemId, index) => this.mutate(() => this.engine.call("reorderSceneItem", String(scene), Number(itemId), Number(index))),
     applyTransform: async (scene, itemId, preset) => this.canvasEdit(scene, itemId, () => this.engine.call("applyTransform", scene, itemId, preset)),
     patchItemTransform: async (scene, itemId, patch, commit) => {
       const clean = sanitizeTransformPatch(patch);
@@ -511,7 +526,11 @@ export class Studio {
           await this.engine.call("patchItemTransform", scene, itemId, clean);
         });
       }
-      return this.canvasEdit(scene, itemId, () => this.engine.call("patchItemTransform", scene, itemId, clean), key);
+      return this.canvasEdit(scene, itemId, () => this.engine.call("patchItemTransform", scene, itemId, clean), key).catch((error: unknown) => {
+        // Drags and arrow nudges have no dialog of their own: say why the source moved back.
+        this.notify({ kind: "error", key: `errors.codes.${errorKey(error)}` });
+        throw error;
+      });
     },
     undoCanvas: async () => this.inCanvasQueue(() => this.stepCanvas("undo")),
     redoCanvas: async () => this.inCanvasQueue(() => this.stepCanvas("redo")),
@@ -545,6 +564,7 @@ export class Studio {
     },
 
     moveScene: async (name, direction) => this.mutate(() => this.engine.call("moveScene", String(name), direction === "up" ? "up" : "down")),
+    reorderScene: async (name, index) => this.mutate(() => this.engine.call("reorderScene", String(name), Number(index))),
     duplicateScene: async (name) => this.mutate(() => this.engine.call("duplicateScene", String(name))),
     duplicateSceneItem: async (scene, itemId) => this.mutate(() => this.engine.call("duplicateSceneItem", String(scene), Number(itemId))),
     getItemPlacement: async (scene, itemId) => this.engine.call("getItemPlacement", String(scene), Number(itemId)),
@@ -648,22 +668,6 @@ export class Studio {
       this.syncEditor();
       if (!this.window.isMinimized()) this.applyDisplays();
     },
-
-    showMenu: async (entries, at) =>
-      new Promise<number | null>((resolve) => {
-        let chosen: number | null = null;
-        const menu = Menu.buildFromTemplate(
-          entries.map((entry, index) =>
-            entry.separator
-              ? { type: "separator" as const }
-              : entry.checked !== undefined
-                ? { type: "checkbox" as const, checked: entry.checked === true, label: String(entry.label ?? ""), enabled: entry.enabled !== false, click: () => (chosen = index) }
-                : { label: String(entry.label ?? ""), enabled: entry.enabled !== false, click: () => (chosen = index) },
-          ),
-        );
-        // The close callback can run before the item's click; settle after both.
-        menu.popup({ window: this.window, x: Math.round(at.x), y: Math.round(at.y), callback: () => setTimeout(() => resolve(chosen), 0) });
-      }),
 
     setVideoSettings: async (settings) => {
       if (this.busy) throw new Error("settings-locked-live");
@@ -835,7 +839,11 @@ export class Studio {
       await shell.openExternal(parsed.toString());
     },
 
-    goLive: async (destinationIds) => this.goLive(destinationIds),
+    goLive: async (destinationIds) => {
+      // A new attempt by the user may fall back to the software encoder again.
+      for (const id of destinationIds) this.encoderRetried.delete(id);
+      return this.goLive(destinationIds);
+    },
     checkStream: async (destinationIds) => this.checkStream(destinationIds),
     endStream: async (destinationIds) => {
       for (const id of destinationIds) {
@@ -848,16 +856,13 @@ export class Studio {
       await this.engine.call("stopOutputs", destinationIds);
     },
     startRecording: async () => {
-      const folder = this.recordingFolder();
-      if (!existsSync(folder)) throw new Error("recording-folder-missing");
-      await this.engine.call("startRecording", folder, this.encoderId(), {
-        format: this.state.preferences.recordingFormat,
-        bitrateKbps: recordingBitrate(this.state.preferences, this.state.destinations),
-        shareStreamEncoder: this.state.preferences.recordingMatchStream,
-        tracks: this.state.recordingTracks,
-      });
-      this.autoRecording = false;
-      await this.refreshState();
+      try {
+        await this.beginRecording();
+      } catch (error) {
+        // A graphics-card encoder that cannot run here: retry once in software.
+        if (errorKey(error) !== "recording-encoder-failed" || !this.switchToSoftwareEncoder()) throw error;
+        await this.beginRecording();
+      }
     },
     stopRecording: async () => {
       await this.engine.call("stopRecording");
@@ -1100,8 +1105,16 @@ export class Studio {
     return { config: destination, server: destination.server, streamKey };
   }
 
-  private onOutputStatus(status: DestinationStatus): void {
+  private onOutputStatus(incoming: DestinationStatus): void {
+    let status = incoming;
     const previous = this.statuses.get(status.id);
+    if (status.state === "live" || status.state === "idle") this.encoderRetried.delete(status.id);
+    // A graphics-card encoder that is listed but cannot run on this machine
+    // (driver too old, card busy or in use by another app, unsupported
+    // setting) fails at start: switch to the software encoder and retry once.
+    if (status.state === "error" && status.errorKey === "errors.output.encoder" && previous?.state !== "live" && this.retryOnSoftwareEncoder(status.id)) {
+      status = { ...status, state: "preparing", errorKey: undefined };
+    }
     this.statuses.set(status.id, status);
     const broadcast = this.youtubeBroadcasts.get(status.id);
     if (broadcast && status.state === "live") broadcast.wentLive = true;
@@ -1113,6 +1126,79 @@ export class Studio {
       this.notify({ kind: "error", key: status.errorKey, values: { name: destination?.name ?? "" } });
     }
     this.pushSnapshot();
+  }
+
+  /**
+   * Queues a destination to restart on the software encoder, switching the
+   * saved encoder when it is a graphics-card encoder. Returns false when no
+   * retry applies (already retried, no software encoder, or already software
+   * before this failure), so the error is shown as usual.
+   */
+  private retryOnSoftwareEncoder(destinationId: string): boolean {
+    if (this.shuttingDown || this.encoderRetried.has(destinationId)) return false;
+    // Siblings sharing the failed encoder report after the switch; retry them too.
+    if (!this.switchToSoftwareEncoder() && this.encoderRetries.size === 0) return false;
+    this.encoderRetried.add(destinationId);
+    this.encoderRetries.add(destinationId);
+    // The broadcast made for the failed attempt never went live; a new one is made on retry.
+    this.finishYouTubeBroadcast(destinationId);
+    this.preparations.set(destinationId, { cancelled: false });
+    if (this.encoderRetryTimer) clearTimeout(this.encoderRetryTimer);
+    // Short wait so every destination of the failed encoder group restarts together.
+    this.encoderRetryTimer = setTimeout(() => {
+      this.encoderRetryTimer = null;
+      const ids = [...this.encoderRetries];
+      this.encoderRetries.clear();
+      const restart: string[] = [];
+      for (const id of ids) {
+        const cancelled = this.preparations.get(id)?.cancelled || this.shuttingDown;
+        this.preparations.delete(id);
+        const idle: DestinationStatus = { id, state: "idle", kbps: 0, droppedFrames: 0, totalFrames: 0, encoderGroup: null };
+        if (cancelled) this.onOutputStatus(idle);
+        else {
+          // goLive skips destinations it sees as active; it sets "preparing" again at once.
+          this.statuses.set(id, idle);
+          restart.push(id);
+        }
+      }
+      if (restart.length === 0) return;
+      this.goLive(restart).catch((error: unknown) => {
+        console.error("[studio] software encoder retry failed", error);
+        for (const id of restart) this.failDestination(id, `errors.codes.${errorKey(error)}`);
+      });
+    }, ENCODER_RETRY_DELAY_MS);
+    return true;
+  }
+
+  /**
+   * Replaces a graphics-card encoder that failed with the software encoder,
+   * saves the choice and tells the user. False when the current encoder is
+   * already software or none is available.
+   */
+  private switchToSoftwareEncoder(): boolean {
+    if (this.shuttingDown) return false;
+    const software = softwareFallback(this.engineState?.encoders ?? [], this.state.encoder);
+    if (!software) return false;
+    console.warn(`[studio] encoder ${this.state.encoder ?? "none"} failed to start; switching to ${software}`);
+    this.state.encoder = software;
+    this.persist();
+    this.pushSnapshot();
+    this.notify({ kind: "info", key: "notices.encoderFallback" });
+    this.syncReplay().catch((error: unknown) => console.error("[studio] instant replay could not follow the encoder change", error));
+    return true;
+  }
+
+  private async beginRecording(): Promise<void> {
+    const folder = this.recordingFolder();
+    if (!existsSync(folder)) throw new Error("recording-folder-missing");
+    await this.engine.call("startRecording", folder, this.encoderId(), {
+      format: this.state.preferences.recordingFormat,
+      bitrateKbps: recordingBitrate(this.state.preferences, this.state.destinations),
+      shareStreamEncoder: this.state.preferences.recordingMatchStream,
+      tracks: this.state.recordingTracks,
+    });
+    this.autoRecording = false;
+    await this.refreshState();
   }
 
   private finishYouTubeBroadcast(destinationId: string): void {
@@ -1135,12 +1221,26 @@ export class Studio {
       case "status":
         this.onOutputStatus(event.status);
         break;
-      case "recording":
+      case "recording": {
         if (this.engineState) this.engineState.recording = event.status;
+        const wasAuto = this.autoRecording;
         if (!event.status.active) this.autoRecording = false;
+        if (event.status.errorKey === "errors.output.recordingEncoder" && this.switchToSoftwareEncoder()) {
+          this.pushSnapshot();
+          this.api.startRecording()
+            .then(() => {
+              this.autoRecording = wasAuto;
+            })
+            .catch((error: unknown) => {
+              console.error("[studio] recording could not restart on the software encoder", error);
+              this.notify({ kind: "error", key: `errors.codes.${errorKey(error)}` });
+            });
+          break;
+        }
         if (event.status.errorKey) this.notify({ kind: "error", key: event.status.errorKey });
         this.pushSnapshot();
         break;
+      }
       case "levels":
         this.send(IPC.audioLevels, event.levels);
         break;
@@ -1232,9 +1332,9 @@ export class Studio {
   /**
    * Serializes preview updates; only the newest pending rects matter. The
    * renderer reports the rects again whenever the window's backing scale
-   * changes (moved to another screen, or the screen's scaling changed): on
-   * Windows displays are sized in physical pixels, and on macOS their views
-   * must be rebuilt for the new scale (see preview-mac.ts). Outside studio
+   * changes (moved to another screen, or the screen's scaling changed):
+   * displays are sized in physical pixels, so they get a new size (on macOS
+   * the last picture stays up until the new one is ready). Outside studio
    * mode the program fills the preview rect; in studio mode the editable
    * preview takes it and the program moves to the program rect. `hide`
    * removes every display (minimized, or rebuilt for a new canvas).
@@ -1445,6 +1545,13 @@ export class Studio {
     this.send(IPC.notice, notice);
   }
 
+  /** Without the microphone check a Bluetooth headset may be opened in its call mode; told once per session. */
+  private notifyMicrophoneCheckFailed(): void {
+    if (this.microphoneCheckNoticeShown) return;
+    this.microphoneCheckNoticeShown = true;
+    this.notify({ kind: "error", key: "notices.microphoneCheckFailed" });
+  }
+
   private send(channel: string, payload: unknown): void {
     if (!this.window.isDestroyed()) this.window.webContents.send(channel, payload);
     // The preview editor only needs state updates.
@@ -1540,7 +1647,7 @@ export class Studio {
       const destination = this.state.destinations.find((entry) => entry.id === issue.destinationId);
       this.notify({ kind: "error", key: issue.key, values: { name: destination?.name ?? "" } });
     }
-    if (check.readyDestinationIds.length > 0) await this.goLive(check.readyDestinationIds);
+    if (check.readyDestinationIds.length > 0) await this.api.goLive(check.readyDestinationIds);
   }
 
   /** Asks the engine whether the virtual camera can start; never installs anything. */
@@ -1602,6 +1709,7 @@ export class Studio {
 
   private inCanvasQueue<T>(task: () => Promise<T>): Promise<T> {
     const run = this.canvasQueue.then(task);
+    // The caller gets the failure through `run`; the queue only waits for it to settle.
     this.canvasQueue = run.catch(() => undefined);
     return run;
   }
@@ -1681,9 +1789,11 @@ export class Studio {
     const result = await this.engine.call("audioDevices", source, false);
     if (!result || !("closed" in result)) return result;
     const devices = await listMicrophones(helperPath("audio-inputs"));
-    if (devices.length > 0) {
-      return { current: result.current, options: [{ value: "default", label: "" }, ...devices.map((device) => ({ value: device.uid, label: device.name }))] };
+    if (devices.ok && devices.value.length > 0) {
+      return { current: result.current, options: [{ value: "default", label: "" }, ...devices.value.map((device) => ({ value: device.uid, label: device.name }))] };
     }
+    // Falls back to listing with the device open, which can switch a Bluetooth headset to its call mode.
+    if (!devices.ok) this.notifyMicrophoneCheckFailed();
     return this.engine.call("audioDevices", source, true) as Promise<AudioDeviceChoice | null>;
   }
 

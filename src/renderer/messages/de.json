@@ -607,7 +607,9 @@
   "notices": {
     "accountConnected": "{name} verbunden",
     "sourcesUnavailable": "Einige gespeicherte Quellen konnten nicht geöffnet werden. Verbinden Sie Ihre Geräte erneut oder prüfen Sie die Berechtigungen und starten Sie dann neu. Ihre Einstellungen bleiben erhalten.",
-    "replaySaved": "Clip gespeichert in {folder}"
+    "microphoneCheckFailed": "Die Mikrofone konnten nicht geprüft werden. Wenn Ihr Standardmikrofon ein Bluetooth-Headset ist, kann sich sein Klang verschlechtern. Wählen Sie im Audio-Bereich ein anderes Mikrofon, um das zu vermeiden.",
+    "replaySaved": "Clip gespeichert in {folder}",
+    "encoderFallback": "Der Encoder der Grafikkarte konnte nicht starten, daher wird stattdessen der Software-Encoder verwendet. Sie können das in den Einstellungen ändern."
   },
   "errors": {
     "output": {
@@ -622,12 +624,14 @@
       "recordingFailed": "Die Aufnahme wurde unerwartet gestoppt.",
       "generic": "{name}: Der Stream wurde unerwartet gestoppt.",
       "replayFailed": "Die Sofort-Wiederholung wurde unerwartet beendet.",
-      "replaySaveFailed": "Der Clip konnte nicht gespeichert werden."
+      "replaySaveFailed": "Der Clip konnte nicht gespeichert werden.",
+      "recordingEncoder": "Der Aufnahme-Encoder wurde gestoppt."
     },
     "codes": {
       "generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
       "engine-init-failed": "Ihre Grafiktreiber sind möglicherweise veraltet oder werden nicht unterstützt. Aktualisieren Sie sie und starten Sie die App neu.",
       "engine-graphics-missing": "Erforderliche Grafikkomponenten fehlen. Aktualisieren Sie Ihr System und starten Sie die App neu.",
+      "preview-failed": "Die Vorschau wird nicht mehr aktualisiert. Streams und Aufnahmen sind davon nicht betroffen. Starten Sie die App neu, um sie wiederherzustellen.",
       "engine-not-ready": "Das Studio wird noch gestartet. Versuchen Sie es gleich noch einmal.",
       "forbidden": "Diese Aktion ist nicht zulässig.",
       "invalid-request": "Diese Aktion ist nicht zulässig.",
@@ -669,6 +673,8 @@
       "permission-microphone-denied": "Der Mikrofonzugriff ist deaktiviert. Erlauben Sie ihn in den Systemeinstellungen.",
       "account-in-use": "Dieses Konto wird bereits von einem anderen Ziel verwendet.",
       "permission-screen-denied": "Der Zugriff auf die Bildschirmaufnahme ist deaktiviert. Erlauben Sie ihn in den Systemeinstellungen und starten Sie die App dann neu.",
+      "permission-camera-no-prompt": "macOS hat nicht nach dem Kamerazugriff gefragt. Beenden Sie SEENALYZE STUDIO, öffnen Sie es über den Finder oder das Dock und versuchen Sie es erneut.",
+      "permission-microphone-no-prompt": "macOS hat nicht nach dem Mikrofonzugriff gefragt. Beenden Sie SEENALYZE STUDIO, öffnen Sie es über den Finder oder das Dock und versuchen Sie es erneut.",
       "youtube-quota-exceeded": "Das tägliche YouTube-Anfragelimit für diese App ist erreicht. Versuchen Sie es morgen erneut.",
       "youtube-chat-ended": "Dieser YouTube-Livechat wurde beendet.",
       "youtube-chat-disabled": "Der Livechat ist für diesen YouTube-Stream deaktiviert.",
@@ -706,7 +712,8 @@
       "collection-unreadable": "Diese Szenensammlung konnte nicht gelesen werden.",
       "import-invalid": "Diese Datei ist keine Szenensammlung.",
       "import-not-found": "Diese Szenensammlung existiert nicht mehr.",
-      "import-too-large": "Diese Datei ist zu groß zum Importieren."
+      "import-too-large": "Diese Datei ist zu groß zum Importieren.",
+      "recording-encoder-failed": "Der Aufnahme-Encoder konnte auf diesem Computer nicht starten."
     }
   },
   "permissions": {
@@ -992,7 +999,8 @@
         "addImage": "Bild hinzufügen",
         "removeImage": "Bild entfernen",
         "invalidImage": "Diese Datei ist kein unterstütztes Bild.",
-        "imageFailed": "Das Bild konnte nicht hinzugefügt werden. Versuchen Sie es erneut."
+        "imageFailed": "Das Bild konnte nicht hinzugefügt werden. Versuchen Sie es erneut.",
+        "removeFailed": "Das Bild konnte nicht entfernt werden. Versuchen Sie es erneut."
       },
       "frame": {
         "title": "Format",
@@ -1122,7 +1130,11 @@
         "name": "Name der Vorlage",
         "default": "Für neue Aufnahmen verwenden",
         "save": "Stil speichern",
-        "remove": "Vorlage entfernen"
+        "remove": "Vorlage entfernen",
+        "loadFailed": "Die Stilvorlagen konnten nicht geladen werden.",
+        "removeTitle": "Vorlage „{name}“ entfernen?",
+        "removeConfirm": "Entfernen",
+        "cancel": "Abbrechen"
       },
       "captions": {
         "title": "Untertitel",
@@ -1137,7 +1149,8 @@
         "start": "Untertitelbeginn in Sekunden",
         "end": "Untertitelende in Sekunden",
         "invalidTiming": "Untertitel müssen in der richtigen Reihenfolge und innerhalb des Videos liegen.",
-        "preparing": "Untertitel werden vorbereitet…"
+        "preparing": "Untertitel werden vorbereitet…",
+        "cpuUnsupported": "Auf dem Prozessor dieses Computers können keine Untertitel erstellt werden."
       }
     },
     "main": {
@@ -1376,5 +1389,22 @@
       "setupFound": "Szenen aus OBS Studio oder Streamlabs gefunden.",
       "setupAction": "Importieren"
     }
+  },
+  "tooltips": {
+    "projectors": "Projektor öffnen",
+    "clearHotkey": "Tastenkürzel löschen",
+    "removeEffect": "Effekt entfernen",
+    "moveUp": "Nach oben",
+    "moveDown": "Nach unten",
+    "removeFilter": "Filter entfernen",
+    "audioFilters": "Audiofilter",
+    "sourceSettings": "Quelleneigenschaften",
+    "mute": "Stummschalten",
+    "unmute": "Ton einschalten",
+    "chooseDevice": "Gerät wählen",
+    "lock": "Position sperren",
+    "unlock": "Entsperren",
+    "hide": "Quelle ausblenden",
+    "show": "Quelle einblenden"
   }
 }

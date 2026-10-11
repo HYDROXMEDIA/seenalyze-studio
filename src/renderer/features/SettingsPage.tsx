@@ -42,6 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/overlays";
+import { Tooltip } from "@/components/ui/tooltip";
 import { errorCode, studio } from "@/lib/studio";
 import { COLOR_PRESETS, CUSTOM_THEME_ID, THEME_ROLES, seedCustomRoles, type ColorPreset, type ColorThemeChoice, type ThemeRole, type ThemeVariant } from "@/lib/color-theme";
 import { readColorTheme, readTheme, saveColorTheme, saveTheme, type ThemePreference } from "@/lib/theme";
@@ -146,15 +147,11 @@ export function SettingsPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col animate-ui-fade">
       <div className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={t("back")}
-          title={t("back")}
-          onClick={() => (dirty ? setConfirmLeave(true) : setView("studio"))}
-        >
-          <ArrowLeftIcon />
-        </Button>
+        <Tooltip label={t("back")}>
+          <Button variant="ghost" size="icon" aria-label={t("back")} onClick={() => (dirty ? setConfirmLeave(true) : setView("studio"))}>
+            <ArrowLeftIcon />
+          </Button>
+        </Tooltip>
         <h2 className="text-xl font-bold text-neutral-900 dark:text-white">{t("title")}</h2>
         <div className="ml-auto flex items-center gap-2">
           {dirty && (
@@ -176,7 +173,7 @@ export function SettingsPage() {
       </div>
 
       <div className="flex min-h-0 flex-1">
-        <nav className="w-56 shrink-0 border-r p-3" aria-label={t("title")}>
+        <nav className="w-44 shrink-0 border-r p-3 lg:w-56" aria-label={t("title")}>
           <ul className="grid gap-1">
             {SECTIONS.map(([entry, Icon]) => (
               <li key={entry}>
@@ -325,15 +322,11 @@ export function SettingsPage() {
                 <Field label={t("recordingFolder")} htmlFor="settings-folder">
                   <div className="flex gap-2">
                     <Input id="settings-folder" readOnly value={snapshot.recordingFolder} />
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      aria-label={t("chooseFolder")}
-                      title={t("chooseFolder")}
-                      onClick={() => void run(() => studio.chooseRecordingFolder())}
-                    >
-                      <FolderOpenIcon />
-                    </Button>
+                    <Tooltip label={t("chooseFolder")}>
+                      <Button variant="outline" size="icon" aria-label={t("chooseFolder")} onClick={() => void run(() => studio.chooseRecordingFolder())}>
+                        <FolderOpenIcon />
+                      </Button>
+                    </Tooltip>
                   </div>
                 </Field>
                 <div className="grid grid-cols-2 gap-4">
@@ -754,19 +747,18 @@ function LanguageSelect() {
   };
 
   return (
-    <select
-      aria-label={t("language")}
-      value={language}
-      disabled={busy}
-      onChange={(event) => void choose(event.target.value)}
-      className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
-    >
-      {UI_LOCALES.map((locale) => (
-        <option key={locale} value={locale}>
-          {LOCALE_NAMES[locale]}
-        </option>
-      ))}
-    </select>
+    <Select value={language} disabled={busy} onValueChange={(next) => void choose(next)}>
+      <SelectTrigger aria-label={t("language")}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {UI_LOCALES.map((locale) => (
+          <SelectItem key={locale} value={locale}>
+            {LOCALE_NAMES[locale]}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 

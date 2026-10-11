@@ -6,6 +6,7 @@ import { Dock, DockEmpty } from "@/components/Dock";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/form";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/overlays";
+import { Tooltip } from "@/components/ui/tooltip";
 import { deflectionToDb, formatDb, MIN_DB, meterChannels, meterDeflection } from "@/lib/audio-meter";
 import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
@@ -44,7 +45,7 @@ export function MixerDock() {
       {audio.length === 0 ? (
         <DockEmpty icon={SlidersHorizontalIcon} text={t("empty")} />
       ) : (
-        <div className="grid gap-4 p-3">
+        <div className="grid grid-cols-1 gap-4 p-3">
           {audio.map((source) => (
             <MixerChannel
               key={source.name}
@@ -83,17 +84,22 @@ const MixerChannel = memo(function MixerChannel({
   onAudioSettings: (name: string) => void;
 }) {
   const t = useTranslations("mixer");
+  const tt = useTranslations("tooltips");
   const run = useAction();
   const peak = useStudio((state) => state.levels[name]);
   const levels = useMeterLevels(peak);
 
   return (
-    <div className="grid gap-1.5">
+    <div className="grid min-w-0 grid-cols-1 gap-1.5">
       <div className="flex items-center gap-1 text-sm">
         <span className="min-w-0 flex-1 truncate">{name}</span>
         {global && <DevicePicker source={name} microphone={microphone} />}
-        <Button variant="ghost" size="icon-sm" aria-label={t("audioSettings", { name })} onClick={() => onAudioSettings(name)}><AudioLinesIcon /></Button>
-        <Button variant="ghost" size="icon-sm" aria-label={t("properties", { name })} onClick={() => onProperties(name)}><Settings2Icon /></Button>
+        <Tooltip label={tt("audioFilters")}>
+          <Button variant="ghost" size="icon-sm" aria-label={t("audioSettings", { name })} onClick={() => onAudioSettings(name)}><AudioLinesIcon /></Button>
+        </Tooltip>
+        <Tooltip label={tt("sourceSettings")}>
+          <Button variant="ghost" size="icon-sm" aria-label={t("properties", { name })} onClick={() => onProperties(name)}><Settings2Icon /></Button>
+        </Tooltip>
       </div>
       <div className="grid gap-0.5" aria-hidden>
         {levels.map((level, channel) => (
@@ -107,6 +113,7 @@ const MixerChannel = memo(function MixerChannel({
       </div>
       <div className="flex items-center gap-2">
         <Slider
+          className="min-w-0"
           min={0}
           max={1}
           step={0.01}
@@ -115,18 +122,20 @@ const MixerChannel = memo(function MixerChannel({
           aria-valuetext={formatDb(deflectionToDb(deflection))}
           onValueChange={([value]) => void run(() => studio.setVolume(name, value))}
         />
-        <span className={cn("w-16 shrink-0 text-right text-xs tabular-nums", muted ? "text-red-500" : "text-muted-foreground")}>
+        <span className={cn("w-14 shrink-0 truncate text-right text-xs tabular-nums", muted ? "text-red-500" : "text-muted-foreground")}>
           {muted ? t("muted") : formatDb(deflectionToDb(deflection))}
         </span>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={muted ? t("unmute", { name }) : t("mute", { name })}
-          aria-pressed={muted}
-          onClick={() => void run(() => studio.setMuted(name, !muted))}
-        >
-          {muted ? <VolumeXIcon className="text-red-500" /> : <Volume2Icon />}
-        </Button>
+        <Tooltip label={muted ? tt("unmute") : tt("mute")}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={muted ? t("unmute", { name }) : t("mute", { name })}
+            aria-pressed={muted}
+            onClick={() => void run(() => studio.setMuted(name, !muted))}
+          >
+            {muted ? <VolumeXIcon className="text-red-500" /> : <Volume2Icon />}
+          </Button>
+        </Tooltip>
       </div>
     </div>
   );
@@ -135,6 +144,7 @@ const MixerChannel = memo(function MixerChannel({
 /** Switches the device a desktop-audio or microphone channel captures, right from the mixer. */
 function DevicePicker({ source, microphone }: { source: string; microphone: boolean }) {
   const t = useTranslations("mixer");
+  const tt = useTranslations("tooltips");
   const run = useAction();
   const [open, setOpen] = useState(false);
   const [choice, setChoice] = useState<AudioDeviceChoice | null | undefined>(undefined);
@@ -159,9 +169,11 @@ function DevicePicker({ source, microphone }: { source: string; microphone: bool
         setOpen(next);
       }}
     >
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label={t("device", { name: source })}><Icon /></Button>
-      </PopoverTrigger>
+      <Tooltip label={tt("chooseDevice")}>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="icon-sm" aria-label={t("device", { name: source })}><Icon /></Button>
+        </PopoverTrigger>
+      </Tooltip>
       <PopoverContent align="end" className="w-72 p-1">
         {choice === undefined ? (
           <div className="flex h-16 items-center justify-center">

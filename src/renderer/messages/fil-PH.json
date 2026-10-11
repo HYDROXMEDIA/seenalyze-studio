@@ -607,7 +607,9 @@
   "notices": {
     "accountConnected": "Nakakonekta na ang {name}",
     "sourcesUnavailable": "Hindi mabuksan ang ilang naka-save na source. Ikonekta muli ang iyong mga device o suriin ang mga pahintulot, pagkatapos ay i-restart. Nananatili ang mga setting nila.",
-    "replaySaved": "Na-save ang clip sa {folder}"
+    "microphoneCheckFailed": "Hindi masuri ang iyong mga mikropono. Kung Bluetooth headset ang default mong mikropono, maaaring lumala ang tunog nito. Pumili ng ibang mikropono sa Audio panel para maiwasan ito.",
+    "replaySaved": "Na-save ang clip sa {folder}",
+    "encoderFallback": "Hindi nakapagsimula ang encoder ng graphics card mo, kaya software encoder ang ginagamit. Mapapalitan mo ito sa Mga Setting."
   },
   "errors": {
     "output": {
@@ -622,12 +624,14 @@
       "recordingFailed": "Biglang huminto ang recording.",
       "generic": "{name}: biglang huminto ang stream.",
       "replayFailed": "Biglang huminto ang instant replay.",
-      "replaySaveFailed": "Hindi ma-save ang clip."
+      "replaySaveFailed": "Hindi ma-save ang clip.",
+      "recordingEncoder": "Huminto ang encoder ng recording."
     },
     "codes": {
       "generic": "Nagkaproblema. Pakisubukan muli.",
       "engine-init-failed": "Maaaring luma o hindi suportado ang iyong mga graphics driver. I-update ang mga ito at i-restart ang app.",
       "engine-graphics-missing": "Kulang ang mga kailangang bahagi ng graphics. I-update ang iyong system at i-restart ang app.",
+      "preview-failed": "Huminto sa pag-update ang preview. Hindi apektado ang streaming at recording. I-restart ang app para maibalik ito.",
       "engine-not-ready": "Nagsisimula pa ang studio. Subukan muli mamaya.",
       "forbidden": "Hindi pinapayagan ang aksyong iyan.",
       "invalid-request": "Hindi pinapayagan ang aksyong iyan.",
@@ -669,6 +673,8 @@
       "permission-microphone-denied": "Naka-off ang access sa mikropono. Payagan ito sa System Settings.",
       "account-in-use": "Ginagamit na ng ibang destinasyon ang account na ito.",
       "permission-screen-denied": "Naka-off ang access sa pag-record ng screen. Payagan ito sa System Settings, pagkatapos ay i-restart ang app.",
+      "permission-camera-no-prompt": "Hindi humingi ang macOS ng access sa camera. Isara ang SEENALYZE STUDIO, buksan ito mula sa Finder o Dock, at subukan ulit.",
+      "permission-microphone-no-prompt": "Hindi humingi ang macOS ng access sa mikropono. Isara ang SEENALYZE STUDIO, buksan ito mula sa Finder o Dock, at subukan ulit.",
       "youtube-quota-exceeded": "Naabot na ang pang-araw-araw na limit ng request ng YouTube para sa app na ito. Subukan muli bukas.",
       "youtube-chat-ended": "Tapos na ang live chat na ito sa YouTube.",
       "youtube-chat-disabled": "Naka-off ang live chat para sa YouTube stream na ito.",
@@ -706,7 +712,8 @@
       "collection-unreadable": "Hindi mabasa ang scene collection na ito.",
       "import-invalid": "Hindi scene collection ang file na iyan.",
       "import-not-found": "Wala na ang scene collection na iyan.",
-      "import-too-large": "Masyadong malaki ang file na iyan para i-import."
+      "import-too-large": "Masyadong malaki ang file na iyan para i-import.",
+      "recording-encoder-failed": "Hindi nakapagsimula ang encoder ng recording sa computer na ito."
     }
   },
   "permissions": {
@@ -992,7 +999,8 @@
         "addImage": "Magdagdag ng larawan",
         "removeImage": "Alisin ang larawan",
         "invalidImage": "Hindi suportadong larawan ang file na iyan.",
-        "imageFailed": "Hindi maidagdag ang larawan. Subukan muli."
+        "imageFailed": "Hindi maidagdag ang larawan. Subukan muli.",
+        "removeFailed": "Hindi maalis ang larawan. Subukan ulit."
       },
       "frame": {
         "title": "Frame",
@@ -1122,7 +1130,11 @@
         "name": "Pangalan ng preset",
         "default": "Gamitin sa mga bagong recording",
         "save": "I-save ang estilo",
-        "remove": "Alisin ang preset"
+        "remove": "Alisin ang preset",
+        "loadFailed": "Hindi ma-load ang mga style preset.",
+        "removeTitle": "Alisin ang preset na “{name}”?",
+        "removeConfirm": "Alisin",
+        "cancel": "Kanselahin"
       },
       "captions": {
         "title": "Mga caption",
@@ -1137,7 +1149,8 @@
         "start": "Simula ng caption sa segundo",
         "end": "Dulo ng caption sa segundo",
         "invalidTiming": "Panatilihing nasa ayos at nasa loob ng video ang mga caption.",
-        "preparing": "Inihahanda ang mga caption…"
+        "preparing": "Inihahanda ang mga caption…",
+        "cpuUnsupported": "Hindi makakagawa ng captions sa processor ng computer na ito."
       }
     },
     "main": {
@@ -1376,5 +1389,22 @@
       "setupFound": "May nakitang mga scene mula sa OBS Studio o Streamlabs.",
       "setupAction": "I-import"
     }
+  },
+  "tooltips": {
+    "projectors": "Magbukas ng projector",
+    "clearHotkey": "I-clear ang shortcut",
+    "removeEffect": "Alisin ang effect",
+    "moveUp": "Itaas",
+    "moveDown": "Ibaba",
+    "removeFilter": "Alisin ang filter",
+    "audioFilters": "Mga audio filter",
+    "sourceSettings": "Mga property ng source",
+    "mute": "I-mute",
+    "unmute": "I-unmute",
+    "chooseDevice": "Pumili ng device",
+    "lock": "I-lock ang posisyon",
+    "unlock": "I-unlock",
+    "hide": "Itago ang source",
+    "show": "Ipakita ang source"
   }
 }

@@ -7,7 +7,9 @@ import type { EncoderPreset } from "./types";
 
 const PRESET_SETTINGS: Record<string, { key: string; performance: string; quality: string }> = {
   x264: { key: "preset", performance: "superfast", quality: "faster" },
-  nvenc: { key: "preset2", performance: "p2", quality: "p7" },
+  // The engine's "nvenc" is obs_nvenc_h264_tex, which reads "preset" (p1–p7);
+  // "preset2" is only the legacy key it migrates from for older encoder ids.
+  nvenc: { key: "preset", performance: "p2", quality: "p7" },
   amd: { key: "preset", performance: "speed", quality: "quality" },
   qsv: { key: "target_usage", performance: "TU7", quality: "TU1" },
 };

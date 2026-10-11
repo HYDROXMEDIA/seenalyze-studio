@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { IntlProvider } from "use-intl";
+import { TooltipProvider } from "./components/ui/tooltip";
 import { App } from "./App";
 import { PreviewEditorRoot } from "./features/PreviewEditorRoot";
 import { ProjectorRoot } from "./features/projector/ProjectorRoot";
@@ -25,7 +26,7 @@ function LocalizedRoot() {
   const { locale, messages } = loadMessages(language);
   return (
     <IntlProvider locale={locale} messages={messages} onError={(error) => console.error(error)}>
-      {editorOnly ? <PreviewEditorRoot /> : projectorOnly ? <ProjectorRoot /> : <App />}
+      <TooltipProvider>{editorOnly ? <PreviewEditorRoot /> : projectorOnly ? <ProjectorRoot /> : <App />}</TooltipProvider>
     </IntlProvider>
   );
 }

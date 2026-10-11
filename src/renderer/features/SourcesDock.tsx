@@ -36,10 +36,12 @@ import {
   AlertDialogTitle,
   DialogFooter,
   DialogHeader,
-  NativeMenu,
+  ActionMenu,
 } from "@/components/ui/overlays";
+import { Tooltip } from "@/components/ui/tooltip";
 import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
+import { useReorder } from "@/lib/use-reorder";
 import { cn } from "@/lib/utils";
 import { useClipboard } from "@/store/clipboard";
 import { useStudio } from "@/store/studio";
@@ -82,6 +84,7 @@ export function SourceIcon({ kind, className }: { kind: SourceKind | "other"; cl
 export function SourcesDock() {
   const t = useTranslations("sources");
   const tc = useTranslations("common");
+  const tt = useTranslations("tooltips");
   const run = useAction();
   const scene = useStudio((state) => state.snapshot?.scenes.find((entry) => entry.name === state.snapshot?.activeScene));
   const selectedItemId = useStudio((state) => state.selectedItemId);
@@ -94,6 +97,10 @@ export function SourcesDock() {
   const [effectsOf, setEffectsOf] = useState<string | null>(null);
   const clipboard = useClipboard();
   const projectorMenu = useProjectorMenu();
+  // Top of the list is drawn on top in the preview, recordings and streams.
+  const reorder = useReorder(scene?.name ?? "", scene?.items ?? [], (item) => item.id, (item, index) =>
+    scene ? run(() => studio.reorderSceneItem(scene.name, item.id, index)) : Promise.resolve(),
+  );
 
   if (!scene) return <Dock title={t("title")}>{null}</Dock>;
 
@@ -101,9 +108,11 @@ export function SourcesDock() {
     <Dock
       title={t("title")}
       actions={
-        <Button variant="ghost" size="icon-sm" aria-label={t("add")} onClick={() => setAdding(true)}>
-          <PlusIcon />
-        </Button>
+        <Tooltip label={t("add")}>
+          <Button variant="ghost" size="icon-sm" aria-label={t("add")} onClick={() => setAdding(true)}>
+            <PlusIcon />
+          </Button>
+        </Tooltip>
       }
     >
       {scene.items.length === 0 ? (
@@ -120,40 +129,44 @@ export function SourcesDock() {
       ) : (
         // Keyed on the scene so switching scenes cross-fades the list.
         <div key={scene.name} className="animate-ui-fade">
-          {scene.items.map((item, index) => {
+          {reorder.items.map((item, index) => {
             // Audio-only sources and nested scenes have no picture of their own to change.
             const pictureless = ["microphone", "desktopAudio", "applicationAudio"].includes(item.kind);
             const effectless = pictureless || item.kind === "scene";
             return (
-              <ListRow key={item.id} active={item.id === selectedItemId} onClick={() => selectItem(item.id)}>
+              <ListRow key={item.id} {...reorder.rowProps(item, index)} active={item.id === selectedItemId} onClick={() => selectItem(item.id)}>
                 <SourceIcon kind={item.kind} className={cn("size-4 shrink-0 text-muted-foreground", !item.visible && "opacity-40")} />
                 <span className={cn("min-w-0 flex-1 truncate", !item.visible && "text-muted-foreground")}>{item.sourceName}</span>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={item.locked ? t("unlock") : t("lock")}
-                  aria-pressed={item.locked}
-                  className={cn(!item.locked && "opacity-0 group-hover:opacity-100 focus-visible:opacity-100")}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void run(() => studio.setItemLocked(scene.name, item.id, !item.locked));
-                  }}
-                >
-                  {item.locked ? <LockIcon /> : <UnlockIcon />}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={item.visible ? t("hide") : t("show")}
-                  aria-pressed={!item.visible}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void run(() => studio.setItemVisible(scene.name, item.id, !item.visible));
-                  }}
-                >
-                  {item.visible ? <EyeIcon /> : <EyeOffIcon className="text-muted-foreground" />}
-                </Button>
-                <NativeMenu
+                <Tooltip label={item.locked ? tt("unlock") : tt("lock")}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={item.locked ? t("unlock") : t("lock")}
+                    aria-pressed={item.locked}
+                    className={cn(!item.locked && "opacity-0 group-hover:opacity-100 focus-visible:opacity-100")}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void run(() => studio.setItemLocked(scene.name, item.id, !item.locked));
+                    }}
+                  >
+                    {item.locked ? <LockIcon /> : <UnlockIcon />}
+                  </Button>
+                </Tooltip>
+                <Tooltip label={item.visible ? tt("hide") : tt("show")}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={item.visible ? t("hide") : t("show")}
+                    aria-pressed={!item.visible}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void run(() => studio.setItemVisible(scene.name, item.id, !item.visible));
+                    }}
+                  >
+                    {item.visible ? <EyeIcon /> : <EyeOffIcon className="text-muted-foreground" />}
+                  </Button>
+                </Tooltip>
+                <ActionMenu
                   items={[
                     { label: t("properties"), onSelect: () => setEditing(item.sourceName) },
                     { label: t("effects"), disabled: effectless, onSelect: () => setEffectsOf(item.sourceName) },
@@ -210,16 +223,18 @@ export function SourcesDock() {
                     },
                     "separator",
                     { label: t("moveUp"), disabled: index === 0, onSelect: () => void run(() => studio.moveSceneItem(scene.name, item.id, "up")) },
-                    { label: t("moveDown"), disabled: index === scene.items.length - 1, onSelect: () => void run(() => studio.moveSceneItem(scene.name, item.id, "down")) },
+                    { label: t("moveDown"), disabled: index === reorder.items.length - 1, onSelect: () => void run(() => studio.moveSceneItem(scene.name, item.id, "down")) },
                     "separator",
                     ...(pictureless ? [] : [...projectorMenu(item.kind === "scene" ? { kind: "scene", name: item.sourceName } : { kind: "source", name: item.sourceName }), "separator" as const]),
                     { label: tc("remove"), disabled: item.locked, onSelect: () => setRemoving(item) },
                   ]}
                 >
-                  <Button variant="ghost" size="icon-sm" aria-label={tc("more")}>
-                    <MoreHorizontalIcon />
-                  </Button>
-                </NativeMenu>
+                  <Tooltip label={tc("more")}>
+                    <Button variant="ghost" size="icon-sm" aria-label={tc("more")}>
+                      <MoreHorizontalIcon />
+                    </Button>
+                  </Tooltip>
+                </ActionMenu>
               </ListRow>
             );
           })}

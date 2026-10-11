@@ -47,14 +47,27 @@ export function permissionSnapshot(): Record<PermissionKind, PermissionState> {
   };
 }
 
-/** Shows the system prompt when the OS allows it, then returns the resulting state. */
+/**
+ * Shows the system prompt when the OS allows it, then returns the resulting
+ * state. Throws `permission-<kind>-no-prompt` when macOS refuses to ask.
+ */
 export async function requestPermission(kind: PermissionKind): Promise<PermissionState> {
   const current = permissionStatus(kind);
   if (current === "granted" || current === "unsupported" || !IS_MAC) return current;
 
   if (kind === "camera" || kind === "microphone") {
-    if (current === "not-determined") await systemPreferences.askForMediaAccess(kind);
-    return permissionStatus(kind);
+    if (current !== "not-determined") return current;
+    const allowed = await systemPreferences.askForMediaAccess(kind);
+    const after = permissionStatus(kind);
+    // macOS answers for the app that started this one. When that app may not
+    // ask for this device (for example a terminal without the matching usage
+    // description or entitlement), it refuses without a prompt and without
+    // listing this app in System Settings, so "open settings" cannot help.
+    if (!allowed && after === "not-determined") {
+      console.warn(`[permissions] macOS refused the ${kind} request without a prompt; the app was started by another app that is not allowed to ask for it`);
+      throw new Error(`permission-${kind}-no-prompt`);
+    }
+    return after;
   }
 
   // Screen recording has no request API; asking for capture sources makes

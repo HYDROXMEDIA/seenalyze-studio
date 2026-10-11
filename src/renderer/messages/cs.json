@@ -607,7 +607,9 @@
   "notices": {
     "accountConnected": "{name} připojeno",
     "sourcesUnavailable": "Některé uložené zdroje se nepodařilo otevřít. Znovu připojte zařízení nebo zkontrolujte oprávnění a pak aplikaci restartujte. Jejich nastavení zůstane zachováno.",
-    "replaySaved": "Klip uložen do {folder}"
+    "microphoneCheckFailed": "Mikrofony se nepodařilo zkontrolovat. Pokud jsou výchozím mikrofonem sluchátka Bluetooth, jejich zvuk se může zhoršit. Abyste tomu předešli, vyberte jiný mikrofon v panelu Zvuk.",
+    "replaySaved": "Klip uložen do {folder}",
+    "encoderFallback": "Enkodér grafické karty se nepodařilo spustit, proto se používá softwarový enkodér. Změnit ho můžete v Nastavení."
   },
   "errors": {
     "output": {
@@ -622,12 +624,14 @@
       "recordingFailed": "Nahrávání se nečekaně zastavilo.",
       "generic": "{name}: vysílání se nečekaně zastavilo.",
       "replayFailed": "Okamžitý záznam se neočekávaně zastavil.",
-      "replaySaveFailed": "Klip se nepodařilo uložit."
+      "replaySaveFailed": "Klip se nepodařilo uložit.",
+      "recordingEncoder": "Enkodér nahrávání se zastavil."
     },
     "codes": {
       "generic": "Něco se pokazilo. Zkuste to prosím znovu.",
       "engine-init-failed": "Ovladače grafiky mohou být zastaralé nebo nepodporované. Aktualizujte je a restartujte aplikaci.",
       "engine-graphics-missing": "Chybí potřebné grafické komponenty. Aktualizujte systém a restartujte aplikaci.",
+      "preview-failed": "Náhled se přestal aktualizovat. Vysílání ani nahrávání to neovlivní. Restartujte aplikaci, aby se náhled obnovil.",
       "engine-not-ready": "Studio se ještě spouští. Zkuste to za chvíli.",
       "forbidden": "Tuto akci nelze provést.",
       "invalid-request": "Tuto akci nelze provést.",
@@ -669,6 +673,8 @@
       "permission-microphone-denied": "Přístup k mikrofonu je vypnutý. Povolte ho v Nastavení systému.",
       "account-in-use": "Tento účet už používá jiný cíl.",
       "permission-screen-denied": "Přístup k nahrávání obrazovky je vypnutý. Povolte ho v Nastavení systému a pak aplikaci restartujte.",
+      "permission-camera-no-prompt": "macOS se nezeptal na přístup ke kameře. Ukončete SEENALYZE STUDIO, otevřete ho z Finderu nebo Docku a zkuste to znovu.",
+      "permission-microphone-no-prompt": "macOS se nezeptal na přístup k mikrofonu. Ukončete SEENALYZE STUDIO, otevřete ho z Finderu nebo Docku a zkuste to znovu.",
       "youtube-quota-exceeded": "Denní limit požadavků YouTube pro tuto aplikaci byl vyčerpán. Zkuste to zítra.",
       "youtube-chat-ended": "Tento živý chat na YouTube skončil.",
       "youtube-chat-disabled": "Živý chat je u tohoto vysílání na YouTube vypnutý.",
@@ -706,7 +712,8 @@
       "collection-unreadable": "Tuto kolekci scén se nepodařilo načíst.",
       "import-invalid": "Tento soubor není kolekce scén.",
       "import-not-found": "Tato kolekce scén už neexistuje.",
-      "import-too-large": "Tento soubor je pro import příliš velký."
+      "import-too-large": "Tento soubor je pro import příliš velký.",
+      "recording-encoder-failed": "Enkodér nahrávání se na tomto počítači nepodařilo spustit."
     }
   },
   "permissions": {
@@ -992,7 +999,8 @@
         "addImage": "Přidat obrázek",
         "removeImage": "Odstranit obrázek",
         "invalidImage": "Tento soubor není podporovaný obrázek.",
-        "imageFailed": "Obrázek se nepodařilo přidat. Zkuste to znovu."
+        "imageFailed": "Obrázek se nepodařilo přidat. Zkuste to znovu.",
+        "removeFailed": "Obrázek se nepodařilo odstranit. Zkuste to znovu."
       },
       "frame": {
         "title": "Formát",
@@ -1122,7 +1130,11 @@
         "name": "Název předvolby",
         "default": "Použít pro nové nahrávky",
         "save": "Uložit styl",
-        "remove": "Odstranit předvolbu"
+        "remove": "Odstranit předvolbu",
+        "loadFailed": "Předvolby stylu se nepodařilo načíst.",
+        "removeTitle": "Odebrat předvolbu „{name}“?",
+        "removeConfirm": "Odebrat",
+        "cancel": "Zrušit"
       },
       "captions": {
         "title": "Titulky",
@@ -1137,7 +1149,8 @@
         "start": "Začátek titulku v sekundách",
         "end": "Konec titulku v sekundách",
         "invalidTiming": "Titulky musí jít po sobě a být v rámci videa.",
-        "preparing": "Příprava titulků…"
+        "preparing": "Příprava titulků…",
+        "cpuUnsupported": "Na procesoru tohoto počítače nelze titulky vytvořit."
       }
     },
     "main": {
@@ -1376,5 +1389,22 @@
       "setupFound": "Byly nalezeny scény z OBS Studio nebo Streamlabs.",
       "setupAction": "Importovat"
     }
+  },
+  "tooltips": {
+    "projectors": "Otevřít projektor",
+    "clearHotkey": "Smazat zkratku",
+    "removeEffect": "Odebrat efekt",
+    "moveUp": "Posunout nahoru",
+    "moveDown": "Posunout dolů",
+    "removeFilter": "Odebrat filtr",
+    "audioFilters": "Zvukové filtry",
+    "sourceSettings": "Vlastnosti zdroje",
+    "mute": "Ztlumit",
+    "unmute": "Zrušit ztlumení",
+    "chooseDevice": "Vybrat zařízení",
+    "lock": "Zamknout pozici",
+    "unlock": "Odemknout",
+    "hide": "Skrýt zdroj",
+    "show": "Zobrazit zdroj"
   }
 }

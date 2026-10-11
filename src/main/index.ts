@@ -1,5 +1,5 @@
 import path from "node:path";
-import { app, BrowserWindow, ipcMain, nativeTheme, session, shell } from "electron";
+import { app, BrowserWindow, ipcMain, nativeTheme, screen, session, shell } from "electron";
 import { IPC, STUDIO_ERROR_PREFIX, STUDIO_METHODS, type StudioMethod } from "../shared/ipc";
 import { setVendorRoot } from "./engine/osn";
 import { appendLog, installAppLog } from "./log";
@@ -8,6 +8,7 @@ import { PROJECTOR_HASH } from "./projectors";
 import { registerMediaScheme } from "./screen-recording";
 import { STUDIO_SCHEME } from "./seenalyze/account";
 import { errorKey, Studio, vendorRoot } from "./studio";
+import { initialBounds, keepWindowOnScreen, minimumSizeFor } from "./window-fit";
 
 installAppLog();
 
@@ -27,11 +28,13 @@ function loadRenderer(window: BrowserWindow, hash?: string): void {
 }
 
 function createWindow(): BrowserWindow {
+  // Sized to the screen it opens on, so small and portrait screens never push it off-screen.
+  const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const minimum = minimumSizeFor(workArea);
   const window = new BrowserWindow({
-    width: 1440,
-    height: 900,
-    minWidth: 1100,
-    minHeight: 700,
+    ...initialBounds(workArea),
+    minWidth: minimum.width,
+    minHeight: minimum.height,
     show: false,
     title: "SEENALYZE STUDIO",
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#000000" : "#ffffff",
@@ -47,6 +50,7 @@ function createWindow(): BrowserWindow {
   });
 
   window.once("ready-to-show", () => window.show());
+  keepWindowOnScreen(window, screen);
 
   // The app never navigates away from its own UI and never opens child windows.
   window.webContents.on("will-navigate", (event, url) => {

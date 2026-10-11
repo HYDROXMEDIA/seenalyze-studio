@@ -73,11 +73,13 @@ export class EngineSession {
     const engineData = path.join(this.options.dataDir, "engine");
     mkdirSync(engineData, { recursive: true });
     disableCrashUploads(engineData);
-    const result = NodeObs.OBS_API_initAPI("en-US", engineData, this.options.appVersion, "") as number;
+    const result = NodeObs.OBS_API_initAPI({ language: "en-US", appDataPath: engineData, version: this.options.appVersion, crashServerUrl: LOCAL_CRASH_SERVER }) as number;
     if (result !== 0) {
       this.disconnect();
       throw new Error(result === -2 ? "engine-graphics-missing" : "engine-init-failed");
     }
+    // Starting the crash handler switched uploads back on.
+    disableCrashUploads(engineData);
     if (this.options.audioFormat) {
       try {
         applyAudioFormat(this.osn, this.options.audioFormat);
@@ -178,9 +180,14 @@ function launchHost(pipe: string): void {
 }
 
 /**
- * The bundled crash handler would try to upload engine crash reports to a
- * remote server. Reports stay local unless the user explicitly shares them.
+ * Engine crash reports stay on this machine unless the user explicitly shares
+ * them. The engine's crash handler switches uploads on whenever it starts or
+ * handles a crash, and without a server it sends reports to its vendor's crash
+ * service, so it gets a closed loopback port as its server and uploads are
+ * switched off in its local database (see disableCrashUploads).
  */
+const LOCAL_CRASH_SERVER = "http://127.0.0.1:9/";
+
 function disableCrashUploads(engineData: string): void {
   const tool = path.join(osnRoot(), process.platform === "win32" ? "crashpad_database_util.exe" : "crashpad_database_util");
   if (!existsSync(tool)) return;

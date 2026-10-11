@@ -26,7 +26,7 @@ export function StatsButton() {
       >
         <span>{t("cpu", { value: stats.cpu.toFixed(1) })}</span>
         <span>{t("fps", { value: stats.fps.toFixed(0) })}</span>
-        <span className={cn(stats.renderLagFrames > 0 && "text-yellow-500")}>{t("lagged", { value: stats.renderLagFrames })}</span>
+        <span className={cn("max-[1000px]:hidden", stats.renderLagFrames > 0 && "text-yellow-500")}>{t("lagged", { value: stats.renderLagFrames })}</span>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-96">
         <StatsPanel />

@@ -2,6 +2,8 @@
 @import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
+/* Short windows: dense controls so the dock row does not need to scroll. */
+@custom-variant short (@media (max-height: 760px));
 
 @theme inline {
   --color-background: var(--background);
@@ -124,6 +126,40 @@
   -webkit-app-region: no-drag;
 }
 
+/*
+ * Studio docks. One row on wide windows; narrow, tall windows (portrait
+ * screens) get two rows so every dock keeps a usable width. The row grows to
+ * fit the Controls dock (the only one that is not size-contained), so its
+ * buttons only scroll when the window is too short for all of them.
+ */
+.dock-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(10.5rem, 1fr) minmax(9.5rem, 1.3fr) minmax(10.5rem, 1.3fr) minmax(10rem, 1.5fr) minmax(11rem, 0.9fr);
+  grid-template-rows: minmax(18rem, auto);
+  /* Last resort on screens narrower than every dock's minimum width combined. */
+  overflow-x: auto;
+}
+
+@media (min-height: 900px) {
+  .dock-grid {
+    grid-template-rows: minmax(20rem, auto);
+  }
+}
+
+@media (max-width: 1179px) and (min-height: 820px) {
+  .dock-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-rows: 14rem minmax(14rem, auto);
+  }
+  .dock-grid > :nth-child(-n + 3) {
+    grid-column: span 2;
+  }
+  .dock-grid > :nth-child(n + 4) {
+    grid-column: span 3;
+  }
+}
+
 /* Chat: new messages ease in from below. */
 @keyframes chat-in {
   from {
@@ -164,6 +200,13 @@
   }
 }
 
+@keyframes ui-tip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
 @keyframes ui-rise-in {
   from {
     opacity: 0;
@@ -179,6 +222,12 @@
 .animate-ui-pop {
   animation: ui-pop-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   transform-origin: var(--radix-dropdown-menu-content-transform-origin, var(--radix-select-content-transform-origin, center));
+}
+
+/* Tooltips grow out of their trigger. */
+.animate-ui-tip {
+  animation: ui-tip-in 140ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transform-origin: var(--radix-tooltip-content-transform-origin, center);
 }
 
 /* Section, tab and page content. */
@@ -199,6 +248,7 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-ui-fade,
   .animate-ui-pop,
+  .animate-ui-tip,
   .animate-ui-rise,
   .animate-ui-list > * {
     animation: none;

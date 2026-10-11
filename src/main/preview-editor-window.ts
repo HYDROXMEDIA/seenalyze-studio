@@ -1,9 +1,12 @@
 // macOS only: the program preview is a native child window drawn above the web
 // UI, so the editing layer (selection outline and handles) cannot live in the
 // main window. It runs in a transparent child window placed exactly over the
-// preview rect instead. It loads the same renderer with `#preview-editor`.
+// preview rect instead, reaching PREVIEW_EDITOR_MARGIN past it on every side
+// so handles on the canvas edge stay grabbable. It loads the same renderer
+// with `#preview-editor`.
 
 import { BrowserWindow } from "electron";
+import { PREVIEW_EDITOR_MARGIN } from "../shared/transform-geometry";
 import type { Rect } from "../shared/types";
 
 export const PREVIEW_EDITOR_HASH = "preview-editor";
@@ -35,6 +38,10 @@ export class PreviewEditorWindow {
       fullscreenable: false,
       skipTaskbar: true,
       focusable: true,
+      // Keyboard focus goes back to the main window after every click, so
+      // without this each press would only activate this window and never
+      // reach a handle.
+      acceptFirstMouse: true,
       roundedCorners: false,
       webPreferences: {
         preload: options.preload,
@@ -99,10 +106,10 @@ export class PreviewEditorWindow {
     }
     const content = this.parent.getContentBounds();
     const bounds = {
-      x: Math.round(content.x + rect.x),
-      y: Math.round(content.y + rect.y),
-      width: Math.round(rect.width),
-      height: Math.round(rect.height),
+      x: Math.round(content.x + rect.x - PREVIEW_EDITOR_MARGIN),
+      y: Math.round(content.y + rect.y - PREVIEW_EDITOR_MARGIN),
+      width: Math.round(rect.width + 2 * PREVIEW_EDITOR_MARGIN),
+      height: Math.round(rect.height + 2 * PREVIEW_EDITOR_MARGIN),
     };
     const current = this.window.getBounds();
     if (current.x !== bounds.x || current.y !== bounds.y || current.width !== bounds.width || current.height !== bounds.height) {

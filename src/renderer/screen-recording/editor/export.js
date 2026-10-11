@@ -40,9 +40,21 @@ class Mp4Frames {
   }
 
   async start() {
-    const config = { codec: this.track.codec, description: this.track.description, codedWidth: this.track.width, codedHeight: this.track.height, hardwareAcceleration: 'prefer-hardware' };
-    const support = await VideoDecoder.isConfigSupported(config).catch(() => ({ supported: false }));
-    if (!support.supported) return false;
+    // Graphics-card decoding when available, otherwise whatever this computer supports.
+    let config = null;
+    for (const hardwareAcceleration of ['prefer-hardware', 'no-preference']) {
+      const candidate = { codec: this.track.codec, description: this.track.description, codedWidth: this.track.width, codedHeight: this.track.height, hardwareAcceleration };
+      const support = await VideoDecoder.isConfigSupported(candidate).catch((error) => {
+        console.warn(`[export] could not check decoding (${hardwareAcceleration})`, error);
+        return { supported: false };
+      });
+      if (support.supported) {
+        config = candidate;
+        break;
+      }
+    }
+    // The caller falls back to reading frames from the player.
+    if (config === null) return false;
     this.decoder = new VideoDecoder({
       output: (frame) => {
         this.frames.push(frame);
@@ -263,21 +275,56 @@ async function pickAudioCodec(sampleRate, channels) {
   return null;
 }
 
+// Graphics-card encoding first, then the processor. Some graphics drivers
+// report support and then fail on the first frame, so each candidate encodes
+// one test frame before it is used.
+const ACCELERATIONS = ['prefer-hardware', 'prefer-software'];
+
+async function encoderWorks(config) {
+  let failure = null;
+  const encoder = new VideoEncoder({
+    output: () => undefined,
+    error: (error) => {
+      failure = error;
+    }
+  });
+  try {
+    encoder.configure(config);
+    const canvas = new OffscreenCanvas(config.width, config.height);
+    canvas.getContext('2d', { alpha: false }).fillRect(0, 0, config.width, config.height);
+    const frame = new VideoFrame(canvas, { timestamp: 0, duration: Math.round(1e6 / config.framerate) });
+    encoder.encode(frame, { keyFrame: true });
+    frame.close();
+    await encoder.flush();
+  } catch (error) {
+    failure ??= error;
+  } finally {
+    if (encoder.state !== 'closed') encoder.close();
+  }
+  if (failure !== null) console.warn(`[export] ${config.codec} (${config.hardwareAcceleration}) failed a test frame; trying the next encoder`, failure);
+  return failure === null;
+}
+
 async function pickEncoder(width, height, fps, bitrate) {
-  for (const codec of CODECS) {
-    const config = {
-      codec,
-      width,
-      height,
-      bitrate,
-      framerate: fps,
-      bitrateMode: 'variable',
-      latencyMode: 'quality',
-      hardwareAcceleration: 'prefer-hardware',
-      avc: { format: 'avc' }
-    };
-    const support = await VideoEncoder.isConfigSupported(config).catch(() => ({ supported: false }));
-    if (support.supported) return config;
+  for (const hardwareAcceleration of ACCELERATIONS) {
+    for (const codec of CODECS) {
+      const config = {
+        codec,
+        width,
+        height,
+        bitrate,
+        framerate: fps,
+        bitrateMode: 'variable',
+        latencyMode: 'quality',
+        hardwareAcceleration,
+        avc: { format: 'avc' }
+      };
+      const support = await VideoEncoder.isConfigSupported(config).catch((error) => {
+        console.warn(`[export] could not check ${codec} (${hardwareAcceleration})`, error);
+        return { supported: false };
+      });
+      if (support.supported && await encoderWorks(config)) return config;
+    }
   }
   return null;
 }

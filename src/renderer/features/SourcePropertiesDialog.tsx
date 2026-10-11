@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "use-intl";
 import type { PropertyDTO } from "../../shared/types";
 import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Input, Label, Slider, Switch, Textarea } from "@/components/ui/form";
 import {
@@ -155,6 +156,7 @@ export function PropertyField({
   onButton: () => void;
 }) {
   const t = useTranslations("properties");
+  const run = useAction();
   const id = `prop-${property.name}`;
   const disabled = !property.enabled;
 
@@ -232,18 +234,20 @@ export function PropertyField({
           <Label htmlFor={id}>{property.label}</Label>
           <div className="flex gap-2">
             <Input id={id} disabled={disabled} value={String(property.value ?? "")} onChange={(event) => onChange(property.name, event.target.value)} />
-            <Button
-              variant="outline"
-              size="icon"
-              disabled={disabled}
-              aria-label={t("browse")}
-              onClick={async () => {
-                const picked = await studio.pickFile(property.pathFilter, Boolean(property.directory));
-                if (picked) onChange(property.name, picked, true);
-              }}
-            >
-              <FolderOpenIcon />
-            </Button>
+            <Tooltip label={t("browse")}>
+              <Button
+                variant="outline"
+                size="icon"
+                disabled={disabled}
+                aria-label={t("browse")}
+                onClick={async () => {
+                  const picked = await run(() => studio.pickFile(property.pathFilter, Boolean(property.directory)));
+                  if (picked) onChange(property.name, picked, true);
+                }}
+              >
+                <FolderOpenIcon />
+              </Button>
+            </Tooltip>
           </div>
         </div>
       );

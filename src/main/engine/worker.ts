@@ -215,6 +215,7 @@ const handlers = {
   setItemVisible: (scene: string, itemId: number, visible: boolean) => need(scenes).setItemVisible(scene, itemId, visible),
   setItemLocked: (scene: string, itemId: number, locked: boolean) => need(scenes).setItemLocked(scene, itemId, locked),
   moveSceneItem: (scene: string, itemId: number, direction: "up" | "down") => need(scenes).moveSceneItem(scene, itemId, direction),
+  reorderSceneItem: (scene: string, itemId: number, index: number) => need(scenes).reorderSceneItem(scene, itemId, index),
   applyTransform: (scene: string, itemId: number, preset: TransformPreset) => need(scenes).applyTransform(scene, itemId, preset),
   patchItemTransform: (scene: string, itemId: number, patch: ItemTransformPatch) => need(scenes).patchItemTransform(scene, itemId, patch),
   getItemPlacement: (scene: string, itemId: number) => need(scenes).getItemPlacement(scene, itemId),
@@ -229,6 +230,7 @@ const handlers = {
 
   // Scene and source management
   moveScene: (name: string, direction: "up" | "down") => need(scenes).moveScene(name, direction),
+  reorderScene: (name: string, index: number) => need(scenes).reorderScene(name, index),
   duplicateScene: (name: string): string => withScenes((graph) => graph.duplicateScene(name)),
   duplicateSceneItem: (scene: string, itemId: number) => withScenes((graph) => graph.duplicateSceneItem(scene, itemId)),
 

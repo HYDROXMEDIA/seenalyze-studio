@@ -99,10 +99,16 @@ async function removeBackground(id: string): Promise<void> {
   await fs.rm(join(backgroundDirectory(), id), { force: true });
 }
 
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 async function readJson(path: string): Promise<unknown> {
   try {
     return (await readRecoverableJson(path)).value;
-  } catch {
+  } catch (error) {
+    // A missing file is the normal "no saved edits yet" case; anything else is logged.
+    if ((error as NodeJS.ErrnoException | null)?.code !== 'ENOENT') console.warn(`[editor] ${path} could not be read: ${errorText(error)}`);
     return null;
   }
 }
@@ -110,6 +116,7 @@ async function readJson(path: string): Promise<unknown> {
 // Editor windows for editing finished screen recordings, one per video. The
 // original video is never changed: edits are kept in a small project file next
 // to it and applied when exporting a new video.
+
 export class EditorWindows {
   private readonly entries = new Map<string, EditorEntry>();
   private readonly opening = new Map<string, Promise<boolean>>();
@@ -190,11 +197,24 @@ export class EditorWindows {
   // Deletes stored background images that no saved edit uses anymore, for
   // example after its recording was deleted or a window closed before saving.
   async pruneBackgrounds(): Promise<void> {
-    const stored = await fs.readdir(backgroundDirectory()).catch(() => [] as string[]);
+    const stored = await fs.readdir(backgroundDirectory()).catch((error: unknown) => {
+      // No folder yet means no images were ever added.
+      if ((error as NodeJS.ErrnoException | null)?.code !== 'ENOENT') this.deps.log(`Background images could not be listed: ${errorText(error)}`);
+      return [] as string[];
+    });
     if (stored.length === 0) return;
     const used = new Set<string>();
     for (const path of await editorProjectPaths()) {
-      const id = projectImageId(await readJson(path));
+      let project: unknown;
+      try {
+        project = (await readRecoverableJson(path)).value;
+      } catch (error) {
+        // An unreadable project (for example a file locked by another app) may
+        // still use an image: keep every image until all projects can be read.
+        this.deps.log(`Unused background images were kept; ${path} could not be read: ${errorText(error)}`);
+        return;
+      }
+      const id = projectImageId(project);
       if (id !== null) used.add(id);
     }
     let removed = 0;
@@ -203,7 +223,7 @@ export class EditorWindows {
       // Leave images added moments ago; their edit may not be saved yet.
       const stat = await fs.stat(join(backgroundDirectory(), name)).catch(() => null);
       if (stat === null || Date.now() - stat.mtimeMs < PRUNE_GRACE_MS) continue;
-      await removeBackground(name).then(() => { removed += 1; }, () => undefined);
+      await removeBackground(name).then(() => { removed += 1; }, (error: unknown) => this.deps.log(`Unused background image could not be removed: ${errorText(error)}`));
     }
     if (removed > 0) this.deps.log(`Removed ${removed} unused editor background image(s)`);
   }
@@ -251,8 +271,8 @@ export class EditorWindows {
     entry.job = null;
     job.child?.kill();
     job.js?.kill();
-    await job.finished.catch(() => false);
-    await fs.rm(job.filePath, { force: true }).catch(() => undefined);
+    await job.finished.catch((error: unknown) => this.deps.log(`Canceled export did not stop cleanly: ${errorText(error)}`));
+    await fs.rm(job.filePath, { force: true }).catch((error: unknown) => this.deps.log(`Canceled export file could not be removed: ${errorText(error)}`));
   }
 
   private exportFailed(entry: EditorEntry, job: ExportJob, reason: string): void {
@@ -261,7 +281,7 @@ export class EditorWindows {
     entry.job = null;
     job.failed = true;
     this.deps.log(`Editor export failed: ${reason}`);
-    void fs.rm(job.filePath, { force: true }).catch(() => undefined);
+    void fs.rm(job.filePath, { force: true }).catch((error: unknown) => this.deps.log(`Failed export file could not be removed: ${errorText(error)}`));
     if (!entry.window.isDestroyed()) entry.window.webContents.send('editor:export-failed');
   }
 
@@ -323,15 +343,26 @@ export class EditorWindows {
       if (!this.entryFor(event) || !preset || typeof preset !== 'object') return false;
       const value = preset as { id?: unknown; name?: unknown; look?: unknown; exportChoice?: unknown; isDefault?: unknown };
       if (typeof value.id !== 'string' || !/^[a-f0-9-]{36}$/.test(value.id) || typeof value.name !== 'string' || !value.name.trim() || JSON.stringify(value).length > MAX_PROJECT_BYTES) return false;
-      const existing = await readJson(presetsPath()); const list = Array.isArray(existing) ? existing.slice(0, 99) : [];
-      const next = list.filter(x => x.id !== value.id).map(x => ({ ...x, isDefault: value.isDefault === true ? false : x.isDefault }));
-      next.push({ ...value, name: value.name.trim().slice(0, 120), isDefault: value.isDefault === true });
-      await writeAtomic(presetsPath(), JSON.stringify(next), true); return true;
+      // Never rewrite the list from a file that could not be read: that would drop the saved presets.
+      try {
+        const existing = (await readRecoverableJson(presetsPath())).value; const list = Array.isArray(existing) ? existing.slice(0, 99) : [];
+        const next = list.filter(x => x.id !== value.id).map(x => ({ ...x, isDefault: value.isDefault === true ? false : x.isDefault }));
+        next.push({ ...value, name: value.name.trim().slice(0, 120), isDefault: value.isDefault === true });
+        await writeAtomic(presetsPath(), JSON.stringify(next), true); return true;
+      } catch (error) {
+        this.deps.log(`Style preset could not be saved: ${errorText(error)}`);
+        return false;
+      }
     });
     ipcMain.handle('editor:preset-delete', async (event, id) => {
       if (!this.entryFor(event) || typeof id !== 'string') return false;
-      const existing = await readJson(presetsPath());
-      await writeAtomic(presetsPath(), JSON.stringify(Array.isArray(existing) ? existing.filter(x => x.id !== id) : []), true); return true;
+      try {
+        const existing = (await readRecoverableJson(presetsPath())).value;
+        await writeAtomic(presetsPath(), JSON.stringify(Array.isArray(existing) ? existing.filter(x => x.id !== id) : []), true); return true;
+      } catch (error) {
+        this.deps.log(`Style preset could not be removed: ${errorText(error)}`);
+        return false;
+      }
     });
     ipcMain.handle('editor:background-url', (event, id) => this.entryFor(event) && typeof id === 'string' && BACKGROUND_ID.test(id) ? backgroundUrl(id) : null);
     ipcMain.handle('editor:transcribe', async (event, id) => {
@@ -370,7 +401,7 @@ export class EditorWindows {
         // Destroy skips the renderer's save-on-close after deleting the project.
         entry.window.destroy();
         this.deps.onExported();
-        void this.pruneBackgrounds();
+        this.pruneBackgrounds().catch((error: unknown) => this.deps.log(`Unused background images could not be cleaned up: ${errorText(error)}`));
         return { ok: true };
       } catch (error) {
         this.deps.log(`Recording could not be discarded: ${error instanceof Error ? error.message : String(error)}`);
@@ -391,7 +422,7 @@ export class EditorWindows {
           if (save !== entry.saves) return true;
           await prepareRecordingData(entry.videoPath);
           await writeAtomic(editorProjectPath(entry.videoPath), data, true, () => save === entry.saves);
-          if (before !== null && before !== projectImageId(next)) await removeBackground(before).catch(() => undefined);
+          if (before !== null && before !== projectImageId(next)) await removeBackground(before).catch((error: unknown) => this.deps.log(`Replaced background image could not be removed: ${errorText(error)}`));
           return true;
         } catch (error) {
           this.deps.log(`Recording edits could not be saved: ${error instanceof Error ? error.message : String(error)}`);
@@ -414,12 +445,13 @@ export class EditorWindows {
         try {
           before = projectImageId(JSON.parse(readFileSync(path, 'utf8')));
         } catch {
+          // No saved edits yet (or unreadable ones): there is no earlier background to clean up.
           before = null;
         }
         ensureRecordingDataSync(entry.videoPath);
         writeAtomicSync(path, data, true);
         event.returnValue = true;
-        if (before !== null && before !== projectImageId(next)) void removeBackground(before).catch(() => undefined);
+        if (before !== null && before !== projectImageId(next)) void removeBackground(before).catch((error: unknown) => this.deps.log(`Replaced background image could not be removed: ${errorText(error)}`));
       } catch (error) {
         this.deps.log(`Recording edits could not be saved: ${error instanceof Error ? error.message : String(error)}`);
       }
@@ -565,7 +597,9 @@ export class EditorWindows {
       child.stdout?.on('data', (chunk: string) => {
         output = (output + chunk).slice(-4096);
       });
-      child.stdin?.on('error', () => undefined);
+      // The helper closing its input early (for example after a failure) is
+      // reported through "finished"; the write error itself is only logged.
+      child.stdin?.on('error', (error) => this.deps.log(`Export helper input closed: ${errorText(error)}`));
       const job: ExportJob = {
         filePath: temporary,
         target,
@@ -641,8 +675,8 @@ export class EditorWindows {
       if (entry.job === job) entry.job = null;
       if (ok) {
         // Edits and pointer data of a video this replaces belong to that old video.
-        await removeRecordingData(job.target).catch(() => undefined);
-        await fs.rm(cameraPath(job.target), { force: true }).catch(() => undefined);
+        await removeRecordingData(job.target).catch((error: unknown) => this.deps.log(`Old recording data could not be removed: ${errorText(error)}`));
+        await fs.rm(cameraPath(job.target), { force: true }).catch((error: unknown) => this.deps.log(`Old camera track could not be removed: ${errorText(error)}`));
         ok = await fs.rename(job.filePath, job.target).then(() => true, (error: unknown) => {
           this.deps.log(`Exported video could not be moved into place: ${error instanceof Error ? error.message : String(error)}`);
           return false;
@@ -650,7 +684,7 @@ export class EditorWindows {
       }
       if (!ok) {
         this.deps.log('Editor export could not be finished');
-        await fs.rm(job.filePath, { force: true }).catch(() => undefined);
+        await fs.rm(job.filePath, { force: true }).catch((error: unknown) => this.deps.log(`Unfinished export file could not be removed: ${errorText(error)}`));
         return { ok: false };
       }
       entry.lastExport = job.target;

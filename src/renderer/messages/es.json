@@ -607,7 +607,9 @@
   "notices": {
     "accountConnected": "{name} conectado",
     "sourcesUnavailable": "No se pudieron abrir algunas fuentes guardadas. Vuelve a conectar tus dispositivos o revisa los permisos y reinicia. Sus ajustes se conservan.",
-    "replaySaved": "Clip guardado en {folder}"
+    "microphoneCheckFailed": "No se pudieron comprobar tus micrófonos. Si tu micrófono predeterminado son unos auriculares Bluetooth, su sonido puede empeorar. Elige otro micrófono en el panel Audio para evitarlo.",
+    "replaySaved": "Clip guardado en {folder}",
+    "encoderFallback": "El codificador de la tarjeta gráfica no pudo iniciarse, así que se usa el codificador por software. Puedes cambiarlo en Configuración."
   },
   "errors": {
     "output": {
@@ -622,12 +624,14 @@
       "recordingFailed": "La grabación se detuvo inesperadamente.",
       "generic": "{name}: la emisión se detuvo inesperadamente.",
       "replayFailed": "La repetición instantánea se detuvo de forma inesperada.",
-      "replaySaveFailed": "No se pudo guardar el clip."
+      "replaySaveFailed": "No se pudo guardar el clip.",
+      "recordingEncoder": "El codificador de la grabación se detuvo."
     },
     "codes": {
       "generic": "Algo salió mal. Inténtalo de nuevo.",
       "engine-init-failed": "Es posible que tus controladores gráficos estén desactualizados o no sean compatibles. Actualízalos y reinicia la aplicación.",
       "engine-graphics-missing": "Faltan componentes gráficos necesarios. Actualiza tu sistema y reinicia la aplicación.",
+      "preview-failed": "La vista previa ha dejado de actualizarse. Las emisiones y la grabación no se ven afectadas. Reinicia la aplicación para recuperarla.",
       "engine-not-ready": "El estudio aún se está iniciando. Inténtalo de nuevo en un momento.",
       "forbidden": "Esa acción no está permitida.",
       "invalid-request": "Esa acción no está permitida.",
@@ -669,6 +673,8 @@
       "permission-microphone-denied": "El acceso al micrófono está desactivado. Permítelo en Ajustes del Sistema.",
       "account-in-use": "Otro destino ya usa esta cuenta.",
       "permission-screen-denied": "El acceso a la grabación de pantalla está desactivado. Permítelo en Ajustes del Sistema y reinicia la aplicación.",
+      "permission-camera-no-prompt": "macOS no pidió acceso a la cámara. Cierra SEENALYZE STUDIO, ábrelo desde el Finder o el Dock e inténtalo de nuevo.",
+      "permission-microphone-no-prompt": "macOS no pidió acceso al micrófono. Cierra SEENALYZE STUDIO, ábrelo desde el Finder o el Dock e inténtalo de nuevo.",
       "youtube-quota-exceeded": "Se alcanzó el límite diario de solicitudes de YouTube para esta aplicación. Inténtalo de nuevo mañana.",
       "youtube-chat-ended": "Este chat en directo de YouTube ha finalizado.",
       "youtube-chat-disabled": "El chat en directo está desactivado en esta emisión de YouTube.",
@@ -706,7 +712,8 @@
       "collection-unreadable": "No se pudo leer esta colección de escenas.",
       "import-invalid": "Ese archivo no es una colección de escenas.",
       "import-not-found": "Esa colección de escenas ya no existe.",
-      "import-too-large": "Ese archivo es demasiado grande para importarlo."
+      "import-too-large": "Ese archivo es demasiado grande para importarlo.",
+      "recording-encoder-failed": "El codificador de la grabación no pudo iniciarse en este ordenador."
     }
   },
   "permissions": {
@@ -992,7 +999,8 @@
         "addImage": "Añadir imagen",
         "removeImage": "Quitar imagen",
         "invalidImage": "Ese archivo no es una imagen compatible.",
-        "imageFailed": "No se pudo añadir la imagen. Inténtalo de nuevo."
+        "imageFailed": "No se pudo añadir la imagen. Inténtalo de nuevo.",
+        "removeFailed": "No se ha podido quitar la imagen. Inténtalo de nuevo."
       },
       "frame": {
         "title": "Formato",
@@ -1122,7 +1130,11 @@
         "name": "Nombre del estilo",
         "default": "Usar en nuevas grabaciones",
         "save": "Guardar estilo",
-        "remove": "Quitar estilo"
+        "remove": "Quitar estilo",
+        "loadFailed": "No se pudieron cargar los estilos guardados.",
+        "removeTitle": "¿Quitar el estilo «{name}»?",
+        "removeConfirm": "Quitar",
+        "cancel": "Cancelar"
       },
       "captions": {
         "title": "Subtítulos",
@@ -1137,7 +1149,8 @@
         "start": "Inicio del subtítulo en segundos",
         "end": "Fin del subtítulo en segundos",
         "invalidTiming": "Mantén los subtítulos en orden y dentro del vídeo.",
-        "preparing": "Preparando subtítulos…"
+        "preparing": "Preparando subtítulos…",
+        "cpuUnsupported": "No se pueden crear subtítulos con el procesador de este ordenador."
       }
     },
     "main": {
@@ -1376,5 +1389,22 @@
       "setupFound": "Se encontraron escenas de OBS Studio o Streamlabs.",
       "setupAction": "Importar"
     }
+  },
+  "tooltips": {
+    "projectors": "Abrir un proyector",
+    "clearHotkey": "Borrar atajo",
+    "removeEffect": "Quitar efecto",
+    "moveUp": "Subir",
+    "moveDown": "Bajar",
+    "removeFilter": "Quitar filtro",
+    "audioFilters": "Filtros de audio",
+    "sourceSettings": "Propiedades de la fuente",
+    "mute": "Silenciar",
+    "unmute": "Activar sonido",
+    "chooseDevice": "Elegir dispositivo",
+    "lock": "Bloquear posición",
+    "unlock": "Desbloquear",
+    "hide": "Ocultar fuente",
+    "show": "Mostrar fuente"
   }
 }

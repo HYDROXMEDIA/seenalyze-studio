@@ -390,6 +390,15 @@ export class SceneGraph {
     this.sceneOrder = order;
   }
 
+  /** Moves a scene to `index` in the scene list (0 = first). */
+  reorderScene(name: string, index: number): void {
+    this.requireScene(name);
+    if (!Number.isInteger(index) || index < 0 || index >= this.sceneOrder.length) throw new Error("invalid-request");
+    const order = this.sceneOrder.filter((entry) => entry !== name);
+    order.splice(index, 0, name);
+    this.sceneOrder = order;
+  }
+
   /**
    * Copies a scene with all its items (same sources, same placement,
    * visibility and lock) and lists the copy right below it. Returns its name.
@@ -597,6 +606,23 @@ export class SceneGraph {
     // "Up" in the list means drawn above, i.e. later in engine order.
     if (direction === "up") item.moveUp();
     else item.moveDown();
+  }
+
+  /**
+   * Moves an item to `index` in the sources list (0 = top). The list is the
+   * drawing order, so this also changes what is drawn above what in the
+   * preview, recordings and streams.
+   */
+  reorderSceneItem(sceneName: string, itemId: number, index: number): void {
+    const scene = this.requireScene(sceneName);
+    const item = this.requireItem(sceneName, itemId);
+    const items = scene.getItems();
+    if (!Number.isInteger(index) || index < 0 || index >= items.length) throw new Error("invalid-request");
+    // Engine order is bottom-to-top; the list shows the top item first.
+    const from = items.findIndex((entry) => entry.id === itemId);
+    const to = items.length - 1 - index;
+    for (let step = from; step < to; step += 1) item.moveUp();
+    for (let step = from; step > to; step -= 1) item.moveDown();
   }
 
   applyTransform(sceneName: string, itemId: number, preset: TransformPreset): void {

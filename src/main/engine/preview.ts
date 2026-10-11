@@ -2,7 +2,7 @@
 // worker). libobs renders into displays attached to app windows: the program
 // canvas, or a single source (the studio-mode preview, a scene, a source).
 // Windows: a child window positioned in physical pixels.
-// macOS: an IOSurface; the main process shows it with node-window-rendering
+// macOS: an IOSurface; the main process shows it with the preview presenter
 // (preview-mac.ts) because that view must live in the window's own process.
 
 import type { Rect } from "../../shared/types";
@@ -17,7 +17,7 @@ export interface PreviewRequest {
   rect: Rect;
   /** Native window handle bytes from BrowserWindow.getNativeWindowHandle(). */
   windowHandle: Uint8Array;
-  /** Window backing scale factor (Windows positions and sizes in physical pixels; unused on macOS). */
+  /** Window backing scale factor: displays are sized (and on Windows positioned) in physical pixels. */
   scale: number;
   mac: boolean;
 }
@@ -66,13 +66,13 @@ export class PreviewHost {
     }
 
     // Windows: the display is a child window positioned and sized in physical
-    // pixels. macOS: the preview helper makes its view as many points as the
-    // surface has pixels and stretches the surface over the view's backing
-    // pixels, so the surface is sized in points on every screen (sized in
-    // physical pixels, it shows twice too large on Retina screens).
+    // pixels. macOS: the presenter scales the surface to its view, so the
+    // surface is sized in physical pixels for a sharp picture, but never wider
+    // than the canvas: the engine copies every frame of it to the CPU.
     // Resizing is enough; the display needs no rebuild when the window moves
     // to another screen, and destroying it right after a resize is unsafe.
-    const pixelScale = request.mac ? 1 : request.scale;
+    const scale = Number.isFinite(request.scale) && request.scale > 0 ? request.scale : 1;
+    const pixelScale = request.mac ? Math.max(1, Math.min(scale, this.engine.settings.baseWidth / rect.width)) : scale;
     const width = Math.round(rect.width * pixelScale);
     const height = Math.round(rect.height * pixelScale);
     const sizeChanged = !this.size || this.size.width !== width || this.size.height !== height;
@@ -86,7 +86,7 @@ export class PreviewHost {
       // drawing into it once a new one exists, so every new size gets one.
       return sizeChanged ? { surface: NodeObs.OBS_content_createIOSurface(this.name) as number } : {};
     }
-    NodeObs.OBS_content_moveDisplay(this.name, Math.round(rect.x * request.scale), Math.round(rect.y * request.scale));
+    NodeObs.OBS_content_moveDisplay(this.name, Math.round(rect.x * scale), Math.round(rect.y * scale));
     return {};
   }
 

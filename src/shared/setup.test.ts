@@ -64,7 +64,7 @@ describe("encoder presets", () => {
 
   test("maps to each encoder's own setting", () => {
     expect(encoderPresetSettings("x264", "performance")).toEqual({ preset: "superfast" });
-    expect(encoderPresetSettings("nvenc", "quality")).toEqual({ preset2: "p7" });
+    expect(encoderPresetSettings("nvenc", "quality")).toEqual({ preset: "p7" });
     expect(encoderPresetSettings("amd", "performance")).toEqual({ preset: "speed" });
     expect(encoderPresetSettings("qsv", "quality")).toEqual({ target_usage: "TU1" });
   });

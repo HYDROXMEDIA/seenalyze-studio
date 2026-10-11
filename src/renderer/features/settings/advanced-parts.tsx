@@ -3,6 +3,7 @@ import { useId, useState, type ReactNode } from "react";
 import { useTranslations } from "use-intl";
 import { AUDIO_TRACK_COUNT, toggleTrack } from "../../../shared/formats";
 import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 /** "Advanced" toggle that reveals rarely needed controls; closed unless they hold non-default values. */
@@ -56,20 +57,20 @@ export function TrackToggles({
         const on = (value & (1 << (track - 1))) !== 0;
         const next = toggleTrack(value, track, !on);
         return (
-          <Button
-            key={track}
-            type="button"
-            size="icon-sm"
-            variant={on ? "default" : "outline"}
-            aria-pressed={on}
-            aria-label={t("track", { number: track })}
-            title={t("track", { number: track })}
-            disabled={disabled || (!allowNone && next === 0)}
-            onClick={() => onChange(next)}
-            className="tabular-nums"
-          >
-            {track}
-          </Button>
+          <Tooltip key={track} label={t("track", { number: track })}>
+            <Button
+              type="button"
+              size="icon-sm"
+              variant={on ? "default" : "outline"}
+              aria-pressed={on}
+              aria-label={t("track", { number: track })}
+              disabled={disabled || (!allowNone && next === 0)}
+              onClick={() => onChange(next)}
+              className="tabular-nums"
+            >
+              {track}
+            </Button>
+          </Tooltip>
         );
       })}
     </div>

@@ -119,7 +119,8 @@ export class OutputManager extends EventEmitter {
         encoderGroup = this.acquireGroup(group.profile, encoderId);
       } catch (error) {
         console.error("[outputs] failed to create an encoder", error);
-        for (const id of group.destinationIds) this.emitStatus({ id, state: "error", kbps: 0, droppedFrames: 0, totalFrames: 0, encoderGroup: null, errorKey: "errors.output.startFailed" });
+        // The encoder key lets the studio retry with the software encoder.
+        for (const id of group.destinationIds) this.emitStatus({ id, state: "error", kbps: 0, droppedFrames: 0, totalFrames: 0, encoderGroup: null, errorKey: "errors.output.encoder" });
         continue;
       }
       // Reserve all users before starting: an early failure must not release
@@ -194,13 +195,19 @@ export class OutputManager extends EventEmitter {
     // counts as one more user of its group.
     const group = options.shareStreamEncoder ? this.largestGroup() : undefined;
     if (group) group.users.add(RECORDING_USER);
-    const encoder =
-      group?.encoder ??
-      osn.VideoEncoderFactory.create(encoderId, "seenalyze-recording", {
-        rate_control: "CBR",
-        bitrate: options.bitrateKbps,
-        keyint_sec: 2,
-      });
+    let encoder: IVideoEncoder;
+    try {
+      encoder =
+        group?.encoder ??
+        osn.VideoEncoderFactory.create(encoderId, "seenalyze-recording", {
+          rate_control: "CBR",
+          bitrate: options.bitrateKbps,
+          keyint_sec: 2,
+        });
+    } catch (error) {
+      console.error(`[outputs] recording encoder ${encoderId} could not be created`, error);
+      throw new Error("recording-encoder-failed", { cause: error });
+    }
     const output = osn.AdvancedRecordingFactory.create();
     output.path = folder;
     output.format = options.format as IAdvancedRecording["format"];
@@ -420,7 +427,9 @@ export class OutputManager extends EventEmitter {
   }
 
   private onRecordingSignal(signal: EOutputSignal): void {
-    if (signal.signal === "stop") this.finishRecording(signal.code === 0 ? undefined : "errors.output.recordingFailed");
+    if (signal.signal !== "stop") return;
+    // -8: the encoder failed (see stopErrorKey); the studio can retry on the software encoder.
+    this.finishRecording(signal.code === 0 ? undefined : signal.code === -8 ? "errors.output.recordingEncoder" : "errors.output.recordingFailed");
   }
 
   private finishRecording(errorKey?: string): void {

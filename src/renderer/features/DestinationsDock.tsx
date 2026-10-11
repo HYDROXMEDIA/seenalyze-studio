@@ -16,8 +16,9 @@ import {
   AlertDialogTitle,
   DialogFooter,
   DialogHeader,
-  NativeMenu,
+  ActionMenu,
 } from "@/components/ui/overlays";
+import { Tooltip } from "@/components/ui/tooltip";
 import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
 import { cn } from "@/lib/utils";
@@ -66,16 +67,18 @@ export function DestinationsDock() {
     <Dock
       title={t("title")}
       actions={
-        <NativeMenu
+        <ActionMenu
           items={[
             { label: t("platforms.youtube"), onSelect: () => add("youtube") },
             { label: t("platforms.twitch"), onSelect: () => add("twitch") },
           ]}
         >
-          <Button variant="ghost" size="icon-sm" aria-label={t("add")}>
-            <PlusIcon />
-          </Button>
-        </NativeMenu>
+          <Tooltip label={t("add")}>
+            <Button variant="ghost" size="icon-sm" aria-label={t("add")}>
+              <PlusIcon />
+            </Button>
+          </Tooltip>
+        </ActionMenu>
       }
     >
       {destinations.length === 0 ? (
@@ -83,7 +86,7 @@ export function DestinationsDock() {
           icon={RadioTowerIcon}
           text={t("empty")}
           action={
-            <div className="flex gap-2">
+            <div className="flex flex-wrap justify-center gap-2">
               <Button size="sm" variant="outline" onClick={() => add("youtube")}>
                 <PlatformIcon platform="youtube" className="size-4" />
                 {t("platforms.youtube")}
@@ -124,7 +127,7 @@ export function DestinationsDock() {
                     aria-label={t("include", { name: destination.name })}
                     onCheckedChange={(checked) => void run(() => studio.setDestinationEnabled(destination.id, checked))}
                   />
-                  <NativeMenu
+                  <ActionMenu
                     items={[
                       active
                         ? { label: t("endOne"), onSelect: () => (askBeforeEnd ? setEnding(destination) : void run(() => studio.endStream([destination.id]))) }
@@ -135,10 +138,12 @@ export function DestinationsDock() {
                       { label: tc("remove"), disabled: active, onSelect: () => setRemoving(destination) },
                     ]}
                   >
-                    <Button variant="ghost" size="icon-sm" aria-label={tc("more")}>
-                      <MoreHorizontalIcon />
-                    </Button>
-                  </NativeMenu>
+                    <Tooltip label={tc("more")}>
+                      <Button variant="ghost" size="icon-sm" aria-label={tc("more")}>
+                        <MoreHorizontalIcon />
+                      </Button>
+                    </Tooltip>
+                  </ActionMenu>
                 </li>
               );
             })}

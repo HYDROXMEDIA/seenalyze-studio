@@ -12,6 +12,9 @@ interface AudioInput {
   isDefault: boolean;
 }
 
+/** `ok: false` when the device check couldn't run (helper missing or failed, or its output unreadable). */
+export type InputCheck<T> = { ok: true; value: T } | { ok: false };
+
 const HELPER_TIMEOUT_MS = 3000;
 /** Preferred replacements for a Bluetooth default, best first. */
 const PREFERRED_TRANSPORTS: AudioInput["transport"][] = ["usb", "builtIn", "other"];
@@ -28,45 +31,38 @@ export function pickDefaultMicrophone(inputs: AudioInput[]): string | undefined 
 
 /**
  * Input devices by UID and name, read without opening any of them (used for
- * a muted microphone whose device stays closed). Empty when unavailable.
+ * a muted microphone whose device stays closed). Empty on other systems.
  */
-export function listMicrophones(helper: string): Promise<{ uid: string; name: string }[]> {
-  if (process.platform !== "darwin") return Promise.resolve([]);
-  return new Promise((resolve) => {
-    execFile(helper, [], { timeout: HELPER_TIMEOUT_MS }, (error, stdout) => {
-      if (error) {
-        console.warn("[audio-inputs] could not list input devices", error.message);
-        resolve([]);
-        return;
-      }
-      try {
-        const parsed = JSON.parse(stdout) as { inputs?: { uid?: unknown; name?: unknown }[] };
-        const inputs = Array.isArray(parsed.inputs) ? parsed.inputs : [];
-        resolve(inputs.flatMap((input) => (typeof input.uid === "string" && input.uid ? [{ uid: input.uid, name: typeof input.name === "string" && input.name ? input.name : input.uid }] : [])));
-      } catch {
-        console.warn("[audio-inputs] unreadable device list");
-        resolve([]);
-      }
-    });
-  });
+export function listMicrophones(helper: string): Promise<InputCheck<{ uid: string; name: string }[]>> {
+  if (process.platform !== "darwin") return Promise.resolve({ ok: true, value: [] });
+  return readInputs(helper, (inputs) =>
+    (inputs as { uid?: unknown; name?: unknown }[]).flatMap((input) =>
+      typeof input.uid === "string" && input.uid ? [{ uid: input.uid, name: typeof input.name === "string" && input.name ? input.name : input.uid }] : [],
+    ),
+  );
 }
 
 /** Device UID to open in place of the system default, or undefined to keep it. */
-export function resolveDefaultMicrophone(helper: string): Promise<string | undefined> {
-  if (process.platform !== "darwin") return Promise.resolve(undefined);
+export function resolveDefaultMicrophone(helper: string): Promise<InputCheck<string | undefined>> {
+  if (process.platform !== "darwin") return Promise.resolve({ ok: true, value: undefined });
+  return readInputs(helper, (inputs) => pickDefaultMicrophone(inputs as AudioInput[]));
+}
+
+function readInputs<T>(helper: string, parse: (inputs: unknown[]) => T): Promise<InputCheck<T>> {
   return new Promise((resolve) => {
     execFile(helper, [], { timeout: HELPER_TIMEOUT_MS }, (error, stdout) => {
       if (error) {
-        console.warn("[audio-inputs] could not list input devices", error.message);
-        resolve(undefined);
+        console.error("[audio-inputs] could not list input devices", error.message);
+        resolve({ ok: false });
         return;
       }
       try {
-        const parsed = JSON.parse(stdout) as { inputs?: AudioInput[] };
-        resolve(pickDefaultMicrophone(Array.isArray(parsed.inputs) ? parsed.inputs : []));
-      } catch {
-        console.warn("[audio-inputs] unreadable device list");
-        resolve(undefined);
+        const parsed = JSON.parse(stdout) as { inputs?: unknown };
+        if (!Array.isArray(parsed.inputs)) throw new Error("no inputs list");
+        resolve({ ok: true, value: parse(parsed.inputs) });
+      } catch (parseError) {
+        console.error("[audio-inputs] unreadable device list", parseError instanceof Error ? parseError.message : String(parseError));
+        resolve({ ok: false });
       }
     });
   });

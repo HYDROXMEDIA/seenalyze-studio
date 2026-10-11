@@ -1,7 +1,12 @@
 import { t, intlLocale, initI18n, onLocaleChange } from '../shared/i18n.js';
+import { installSelectMenus } from '../shared/select-menu.js';
+import { installTooltips } from '../shared/tooltip.js';
 
 // A full-screen overlay with fixed geometry: set the language only, never the direction.
 initI18n();
+// Before the page's own key handlers, so keys for an open list stay in it.
+installSelectMenus();
+installTooltips();
 
 const api = window.recordingCapture;
 

@@ -13,6 +13,7 @@ import {
   type HotkeyProblem,
 } from "../../shared/hotkeys";
 import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
 import { isMac, studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
 import { cn } from "@/lib/utils";
@@ -130,6 +131,7 @@ function HotkeyRow({
   onChange: (combo: string | null) => void;
 }) {
   const t = useTranslations("hotkeys");
+  const tt = useTranslations("tooltips");
   const [capturing, setCapturingState] = useState(false);
   const [problem, setProblem] = useState<HotkeyProblem | "reserved" | null>(null);
   // Snapshots re-render often; the key listener reads the latest values without re-subscribing.
@@ -195,17 +197,18 @@ function HotkeyRow({
           <KeyboardIcon aria-hidden className="size-4 shrink-0" />
           {capturing ? t("pressKeys") : combo ? displayHotkey(combo, window.platform) : t("notSet")}
         </button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t("clearLabel", { action: fullLabel })}
-          title={t("clear")}
-          disabled={!combo}
-          className={cn(!combo && "invisible")}
-          onClick={() => onChange(null)}
-        >
-          <XIcon />
-        </Button>
+        <Tooltip label={tt("clearHotkey")}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t("clearLabel", { action: fullLabel })}
+            disabled={!combo}
+            className={cn(!combo && "invisible")}
+            onClick={() => onChange(null)}
+          >
+            <XIcon />
+          </Button>
+        </Tooltip>
       </div>
       {message && (
         <p id={messageId} role={problem ? "alert" : undefined} className={cn("text-xs", problem ? "text-destructive" : "text-amber-700 dark:text-amber-400")}>

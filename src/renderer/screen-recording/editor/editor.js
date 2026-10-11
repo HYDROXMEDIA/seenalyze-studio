@@ -1,5 +1,7 @@
 import { normalizeCaptions, subtitleText } from './captions.js';
 import { t, formatNumber, initI18n, onLocaleChange } from '../shared/i18n.js';
+import { installSelectMenus } from '../shared/select-menu.js';
+import { installTooltips } from '../shared/tooltip.js';
 import {
   ASPECTS,
   BACKGROUNDS,
@@ -35,6 +37,8 @@ import { ExportCanceled, QUALITY_BITS, runExport } from './export.js';
 import { keyVariant, soundSet } from './sounds.js';
 
 initI18n({ direction: true });
+installSelectMenus();
+installTooltips();
 
 const api = window.recordingEditor;
 const DEFAULT_BACKGROUND = 'dusk';
@@ -517,7 +521,7 @@ video.addEventListener('pause', () => {
 function setPlayLabel() {
   const label = t(video.paused ? 'editor.play' : 'editor.pause');
   playButton.setAttribute('aria-label', label);
-  playButton.title = label;
+  playButton.dataset.tooltip = label;
 }
 
 // ---- Timeline and editing -------------------------------------------------
@@ -667,7 +671,7 @@ $('zoom-follow').addEventListener('change', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
-  if (exporting || timelineDragging || $('export-dialog').open || document.body.dataset.state !== 'ready') return;
+  if (exporting || timelineDragging || document.querySelector('dialog[open]') !== null || document.body.dataset.state !== 'ready') return;
   if (event.target instanceof Element && event.target.closest('[role="radiogroup"]')) return;
   const target = event.target;
   const typing = target instanceof HTMLInputElement && target.type !== 'checkbox' && target.type !== 'range';
@@ -734,7 +738,7 @@ function buildBackgrounds() {
     button.setAttribute('role', 'radio');
     button.dataset.value = name;
     button.setAttribute('aria-label', t(`editor.background.${name}`));
-    button.title = t(`editor.background.${name}`);
+    button.dataset.tooltip = t(`editor.background.${name}`);
     button.style.setProperty('--swatch', colors === null ? 'transparent' : `linear-gradient(135deg, ${colors[0]}, ${colors[1]})`);
     // Switching to or from no background changes the padding, and so the view.
     button.addEventListener('click', () => commit((draft) => { draft.look.background = name; }, { cursor: false }));
@@ -747,7 +751,7 @@ function buildBackgrounds() {
     custom.setAttribute('role', 'radio');
     custom.dataset.value = 'image';
     custom.setAttribute('aria-label', t('editor.background.image'));
-    custom.title = t('editor.background.image');
+    custom.dataset.tooltip = t('editor.background.image');
     custom.style.setProperty('--swatch', `center / cover no-repeat url("${backgroundUrl}")`);
     custom.addEventListener('click', () => commit((draft) => { draft.look.background = 'image'; }, { camera: false, cursor: false }));
     buttons.push(custom);
@@ -756,7 +760,7 @@ function buildBackgrounds() {
   add.type = 'button';
   add.className = 'swatch swatch--add';
   add.setAttribute('aria-label', t('editor.background.addImage'));
-  add.title = t('editor.background.addImage');
+  add.dataset.tooltip = t('editor.background.addImage');
   add.textContent = '+';
   add.addEventListener('click', () => void addBackgroundImage());
   buttons.push(add);
@@ -772,7 +776,8 @@ async function addBackgroundImage() {
   }
   try {
     await loadBackground(result.url);
-  } catch {
+  } catch (error) {
+    console.error('[editor] background image could not be loaded', error);
     showToast(t('editor.background.invalidImage'));
     return;
   }
@@ -801,7 +806,18 @@ function rewriteHistory(change) {
 
 async function removeBackgroundImage() {
   const id = project.look.backgroundImage;
-  if (id === null || !(await api.removeBackground(id))) return;
+  if (id === null) return;
+  let removed = false;
+  try {
+    removed = await api.removeBackground(id);
+  } catch (error) {
+    console.error('[editor] background image could not be removed', error);
+  }
+  if (!removed) {
+    console.error('[editor] background image was not removed');
+    showToast(t('editor.background.removeFailed'));
+    return;
+  }
   backgroundImage = null;
   backgroundUrl = null;
   // The file is gone, so this change is not undoable into the image.
@@ -857,7 +873,7 @@ function buildCameraChoices() {
     button.dataset.value = position;
     button.textContent = arrows[position];
     button.setAttribute('aria-label', t(`editor.camera.positions.${position}`));
-    button.title = t(`editor.camera.positions.${position}`);
+    button.dataset.tooltip = t(`editor.camera.positions.${position}`);
     button.addEventListener('click', () => commit((draft) => { draft.look.cameraPosition = position; draft.look.cameraRecorded = false; }, { camera: false, cursor: false }));
     return button;
   });
@@ -880,14 +896,14 @@ function buildKeyChoices() {
     button.setAttribute('role', 'radio');
     button.dataset.value = color;
     button.setAttribute('aria-label', t(`editor.keys.colors.${KEY_COLOR_NAMES[color]}`));
-    button.title = t(`editor.keys.colors.${KEY_COLOR_NAMES[color]}`);
+    button.dataset.tooltip = t(`editor.keys.colors.${KEY_COLOR_NAMES[color]}`);
     button.style.setProperty('--swatch', color);
     button.addEventListener('click', () => commit((draft) => { draft.look.keyColor = color; }, { camera: false, cursor: false }));
     return button;
   });
   const custom = document.createElement('label');
   custom.className = 'swatch swatch--color';
-  custom.title = t('editor.keys.custom');
+  custom.dataset.tooltip = t('editor.keys.custom');
   const input = document.createElement('input');
   input.type = 'color';
   input.id = 'key-color-custom';
@@ -1284,19 +1300,71 @@ function renderCaptions() {
 $('generate-captions').addEventListener('click', async () => {
   if (captionJob) return; captionJob = crypto.randomUUID(); $('generate-captions').disabled = true; $('cancel-captions').hidden = false;
   try { const result = await api.transcribe(captionJob); if (result?.captions) { commit(draft => { draft.captions = normalizeCaptions(result.captions, duration); draft.captionsEnabled = true; }); renderCaptions(); } }
-  catch { showToast(t('editor.captions.failed')); }
+  catch (error) {
+    console.error('Captions could not be generated', error);
+    // Errors from the main process arrive as text that includes their code.
+    showToast(t(String(error?.message ?? '').includes('caption-cpu-unsupported') ? 'editor.captions.cpuUnsupported' : 'editor.captions.failed'));
+  }
   finally { captionJob = null; $('generate-captions').disabled = false; $('cancel-captions').hidden = true; }
 });
-$('cancel-captions').addEventListener('click', () => { if (captionJob) void api.cancelTranscription(captionJob); });
+$('cancel-captions').addEventListener('click', () => {
+  if (!captionJob) return;
+  api.cancelTranscription(captionJob).catch((error) => {
+    console.error('Captions could not be canceled', error);
+    showToast(t('editor.captions.failed'));
+  });
+});
 $('captions-enabled').addEventListener('change', event => commit(draft => { draft.captionsEnabled = event.target.checked; }));
 for (const format of ['srt', 'vtt']) $('export-'+format).addEventListener('click', () => api.exportSubtitles(subtitleText(project.captions, project.clips, format), format));
 // A negative value means the recognizer is still being prepared.
 api.onTranscriptionProgress(progress => { $('caption-progress').textContent = progress < 0 ? t('editor.captions.preparing') : t('editor.export.percent', { percent: Math.round(progress * 100) }); });
 const presets = $('style-presets'); let savedPresets = [];
-async function loadPresets() { savedPresets = await api.getPresets(); presets.replaceChildren(new Option(t('editor.presets.choose'), ''), ...savedPresets.map(x => new Option(x.name, x.id))); }
-$('save-preset').addEventListener('click', async () => { const name = $('preset-name').value.trim(); if (!name) { $('preset-name').focus(); return; } await api.savePreset({ id: crypto.randomUUID(), name, look: project.look, exportChoice, isDefault: $('preset-default').checked }); $('preset-name').value = ''; await loadPresets(); });
+async function loadPresets() {
+  try {
+    savedPresets = await api.getPresets();
+  } catch (error) {
+    // The current list stays; the next save or remove reloads it.
+    console.error('Style presets could not be loaded', error);
+    showToast(t('editor.presets.loadFailed'));
+    return;
+  }
+  presets.replaceChildren(new Option(t('editor.presets.choose'), ''), ...savedPresets.map(x => new Option(x.name, x.id)));
+}
+$('save-preset').addEventListener('click', async () => {
+  const name = $('preset-name').value.trim();
+  if (!name) { $('preset-name').focus(); return; }
+  const saved = await api.savePreset({ id: crypto.randomUUID(), name, look: project.look, exportChoice, isDefault: $('preset-default').checked }).catch((error) => {
+    console.error('Style preset could not be saved', error);
+    return false;
+  });
+  // The typed name stays so the user can try again.
+  if (!saved) { showToast(t('editor.saveFailed')); return; }
+  $('preset-name').value = '';
+  await loadPresets();
+});
 presets.addEventListener('change', async () => { const preset = savedPresets.find(x => x.id === presets.value); if (!preset) return; commit(draft => { draft.look = normalizeLook(preset.look); }); if (preset.exportChoice) applyExportChoice(preset.exportChoice); if (preset.look.backgroundImage) { const url = await api.backgroundUrl(preset.look.backgroundImage); if (url) { const image = new Image(); image.crossOrigin = 'anonymous'; image.src = url; await image.decode(); backgroundImage = image; showAt(playhead); } } });
-$('delete-preset').addEventListener('click', async () => { if (!presets.value) return; await api.deletePreset(presets.value); await loadPresets(); });
+// Removing a preset cannot be undone, so it is confirmed first.
+$('delete-preset').addEventListener('click', () => {
+  const chosen = savedPresets.find((preset) => preset.id === presets.value);
+  if (!chosen) return;
+  const dialog = $('remove-preset-dialog');
+  $('remove-preset-title').textContent = t('editor.presets.removeTitle', { name: chosen.name });
+  dialog.dataset.presetId = chosen.id;
+  dialog.returnValue = '';
+  dialog.showModal();
+});
+$('remove-preset-dialog').addEventListener('close', async () => {
+  const dialog = $('remove-preset-dialog');
+  const id = dialog.dataset.presetId;
+  delete dialog.dataset.presetId;
+  if (dialog.returnValue !== 'remove' || !id) return;
+  const removed = await api.deletePreset(id).catch((error) => {
+    console.error('Style preset could not be removed', error);
+    return false;
+  });
+  if (!removed) { showToast(t('editor.saveFailed')); return; }
+  await loadPresets();
+});
 captionUIReady = true; renderCaptions(); void loadPresets();
 if (init.projectRecovered) showToast(t('editor.captions.recovered'));
 if (init.exportChoice) applyExportChoice(init.exportChoice);

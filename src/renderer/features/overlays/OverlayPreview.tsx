@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "use-intl";
 import { resolveValues, settingsToCss, type OverlayField, type OverlayValue } from "../../../shared/overlays";
 import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 const TESTS: { key: string; icon: LucideIcon; message: { kind: "chat" } | { kind: "event"; eventType: string } }[] = [
@@ -69,15 +70,17 @@ export function OverlayPreview({
             {t(`tests.${key}`)}
           </Button>
         ))}
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          className="ml-auto"
-          aria-label={dark ? t("lightBackground") : t("darkBackground")}
-          onClick={() => setDark(!dark)}
-        >
-          {dark ? <SunIcon /> : <MoonIcon />}
-        </Button>
+        <Tooltip label={dark ? t("lightBackground") : t("darkBackground")}>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            className="ml-auto"
+            aria-label={dark ? t("lightBackground") : t("darkBackground")}
+            onClick={() => setDark(!dark)}
+          >
+            {dark ? <SunIcon /> : <MoonIcon />}
+          </Button>
+        </Tooltip>
       </div>
       <div
         ref={areaRef}

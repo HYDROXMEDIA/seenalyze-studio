@@ -11,10 +11,10 @@
     <header class="toolbar">
       <span class="title" id="title"></span>
       <span class="spacer"></span>
-      <button class="icon-button" type="button" id="undo" aria-label="Undo" title="Undo (⌘Z)" data-i18n-attr="aria-label:editor.edit.undo;title:editor.edit.undoShortcut">
+      <button class="icon-button" type="button" id="undo" aria-label="Undo" data-tooltip="Undo (⌘Z)" data-i18n-attr="aria-label:editor.edit.undo;data-tooltip:editor.edit.undoShortcut">
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 5 3.8 8.7l3.7 3.7" /><path d="M4 8.7h7.8a4.2 4.2 0 0 1 0 8.4H9" /></svg>
       </button>
-      <button class="icon-button" type="button" id="redo" aria-label="Redo" title="Redo (⇧⌘Z)" data-i18n-attr="aria-label:editor.edit.redo;title:editor.edit.redoShortcut">
+      <button class="icon-button" type="button" id="redo" aria-label="Redo" data-tooltip="Redo (⇧⌘Z)" data-i18n-attr="aria-label:editor.edit.redo;data-tooltip:editor.edit.redoShortcut">
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m12.5 5 3.7 3.7-3.7 3.7" /><path d="M16 8.7H8.2a4.2 4.2 0 0 0 0 8.4H11" /></svg>
       </button>
       <span class="export-progress" id="export-progress" hidden>
@@ -39,7 +39,7 @@
         </div>
 
         <div class="transport">
-          <button class="icon-button" type="button" id="play" aria-label="Play" data-i18n-attr="aria-label:editor.play;title:editor.play" title="Play">
+          <button class="icon-button" type="button" id="play" aria-label="Play" data-i18n-attr="aria-label:editor.play;data-tooltip:editor.play" data-tooltip="Play">
             <svg class="icon-play" viewBox="0 0 20 20" aria-hidden="true"><path class="solid" d="M6 4.5v11l9-5.5Z" /></svg>
             <svg class="icon-pause" viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 4.5v11M13.5 4.5v11" /></svg>
           </button>
@@ -236,6 +236,16 @@
         <div class="dialog-actions">
           <button class="text-button" type="submit" value="cancel" data-i18n="editor.export.cancel">Cancel</button>
           <button class="primary-button" type="submit" value="export" id="export-confirm" autofocus data-i18n="editor.export.button">Export</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="export-dialog" id="remove-preset-dialog" aria-labelledby="remove-preset-title">
+      <form method="dialog">
+        <h2 id="remove-preset-title"></h2>
+        <div class="dialog-actions">
+          <button class="text-button" type="submit" value="cancel" autofocus data-i18n="editor.presets.cancel">Cancel</button>
+          <button class="danger-button" type="submit" value="remove" data-i18n="editor.presets.removeConfirm">Remove</button>
         </div>
       </form>
     </dialog>

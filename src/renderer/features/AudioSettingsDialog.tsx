@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input, Label, Slider, Switch } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/overlays";
+import { Tooltip } from "@/components/ui/tooltip";
 import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
 import { cn } from "@/lib/utils";
@@ -304,6 +305,7 @@ function FilterCard({
   editLocally: (id: string, settings: Record<string, AudioFilterValue>) => void;
 }) {
   const t = useTranslations("mixer");
+  const tt = useTranslations("tooltips");
   const name = t(`filterKinds.${filter.kind}`);
   const params = AUDIO_FILTER_SPECS[filter.kind].params.filter((param) => param.key !== "suppress_level" || filter.settings.method === "speex");
   return (
@@ -315,9 +317,15 @@ function FilterCard({
           onCheckedChange={(enabled) => apply({ type: "updateFilter", id: filter.id, enabled })}
         />
         <span className={cn("min-w-0 flex-1 truncate text-sm font-medium", !filter.enabled && "text-muted-foreground")}>{name}</span>
-        <Button variant="ghost" size="icon-sm" disabled={first} aria-label={t("moveUp", { name })} onClick={() => apply({ type: "moveFilter", id: filter.id, direction: "up" })}><ArrowUpIcon /></Button>
-        <Button variant="ghost" size="icon-sm" disabled={last} aria-label={t("moveDown", { name })} onClick={() => apply({ type: "moveFilter", id: filter.id, direction: "down" })}><ArrowDownIcon /></Button>
-        <Button variant="ghost" size="icon-sm" aria-label={t("removeFilter", { name })} onClick={() => apply({ type: "removeFilter", id: filter.id })}><Trash2Icon /></Button>
+        <Tooltip label={tt("moveUp")}>
+          <Button variant="ghost" size="icon-sm" disabled={first} aria-label={t("moveUp", { name })} onClick={() => apply({ type: "moveFilter", id: filter.id, direction: "up" })}><ArrowUpIcon /></Button>
+        </Tooltip>
+        <Tooltip label={tt("moveDown")}>
+          <Button variant="ghost" size="icon-sm" disabled={last} aria-label={t("moveDown", { name })} onClick={() => apply({ type: "moveFilter", id: filter.id, direction: "down" })}><ArrowDownIcon /></Button>
+        </Tooltip>
+        <Tooltip label={tt("removeFilter")}>
+          <Button variant="ghost" size="icon-sm" aria-label={t("removeFilter", { name })} onClick={() => apply({ type: "removeFilter", id: filter.id })}><Trash2Icon /></Button>
+        </Tooltip>
       </div>
       {params.length > 0 && (
         <div className="grid gap-3">

@@ -607,7 +607,9 @@
   "notices": {
     "accountConnected": "{name} csatlakoztatva",
     "sourcesUnavailable": "Néhány mentett forrást nem sikerült megnyitni. Csatlakoztasd újra az eszközeidet, vagy ellenőrizd az engedélyeket, majd indítsd újra az alkalmazást. A beállításaik megmaradnak.",
-    "replaySaved": "Klip mentve ide: {folder}"
+    "microphoneCheckFailed": "Nem sikerült ellenőrizni a mikrofonokat. Ha az alapértelmezett mikrofonod Bluetooth-headset, romolhat a hangja. Ennek elkerüléséhez válassz másik mikrofont a Hang panelen.",
+    "replaySaved": "Klip mentve ide: {folder}",
+    "encoderFallback": "A videokártya kódolója nem tudott elindulni, ezért a szoftveres kódoló működik helyette. A Beállításokban módosíthatod."
   },
   "errors": {
     "output": {
@@ -622,12 +624,14 @@
       "recordingFailed": "A felvétel váratlanul leállt.",
       "generic": "{name}: a közvetítés váratlanul leállt.",
       "replayFailed": "Az azonnali visszajátszás váratlanul leállt.",
-      "replaySaveFailed": "A klipet nem sikerült menteni."
+      "replaySaveFailed": "A klipet nem sikerült menteni.",
+      "recordingEncoder": "A felvétel kódolója leállt."
     },
     "codes": {
       "generic": "Hiba történt. Próbáld újra.",
       "engine-init-failed": "Lehet, hogy a grafikus illesztőprogramjaid elavultak vagy nem támogatottak. Frissítsd őket, és indítsd újra az alkalmazást.",
       "engine-graphics-missing": "Hiányoznak szükséges grafikus összetevők. Frissítsd a rendszert, és indítsd újra az alkalmazást.",
+      "preview-failed": "Az előnézet nem frissül tovább. A közvetítést és a felvételt ez nem érinti. Indítsd újra az alkalmazást a visszaállításához.",
       "engine-not-ready": "A stúdió még indul. Próbáld újra egy pillanat múlva.",
       "forbidden": "Ez a művelet nem engedélyezett.",
       "invalid-request": "Ez a művelet nem engedélyezett.",
@@ -669,6 +673,8 @@
       "permission-microphone-denied": "A mikrofonhoz való hozzáférés ki van kapcsolva. Engedélyezd a Rendszerbeállításokban.",
       "account-in-use": "Ezt a fiókot már egy másik célhely használja.",
       "permission-screen-denied": "A képernyőfelvételi hozzáférés ki van kapcsolva. Engedélyezd a Rendszerbeállításokban, majd indítsd újra az alkalmazást.",
+      "permission-camera-no-prompt": "A macOS nem kért hozzáférést a kamerához. Lépj ki a SEENALYZE STUDIO-ból, nyisd meg a Finderből vagy a Dockból, majd próbáld újra.",
+      "permission-microphone-no-prompt": "A macOS nem kért hozzáférést a mikrofonhoz. Lépj ki a SEENALYZE STUDIO-ból, nyisd meg a Finderből vagy a Dockból, majd próbáld újra.",
       "youtube-quota-exceeded": "Elérte az alkalmazás a YouTube napi kéréskorlátját. Próbáld újra holnap.",
       "youtube-chat-ended": "Ez a YouTube élő chat véget ért.",
       "youtube-chat-disabled": "Ennél a YouTube-közvetítésnél ki van kapcsolva az élő chat.",
@@ -706,7 +712,8 @@
       "collection-unreadable": "Ezt a jelenetgyűjteményt nem sikerült beolvasni.",
       "import-invalid": "Ez a fájl nem jelenetgyűjtemény.",
       "import-not-found": "Ez a jelenetgyűjtemény már nem létezik.",
-      "import-too-large": "Ez a fájl túl nagy az importáláshoz."
+      "import-too-large": "Ez a fájl túl nagy az importáláshoz.",
+      "recording-encoder-failed": "A felvétel kódolója nem tudott elindulni ezen a számítógépen."
     }
   },
   "permissions": {
@@ -992,7 +999,8 @@
         "addImage": "Kép hozzáadása",
         "removeImage": "Kép eltávolítása",
         "invalidImage": "Ez a fájl nem támogatott képformátum.",
-        "imageFailed": "Nem sikerült hozzáadni a képet. Próbáld újra."
+        "imageFailed": "Nem sikerült hozzáadni a képet. Próbáld újra.",
+        "removeFailed": "Nem sikerült eltávolítani a képet. Próbáld újra."
       },
       "frame": {
         "title": "Képarány",
@@ -1122,7 +1130,11 @@
         "name": "Sablon neve",
         "default": "Használat új felvételekhez",
         "save": "Stílus mentése",
-        "remove": "Sablon eltávolítása"
+        "remove": "Sablon eltávolítása",
+        "loadFailed": "Nem sikerült betölteni a stílussablonokat.",
+        "removeTitle": "Eltávolítod a(z) „{name}” sablont?",
+        "removeConfirm": "Eltávolítás",
+        "cancel": "Mégse"
       },
       "captions": {
         "title": "Feliratok",
@@ -1137,7 +1149,8 @@
         "start": "Felirat kezdete másodpercben",
         "end": "Felirat vége másodpercben",
         "invalidTiming": "A feliratok legyenek sorrendben, és a videón belül.",
-        "preparing": "Feliratok előkészítése…"
+        "preparing": "Feliratok előkészítése…",
+        "cpuUnsupported": "Ezen a számítógép processzorán nem készíthetők feliratok."
       }
     },
     "main": {
@@ -1376,5 +1389,22 @@
       "setupFound": "OBS Studio- vagy Streamlabs-jeleneteket találtunk.",
       "setupAction": "Importálás"
     }
+  },
+  "tooltips": {
+    "projectors": "Kivetítő megnyitása",
+    "clearHotkey": "Billentyűparancs törlése",
+    "removeEffect": "Effekt eltávolítása",
+    "moveUp": "Feljebb",
+    "moveDown": "Lejjebb",
+    "removeFilter": "Szűrő eltávolítása",
+    "audioFilters": "Hangszűrők",
+    "sourceSettings": "Forrás tulajdonságai",
+    "mute": "Némítás",
+    "unmute": "Némítás feloldása",
+    "chooseDevice": "Eszköz kiválasztása",
+    "lock": "Pozíció zárolása",
+    "unlock": "Zárolás feloldása",
+    "hide": "Forrás elrejtése",
+    "show": "Forrás megjelenítése"
   }
 }

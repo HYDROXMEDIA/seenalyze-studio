@@ -48,6 +48,7 @@ describe("en messages", () => {
       ...["granted", "denied", "not-determined", "restricted", "unsupported"].map((k) => `permissions.states.${k}`),
       ...["camera", "microphone", "screen"].flatMap((k) => ["label", "title", "description"].map((f) => `permissions.${k}.${f}`)),
       ...["camera", "microphone", "screen"].map((k) => `errors.codes.permission-${k}-denied`),
+      ...["camera", "microphone"].map((k) => `errors.codes.permission-${k}-no-prompt`),
       "settings.permissions",
       ...Object.keys(TRANSFORM_ANCHORS).map((key) => `transformEditor.anchorOptions.${key}`),
       ...["fit", "stretch", "scale"].map((key) => `transformEditor.sizingOptions.${key}`),
@@ -66,6 +67,16 @@ describe("en messages", () => {
     }
     const missing = [...codes].filter((code) => !has(en as Tree, `errors.codes.${code}`));
     expect(missing).toEqual([]);
+  });
+
+  test("every notice sent by the main process has a message", () => {
+    const mainDir = path.join(RENDERER, "..", "main");
+    const keys = new Set<string>();
+    for (const file of sourceFiles(mainDir)) {
+      for (const match of readFileSync(file, "utf8").matchAll(/key: "(notices\.[\w.]+)"/gu)) keys.add(match[1]);
+    }
+    expect(keys.size).toBeGreaterThan(0);
+    expect([...keys].filter((key) => !has(en as Tree, key))).toEqual([]);
   });
 
   test("static t() lookups resolve against their namespace", () => {

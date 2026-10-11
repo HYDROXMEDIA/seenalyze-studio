@@ -176,7 +176,7 @@ export function OverlaysPage() {
 
       <div className="flex min-h-0 flex-1">
         {/* Library and presets */}
-        <aside className="flex w-72 shrink-0 flex-col border-r">
+        <aside className="flex w-60 shrink-0 flex-col border-r xl:w-72">
           <div className="grid grid-cols-2 gap-1 p-2" role="tablist">
             {(["mine", "presets"] as const).map((entry) => (
               <button
@@ -309,7 +309,7 @@ export function OverlaysPage() {
         </main>
 
         {/* Inspector */}
-        <aside className="flex w-[340px] shrink-0 flex-col border-l">
+        <aside className="flex w-72 shrink-0 flex-col border-l xl:w-[340px]">
           {selectedPreset ? (
             <div className="grid gap-3 p-4">
               <h3 className="text-xl font-bold text-neutral-900 dark:text-white">{selectedPreset.name}</h3>

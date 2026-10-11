@@ -26,10 +26,37 @@ describe("transform geometry", () => {
   });
 
   test("corner resize keeps aspect by default and anchors the opposite corner", () => {
-    const patch = resize(base, { hx: 1, hy: 1 }, { x: 500, y: 150 }, true);
+    const patch = resize(base, { hx: 1, hy: 1 }, { x: 500, y: 300 }, true);
     expect(patch.position).toEqual({ x: 100, y: 100 });
     close(patch.scale!.x, 2);
     close(patch.scale!.y, 2);
+    // Off the diagonal, the pointer is projected onto it.
+    const off = resize(base, { hx: 1, hy: 1 }, { x: 500, y: 150 }, true);
+    close(off.scale!.x, 1.7);
+    close(off.scale!.y, 1.7);
+  });
+
+  test("aspect-locked corner resize changes smoothly when growing on one axis and shrinking on the other", () => {
+    // Crossing the line where both axes change equally used to flip the scale.
+    let last = resize(base, { hx: 1, hy: 1 }, { x: 340, y: 180 }, true).scale!.x;
+    for (let i = 1; i <= 40; i += 1) {
+      const scale = resize(base, { hx: 1, hy: 1 }, { x: 340 + i, y: 180 - i * 2 }, true).scale!.x;
+      expect(Math.abs(scale - last)).toBeLessThan(0.02);
+      last = scale;
+    }
+  });
+
+  test("resizing from the centre keeps the centre and grows both sides", () => {
+    const centre = boxPoint(base, 0.5, 0.5);
+    const free = applyPatch(base, resize(base, { hx: 1, hy: 0.5 }, { x: 350, y: 150 }, false, 1, true));
+    close(boxPoint(free, 0.5, 0.5).x, centre.x);
+    close(boxPoint(free, 0, 0).x, 50);
+    close(boxPoint(free, 1, 0).x, 350);
+    const kept = applyPatch(base, resize(base, { hx: 1, hy: 1 }, { x: 400, y: 250 }, true, 1, true));
+    close(boxPoint(kept, 0.5, 0.5).x, centre.x);
+    close(boxPoint(kept, 0.5, 0.5).y, centre.y);
+    close(kept.scale.x, kept.scale.y);
+    close(kept.scale.x, 2);
   });
 
   test("free resize from the top-left moves the position", () => {
@@ -129,12 +156,28 @@ describe("mirrored items", () => {
 
   test("aspect-locked corner resize lands the snapped edge exactly on the line", () => {
     const lines = snapLines({ width: 1920, height: 1080 });
-    const { patch } = snapResize(base, { hx: 1, hy: 1 }, { x: 1000, y: 1076 }, true, 4, lines, 30);
+    // On the diagonal the bottom edge would land at 1076, 4 px above the canvas edge.
+    const { patch } = snapResize(base, { hx: 1, hy: 1 }, { x: 2052, y: 1076 }, true, 4, lines, 30);
     const s = patch.scale?.x ?? 0;
     expect(patch.scale?.y).toBeCloseTo(s);
     const right = 100 + 200 * s;
     const bottom = 100 + 100 * s;
     expect(Math.abs(right - 1920) < 1e-6 || Math.abs(bottom - 1080) < 1e-6).toBe(true);
+  });
+
+  test("snapping works when resizing from the centre", () => {
+    const lines = snapLines({ width: 1920, height: 1080 });
+    const side = snapResize(base, { hx: 1, hy: 0.5 }, { x: 1914, y: 150 }, true, 4, lines, 10, true);
+    const sided = applyPatch(base, side.patch);
+    close(boxPoint(sided, 1, 0).x, 1920);
+    close(boxPoint(sided, 0.5, 0.5).x, 200);
+    // On the diagonal the right edge would land at 955, 5 px from the canvas centre line.
+    const corner = snapResize(base, { hx: 1, hy: 1 }, { x: 955, y: 527.5 }, true, 4, lines, 10, true);
+    const cornered = applyPatch(base, corner.patch);
+    close(cornered.scale.x, cornered.scale.y);
+    close(boxPoint(cornered, 0.5, 0.5).x, 200);
+    close(boxPoint(cornered, 1, 1).x, 960);
+    expect(corner.guides.x).toEqual([960]);
   });
 
   test("rotated items and disabled snapping resize freely", () => {

@@ -33,6 +33,8 @@ async function waitFor(window: BrowserWindow, expression: string, timeoutMs: num
 app.whenReady().then(async () => {
   let failed = false;
   const directory = mkdtempSync(path.join(tmpdir(), "studio-editor-check-"));
+  // Presets and edits go to a throwaway app-data folder, never the user's.
+  app.setPath("userData", path.join(directory, "userData"));
   try {
     handleMediaScheme();
     const video = path.join(directory, "Screen Recording check.mp4");
@@ -81,6 +83,49 @@ app.whenReady().then(async () => {
     const saved = await window.webContents.executeJavaScript(`window.recordingEditor.init().then((init) => init?.project?.look?.motionBlur)`);
     log(`motion blur saved: ${String(saved)} (was ${String(before)})`);
     if (saved !== !before) failed = true;
+
+    // Dropdowns open the app's own option list (not the system menu), and a
+    // keyboard choice updates the <select> and fires its change event.
+    const menu = (await window.webContents.executeJavaScript(`(async () => {
+      const select = [...document.querySelectorAll('select')].find((node) => !node.disabled && node.options.length > 1);
+      if (!select) return { found: false };
+      let changes = 0;
+      select.addEventListener('change', () => { changes += 1; }, { once: true });
+      const before = select.selectedIndex;
+      select.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
+      const list = document.querySelector('.select-menu');
+      const rows = list ? list.querySelectorAll('[role="option"]').length : 0;
+      const topLayer = list?.matches(':popover-open') === true;
+      // The page adding an option while the list is open refreshes the list.
+      const extra = new Option('check', '__check__');
+      select.append(extra);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const refreshed = document.querySelector('.select-menu')?.querySelectorAll('[role="option"]').length === rows + 1;
+      extra.remove();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const key = (name) => select.dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true }));
+      key(before === select.options.length - 1 ? 'ArrowUp' : 'ArrowDown');
+      key('Enter');
+      return { found: true, id: select.id, opened: list !== null, topLayer, refreshed, rows, options: select.options.length, moved: select.selectedIndex !== before, changes, closed: document.querySelector('.select-menu') === null };
+    })()`)) as { found: boolean; id?: string; opened?: boolean; topLayer?: boolean; refreshed?: boolean; rows?: number; options?: number; moved?: boolean; changes?: number; closed?: boolean };
+    log(`select menu: ${JSON.stringify(menu)}`);
+    if (!menu.found || !menu.opened || !menu.topLayer || !menu.refreshed || menu.rows !== menu.options || !menu.moved || menu.changes !== 1 || !menu.closed) failed = true;
+
+    // Removing a style preset asks first: cancel keeps it, confirm removes it.
+    const presetCount = `[...document.getElementById('style-presets').options].filter((option) => option.value).length`;
+    await window.webContents.executeJavaScript(`document.getElementById('preset-name').value = 'Check preset'; document.getElementById('save-preset').click()`);
+    const presetSaved = (await waitFor(window, `${presetCount} === 1`, 3000)) === true;
+    const askRemove = `(() => { const list = document.getElementById('style-presets'); list.value = list.options[1].value; document.getElementById('delete-preset').click(); return document.getElementById('remove-preset-dialog').open; })()`;
+    const askedFirst = (await window.webContents.executeJavaScript(askRemove)) === true;
+    const title = await window.webContents.executeJavaScript(`document.getElementById('remove-preset-title').textContent`);
+    await window.webContents.executeJavaScript(`document.querySelector('#remove-preset-dialog button[value="cancel"]').click()`);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const keptOnCancel = (await window.webContents.executeJavaScript(presetCount)) === 1;
+    await window.webContents.executeJavaScript(askRemove);
+    await window.webContents.executeJavaScript(`document.querySelector('#remove-preset-dialog button[value="remove"]').click()`);
+    const removedOnConfirm = (await waitFor(window, `${presetCount} === 0`, 3000)) === true;
+    log(`preset: saved=${presetSaved} askedFirst=${askedFirst} title="${String(title)}" keptOnCancel=${keptOnCancel} removedOnConfirm=${removedOnConfirm}`);
+    if (!presetSaved || !askedFirst || !String(title).includes("Check preset") || !keptOnCancel || !removedOnConfirm) failed = true;
 
     // Export through the dialog's default choices, then read the file back.
     await window.webContents.executeJavaScript(`document.getElementById('export').click()`);

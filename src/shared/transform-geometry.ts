@@ -23,6 +23,13 @@ const ALIGN_BOTTOM = 8;
 const BOUNDS_STRETCH = 1;
 
 /** Keeps finite renderer values; scales may be mirrored, bounds must stay positive. */
+/**
+ * Room the editing layer gets around the preview canvas, in points: handles on
+ * the canvas edge reach this far out. The preview leaves at least this much
+ * empty space around the canvas.
+ */
+export const PREVIEW_EDITOR_MARGIN = 12;
+
 export function sanitizeTransformPatch(patch: ItemTransformPatch): ItemTransformPatch {
   const num = (value: unknown): number | undefined =>
     typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= 1_000_000 ? value : undefined;
@@ -156,30 +163,37 @@ export function move(t: ItemTransformDTO, start: Vec, pointer: Vec): ItemTransfo
 }
 
 /**
- * Resizes by dragging a handle, keeping the opposite side fixed. Corners keep
- * the aspect ratio when `keepAspect` is set (OBS default; Shift frees it).
- * Neither side gets smaller than `minSize` canvas pixels.
+ * Resizes by dragging a handle, keeping the opposite side fixed, or the centre
+ * with `fromCenter`. Corners keep the aspect ratio when `keepAspect` is set
+ * (OBS default; Shift frees it). Neither side gets smaller than `minSize`
+ * canvas pixels.
  */
-export function resize(t: ItemTransformDTO, handle: Handle, pointer: Vec, keepAspect: boolean, minSize = MIN_SIZE): ItemTransformPatch {
+export function resize(t: ItemTransformDTO, handle: Handle, pointer: Vec, keepAspect: boolean, minSize = MIN_SIZE, fromCenter = false): ItemTransformPatch {
   const min = Math.max(1, minSize);
   const box = localBox(t);
   const right = box.left + box.width;
   const bottom = box.top + box.height;
   const p = toLocal(t, pointer);
-  let width = handle.hx === 1 ? p.x - box.left : handle.hx === 0 ? right - p.x : box.width;
-  let height = handle.hy === 1 ? p.y - box.top : handle.hy === 0 ? bottom - p.y : box.height;
+  // The point that stays put: the opposite edge, or the centre.
+  const ax = fromCenter ? box.left + box.width / 2 : handle.hx === 1 ? box.left : right;
+  const ay = fromCenter ? box.top + box.height / 2 : handle.hy === 1 ? box.top : bottom;
+  const reach = fromCenter ? 2 : 1;
+  let width = handle.hx === 0.5 ? box.width : (handle.hx === 1 ? p.x - ax : ax - p.x) * reach;
+  let height = handle.hy === 0.5 ? box.height : (handle.hy === 1 ? p.y - ay : ay - p.y) * reach;
   width = Math.max(min, width);
   height = Math.max(min, height);
   const corner = handle.hx !== 0.5 && handle.hy !== 0.5;
   if (keepAspect && corner && box.width > 0 && box.height > 0) {
-    const sx = width / box.width;
-    const sy = height / box.height;
-    const s = Math.max(Math.abs(sx - 1) > Math.abs(sy - 1) ? sx : sy, min / Math.min(box.width, box.height));
+    // Project the pointer onto the box diagonal: the scale changes smoothly in
+    // every direction instead of jumping between the two axes.
+    const dx = ((handle.hx === 1 ? 1 : -1) * box.width) / reach;
+    const dy = ((handle.hy === 1 ? 1 : -1) * box.height) / reach;
+    const s = Math.max(((p.x - ax) * dx + (p.y - ay) * dy) / (dx * dx + dy * dy), min / Math.min(box.width, box.height));
     width = box.width * s;
     height = box.height * s;
   }
-  const left = handle.hx === 0 ? right - width : handle.hx === 1 ? box.left : box.left + (box.width - width) / 2;
-  const top = handle.hy === 0 ? bottom - height : handle.hy === 1 ? box.top : box.top + (box.height - height) / 2;
+  const left = fromCenter || handle.hx === 0.5 ? box.left + (box.width - width) / 2 : handle.hx === 0 ? right - width : box.left;
+  const top = fromCenter || handle.hy === 0.5 ? box.top + (box.height - height) / 2 : handle.hy === 0 ? bottom - height : box.top;
   const f = alignFraction(t.alignment);
   const flipX = t.boundsType === 0 && t.scale.x < 0;
   const flipY = t.boundsType === 0 && t.scale.y < 0;
@@ -336,8 +350,9 @@ export function snapResize(
   minSize: number,
   lines: SnapGuides,
   threshold: number,
+  fromCenter = false,
 ): { patch: ItemTransformPatch; guides: SnapGuides } {
-  const plain = resize(t, handle, pointer, keepAspect, minSize);
+  const plain = resize(t, handle, pointer, keepAspect, minSize, fromCenter);
   const none = { patch: plain, guides: { x: [], y: [] } };
   if (threshold < 0 || t.rotation % 360 !== 0) return none;
   const box = boundingBox(applyPatch(t, plain));
@@ -347,21 +362,28 @@ export function snapResize(
   // The item is unrotated here, so canvas and item-local axes are parallel and
   // the dragged edge follows the pointer one-to-one.
   const corner = handle.hx !== 0.5 && handle.hy !== 0.5;
+  // From the centre, both edges move: the dragged one lands on the line.
+  const reach = fromCenter ? 2 : 1;
   if (keepAspect && corner) {
-    const original = boundingBox(t);
     const width = box.right - box.left;
     const height = box.bottom - box.top;
     const useX = sx && (!sy || Math.abs(sx.delta) <= Math.abs(sy.delta));
-    const factor = useX ? (width + (handle.hx === 1 ? sx.delta : -sx.delta)) / width : sy ? (height + (handle.hy === 1 ? sy.delta : -sy.delta)) / height : 1;
+    const factor = useX
+      ? (width + reach * (handle.hx === 1 ? sx.delta : -sx.delta)) / width
+      : sy
+        ? (height + reach * (handle.hy === 1 ? sy.delta : -sy.delta)) / height
+        : 1;
     const nextWidth = width * factor;
     const nextHeight = height * factor;
     if (Math.min(nextWidth, nextHeight) < minSize) return none;
+    const anchorX = fromCenter ? (box.left + box.right) / 2 : handle.hx === 1 ? box.left : box.right;
+    const anchorY = fromCenter ? (box.top + box.bottom) / 2 : handle.hy === 1 ? box.top : box.bottom;
     const target = {
-      x: handle.hx === 1 ? original.left + nextWidth : original.right - nextWidth,
-      y: handle.hy === 1 ? original.top + nextHeight : original.bottom - nextHeight,
+      x: anchorX + ((handle.hx === 1 ? 1 : -1) * nextWidth) / reach,
+      y: anchorY + ((handle.hy === 1 ? 1 : -1) * nextHeight) / reach,
     };
-    return { patch: resize(t, handle, target, false, minSize), guides: { x: useX && sx ? [sx.line] : [], y: !useX && sy ? [sy.line] : [] } };
+    return { patch: resize(t, handle, target, false, minSize, fromCenter), guides: { x: useX && sx ? [sx.line] : [], y: !useX && sy ? [sy.line] : [] } };
   }
   const target = { x: pointer.x + (sx?.delta ?? 0), y: pointer.y + (sy?.delta ?? 0) };
-  return { patch: resize(t, handle, target, keepAspect, minSize), guides: { x: sx ? [sx.line] : [], y: sy ? [sy.line] : [] } };
+  return { patch: resize(t, handle, target, keepAspect, minSize, fromCenter), guides: { x: sx ? [sx.line] : [], y: sy ? [sy.line] : [] } };
 }

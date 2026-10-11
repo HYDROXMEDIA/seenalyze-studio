@@ -33,8 +33,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  NativeMenu,
+  ActionMenu,
 } from "@/components/ui/overlays";
+import { Tooltip } from "@/components/ui/tooltip";
 import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
 import { cn } from "@/lib/utils";
@@ -69,6 +70,7 @@ export function EffectsDialog({ source, onClose }: { source: string | null; onCl
 function EffectsPanel({ source, onClose }: { source: string; onClose: () => void }) {
   const t = useTranslations("effects");
   const tc = useTranslations("common");
+  const tt = useTranslations("tooltips");
   const run = useAction();
   const [list, setList] = useState<EffectList | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -134,12 +136,12 @@ function EffectsPanel({ source, onClose }: { source: string; onClose: () => void
               );
             })}
           </div>
-          <NativeMenu items={addItems}>
+          <ActionMenu items={addItems}>
             <Button variant="outline" className="justify-self-start">
               <PlusIcon />
               {t("more")}
             </Button>
-          </NativeMenu>
+          </ActionMenu>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-[15rem_1fr]">
@@ -174,38 +176,44 @@ function EffectsPanel({ source, onClose }: { source: string; onClose: () => void
                 );
               })}
             </ul>
-            <NativeMenu items={addItems}>
+            <ActionMenu items={addItems}>
               <Button variant="outline" size="sm" className="justify-self-start">
                 <PlusIcon />
                 {t("add")}
               </Button>
-            </NativeMenu>
+            </ActionMenu>
           </div>
           {current && (
             <div className="grid min-w-0 content-start gap-3">
               <div className="flex items-center gap-1">
                 <h3 className="min-w-0 flex-1 truncate font-semibold">{t(`kinds.${current.kind}`)}</h3>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={t("moveUp")}
-                  disabled={index <= 0}
-                  onClick={() => void apply(() => studio.moveEffect(source, current.name, "up"), () => current.name)}
-                >
-                  <ArrowUpIcon />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={t("moveDown")}
-                  disabled={index >= effects.length - 1}
-                  onClick={() => void apply(() => studio.moveEffect(source, current.name, "down"), () => current.name)}
-                >
-                  <ArrowDownIcon />
-                </Button>
-                <Button variant="ghost" size="icon-sm" aria-label={tc("remove")} onClick={() => setRemoving(current)}>
-                  <Trash2Icon />
-                </Button>
+                <Tooltip label={t("moveUp")}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("moveUp")}
+                    disabled={index <= 0}
+                    onClick={() => void apply(() => studio.moveEffect(source, current.name, "up"), () => current.name)}
+                  >
+                    <ArrowUpIcon />
+                  </Button>
+                </Tooltip>
+                <Tooltip label={t("moveDown")}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("moveDown")}
+                    disabled={index >= effects.length - 1}
+                    onClick={() => void apply(() => studio.moveEffect(source, current.name, "down"), () => current.name)}
+                  >
+                    <ArrowDownIcon />
+                  </Button>
+                </Tooltip>
+                <Tooltip label={tt("removeEffect")}>
+                  <Button variant="ghost" size="icon-sm" aria-label={tc("remove")} onClick={() => setRemoving(current)}>
+                    <Trash2Icon />
+                  </Button>
+                </Tooltip>
               </div>
               <EffectSettings key={current.name} source={source} effect={current.name} />
             </div>

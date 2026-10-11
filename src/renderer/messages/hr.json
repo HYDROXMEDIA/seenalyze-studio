@@ -607,7 +607,9 @@
   "notices": {
     "accountConnected": "{name} povezan",
     "sourcesUnavailable": "Neki spremljeni izvori nisu se mogli otvoriti. Ponovno poveži uređaje ili provjeri dopuštenja pa ponovno pokreni aplikaciju. Njihove postavke ostaju sačuvane.",
-    "replaySaved": "Isječak spremljen u {folder}"
+    "microphoneCheckFailed": "Mikrofoni se nisu mogli provjeriti. Ako su ti zadani mikrofon Bluetooth slušalice, njihov se zvuk može pogoršati. Odaberi drugi mikrofon na ploči Zvuk da to izbjegneš.",
+    "replaySaved": "Isječak spremljen u {folder}",
+    "encoderFallback": "Koder grafičke kartice nije se mogao pokrenuti pa se umjesto njega koristi softverski koder. Možeš ga promijeniti u postavkama."
   },
   "errors": {
     "output": {
@@ -622,12 +624,14 @@
       "recordingFailed": "Snimanje se neočekivano zaustavilo.",
       "generic": "{name}: prijenos se neočekivano zaustavio.",
       "replayFailed": "Trenutna snimka neočekivano se zaustavila.",
-      "replaySaveFailed": "Isječak nije moguće spremiti."
+      "replaySaveFailed": "Isječak nije moguće spremiti.",
+      "recordingEncoder": "Koder snimanja se zaustavio."
     },
     "codes": {
       "generic": "Nešto nije u redu. Pokušaj ponovno.",
       "engine-init-failed": "Upravljački programi grafičke kartice možda su zastarjeli ili nisu podržani. Ažuriraj ih i ponovno pokreni aplikaciju.",
       "engine-graphics-missing": "Nedostaju potrebne grafičke komponente. Ažuriraj sustav i ponovno pokreni aplikaciju.",
+      "preview-failed": "Pregled se prestao osvježavati. Prijenosi i snimanje nisu pogođeni. Ponovno pokreni aplikaciju da ga vratiš.",
       "engine-not-ready": "Studio se još pokreće. Pokušaj ponovno za trenutak.",
       "forbidden": "Ta radnja nije dopuštena.",
       "invalid-request": "Ta radnja nije dopuštena.",
@@ -669,6 +673,8 @@
       "permission-microphone-denied": "Pristup mikrofonu je isključen. Dopusti ga u postavkama sustava.",
       "account-in-use": "Ovaj račun već koristi drugo odredište.",
       "permission-screen-denied": "Pristup snimanju zaslona je isključen. Dopusti ga u postavkama sustava pa ponovno pokreni aplikaciju.",
+      "permission-camera-no-prompt": "macOS nije zatražio pristup kameri. Zatvori SEENALYZE STUDIO, otvori ga iz Findera ili Docka i pokušaj ponovno.",
+      "permission-microphone-no-prompt": "macOS nije zatražio pristup mikrofonu. Zatvori SEENALYZE STUDIO, otvori ga iz Findera ili Docka i pokušaj ponovno.",
       "youtube-quota-exceeded": "Dosegnuto je dnevno ograničenje YouTube zahtjeva za ovu aplikaciju. Pokušaj ponovno sutra.",
       "youtube-chat-ended": "Ovaj YouTube chat uživo je završio.",
       "youtube-chat-disabled": "Chat uživo isključen je za ovaj YouTube prijenos.",
@@ -706,7 +712,8 @@
       "collection-unreadable": "Ovu zbirku scena nije moguće pročitati.",
       "import-invalid": "Ta datoteka nije zbirka scena.",
       "import-not-found": "Ta zbirka scena više ne postoji.",
-      "import-too-large": "Ta je datoteka prevelika za uvoz."
+      "import-too-large": "Ta je datoteka prevelika za uvoz.",
+      "recording-encoder-failed": "Koder snimanja nije se mogao pokrenuti na ovom računalu."
     }
   },
   "permissions": {
@@ -992,7 +999,8 @@
         "addImage": "Dodaj sliku",
         "removeImage": "Ukloni sliku",
         "invalidImage": "Ta datoteka nije podržana slika.",
-        "imageFailed": "Slika se nije mogla dodati. Pokušaj ponovno."
+        "imageFailed": "Slika se nije mogla dodati. Pokušaj ponovno.",
+        "removeFailed": "Slika se nije mogla ukloniti. Pokušaj ponovno."
       },
       "frame": {
         "title": "Okvir",
@@ -1122,7 +1130,11 @@
         "name": "Naziv predloška",
         "default": "Koristi za nove snimke",
         "save": "Spremi stil",
-        "remove": "Ukloni predložak"
+        "remove": "Ukloni predložak",
+        "loadFailed": "Predlošci stila nisu se mogli učitati.",
+        "removeTitle": "Ukloniti predložak „{name}”?",
+        "removeConfirm": "Ukloni",
+        "cancel": "Odustani"
       },
       "captions": {
         "title": "Titlovi",
@@ -1137,7 +1149,8 @@
         "start": "Početak titla u sekundama",
         "end": "Kraj titla u sekundama",
         "invalidTiming": "Titlovi moraju biti redom i unutar trajanja videa.",
-        "preparing": "Priprema titlova…"
+        "preparing": "Priprema titlova…",
+        "cpuUnsupported": "Na procesoru ovog računala ne mogu se izraditi titlovi."
       }
     },
     "main": {
@@ -1376,5 +1389,22 @@
       "setupFound": "Pronađene su scene iz OBS Studija ili Streamlabsa.",
       "setupAction": "Uvezi"
     }
+  },
+  "tooltips": {
+    "projectors": "Otvori projektor",
+    "clearHotkey": "Obriši prečac",
+    "removeEffect": "Ukloni efekt",
+    "moveUp": "Pomakni gore",
+    "moveDown": "Pomakni dolje",
+    "removeFilter": "Ukloni filtar",
+    "audioFilters": "Audiofiltri",
+    "sourceSettings": "Svojstva izvora",
+    "mute": "Utišaj",
+    "unmute": "Uključi zvuk",
+    "chooseDevice": "Odaberi uređaj",
+    "lock": "Zaključaj položaj",
+    "unlock": "Otključaj",
+    "hide": "Sakrij izvor",
+    "show": "Prikaži izvor"
   }
 }

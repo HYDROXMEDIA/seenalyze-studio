@@ -607,7 +607,9 @@
   "notices": {
     "accountConnected": "{name} connected",
     "sourcesUnavailable": "Some saved sources couldn't be opened. Reconnect your devices or check permissions, then restart. Their settings are kept.",
-    "replaySaved": "Clip saved to {folder}"
+    "microphoneCheckFailed": "Couldn't check your microphones. If your default microphone is a Bluetooth headset, its sound may get worse. Choose another microphone in the Audio panel to avoid this.",
+    "replaySaved": "Clip saved to {folder}",
+    "encoderFallback": "Your graphics card's encoder couldn't start, so the software encoder is used instead. You can change it in Settings."
   },
   "errors": {
     "output": {
@@ -622,12 +624,14 @@
       "recordingFailed": "The recording stopped unexpectedly.",
       "generic": "{name}: the stream stopped unexpectedly.",
       "replayFailed": "Instant replay stopped unexpectedly.",
-      "replaySaveFailed": "The clip couldn't be saved."
+      "replaySaveFailed": "The clip couldn't be saved.",
+      "recordingEncoder": "The recording encoder stopped."
     },
     "codes": {
       "generic": "Something went wrong. Please try again.",
       "engine-init-failed": "Your graphics drivers may be out of date or unsupported. Update them and restart the app.",
       "engine-graphics-missing": "Required graphics components are missing. Update your system and restart the app.",
+      "preview-failed": "The preview stopped updating. Streaming and recording are not affected. Restart the app to bring it back.",
       "engine-not-ready": "The studio is still starting. Try again in a moment.",
       "forbidden": "That action isn't allowed.",
       "invalid-request": "That action isn't allowed.",
@@ -669,6 +673,8 @@
       "permission-microphone-denied": "Microphone access is off. Allow it in System Settings.",
       "account-in-use": "This account is already used by another destination.",
       "permission-screen-denied": "Screen recording access is off. Allow it in System Settings, then restart the app.",
+      "permission-camera-no-prompt": "macOS didn't ask for camera access. Quit SEENALYZE STUDIO, open it from Finder or the Dock, then try again.",
+      "permission-microphone-no-prompt": "macOS didn't ask for microphone access. Quit SEENALYZE STUDIO, open it from Finder or the Dock, then try again.",
       "youtube-quota-exceeded": "YouTube's daily request limit for this app was reached. Try again tomorrow.",
       "youtube-chat-ended": "This YouTube live chat has ended.",
       "youtube-chat-disabled": "Live chat is turned off for this YouTube stream.",
@@ -706,7 +712,8 @@
       "collection-unreadable": "This scene collection couldn't be read.",
       "import-invalid": "That file isn't a scene collection.",
       "import-not-found": "That scene collection no longer exists.",
-      "import-too-large": "That file is too large to import."
+      "import-too-large": "That file is too large to import.",
+      "recording-encoder-failed": "The recording encoder couldn't start on this computer."
     }
   },
   "permissions": {
@@ -992,7 +999,8 @@
         "addImage": "Add image",
         "removeImage": "Remove image",
         "invalidImage": "That file is not a supported image.",
-        "imageFailed": "The image could not be added. Try again."
+        "imageFailed": "The image could not be added. Try again.",
+        "removeFailed": "The image could not be removed. Try again."
       },
       "frame": {
         "title": "Frame",
@@ -1122,7 +1130,11 @@
         "name": "Preset name",
         "default": "Use for new recordings",
         "save": "Save style",
-        "remove": "Remove preset"
+        "remove": "Remove preset",
+        "loadFailed": "Style presets couldn't be loaded.",
+        "removeTitle": "Remove the “{name}” preset?",
+        "removeConfirm": "Remove",
+        "cancel": "Cancel"
       },
       "captions": {
         "title": "Captions",
@@ -1137,7 +1149,8 @@
         "start": "Caption start in seconds",
         "end": "Caption end in seconds",
         "invalidTiming": "Keep captions in order and within the video.",
-        "preparing": "Preparing captions…"
+        "preparing": "Preparing captions…",
+        "cpuUnsupported": "Captions can't be created on this computer's processor."
       }
     },
     "main": {
@@ -1376,5 +1389,22 @@
       "setupFound": "Scenes from OBS Studio or Streamlabs were found.",
       "setupAction": "Import"
     }
+  },
+  "tooltips": {
+    "projectors": "Open a projector",
+    "clearHotkey": "Clear shortcut",
+    "removeEffect": "Remove effect",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "removeFilter": "Remove filter",
+    "audioFilters": "Audio filters",
+    "sourceSettings": "Source properties",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "chooseDevice": "Choose device",
+    "lock": "Lock in place",
+    "unlock": "Unlock",
+    "hide": "Hide source",
+    "show": "Show source"
   }
 }

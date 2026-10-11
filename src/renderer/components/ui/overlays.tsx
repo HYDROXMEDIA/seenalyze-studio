@@ -1,15 +1,22 @@
-// Dialog, alert dialog, popover, native menu and select primitives. Every web
+// Dialog, alert dialog, popover, action menu and select primitives. Every
 // root tracks its open state with usePreviewOcclusion so the native preview
-// steps aside while a floating surface is visible; native menus draw above it.
+// steps aside while a floating surface is visible (menus and selects only
+// while they overlap it).
 
-import { AlertDialog as AlertPrimitive, Dialog as DialogPrimitive, Popover as PopoverPrimitive, Select as SelectPrimitive, Slot } from "radix-ui";
+import {
+  AlertDialog as AlertPrimitive,
+  Dialog as DialogPrimitive,
+  DropdownMenu as MenuPrimitive,
+  Popover as PopoverPrimitive,
+  Select as SelectPrimitive,
+} from "radix-ui";
 import { CheckIcon, ChevronDownIcon, XIcon } from "lucide-react";
-import { useState, type ComponentProps, type MouseEvent, type ReactElement } from "react";
+import { useState, type ComponentProps, type ReactElement, type SyntheticEvent } from "react";
 import { useTranslations } from "use-intl";
-import { studio } from "@/lib/studio";
 import { cn } from "@/lib/utils";
 import { usePreviewOcclusion, type OcclusionKind } from "@/store/studio";
 import { Button } from "./button";
+import { Tooltip } from "./tooltip";
 
 /**
  * Wraps a Radix root so the native preview is hidden exactly while it is open.
@@ -53,10 +60,12 @@ export function DialogContent({ className, children, ...props }: ComponentProps<
       <DialogPrimitive.Overlay className={overlayClass} />
       <DialogPrimitive.Content className={cn(contentClass, "sm:max-w-lg", className)} {...props}>
         {children}
-        <DialogPrimitive.Close className="absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none">
-          <XIcon className="size-4" />
-          <span className="sr-only">{t("close")}</span>
-        </DialogPrimitive.Close>
+        <Tooltip label={t("close")}>
+          <DialogPrimitive.Close className="absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none">
+            <XIcon className="size-4" />
+            <span className="sr-only">{t("close")}</span>
+          </DialogPrimitive.Close>
+        </Tooltip>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   );
@@ -139,34 +148,68 @@ export function AlertDialogCancel(props: ComponentProps<typeof AlertPrimitive.Ca
   );
 }
 
-// ----- Native menu ---------------------------------------------------------
+// ----- Action menu ---------------------------------------------------------
 
-export type NativeMenuItem = { label: string; onSelect: () => void; disabled?: boolean; checked?: boolean } | "separator";
+export type ActionMenuItem = { label: string; onSelect: () => void; disabled?: boolean; checked?: boolean } | "separator";
+
+// The menu is portaled, but React events still bubble to the trigger's
+// ancestors (such as a clickable list row); keep them inside the menu.
+const keepInside = (event: SyntheticEvent) => event.stopPropagation();
+
+const menuItemClass =
+  "relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-none select-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50";
 
 /**
- * Opens an OS menu below the child trigger. Native menus draw above the
- * preview surface, so the preview stays visible while they are open.
+ * Opens an in-app menu below the child trigger, styled like the rest of the
+ * app on every platform. Like selects, it hides the native preview only
+ * while it overlaps it.
  */
-export function NativeMenu({ items, children }: { items: NativeMenuItem[]; children: ReactElement }) {
+export function ActionMenu({ items, children, align = "start" }: { items: ActionMenuItem[]; children: ReactElement; align?: "start" | "center" | "end" }) {
   const [open, setOpen] = useState(false);
-  const show = async (event: MouseEvent<HTMLElement>) => {
-    event.stopPropagation();
-    if (open) return;
-    const box = event.currentTarget.getBoundingClientRect();
-    setOpen(true);
-    try {
-      const entries = items.map((item) => (item === "separator" ? { separator: true } : { label: item.label, enabled: !item.disabled, checked: item.checked }));
-      const index = await studio.showMenu(entries, { x: box.left, y: box.bottom + 4 });
-      const chosen = index === null ? undefined : items[index];
-      if (chosen && chosen !== "separator" && !chosen.disabled) chosen.onSelect();
-    } finally {
-      setOpen(false);
-    }
-  };
+  usePreviewOcclusion(open, "popper");
   return (
-    <Slot.Root aria-haspopup="menu" aria-expanded={open} data-state={open ? "open" : "closed"} onClick={(event: MouseEvent<HTMLElement>) => void show(event).catch(console.error)}>
-      {children}
-    </Slot.Root>
+    // Not modal: actions often open a dialog, which then manages focus itself.
+    <MenuPrimitive.Root modal={false} open={open} onOpenChange={setOpen}>
+      <MenuPrimitive.Trigger asChild onClick={keepInside} onKeyDown={keepInside}>
+        {children}
+      </MenuPrimitive.Trigger>
+      <MenuPrimitive.Portal>
+        <MenuPrimitive.Content
+          align={align}
+          sideOffset={4}
+          collisionPadding={8}
+          onClick={keepInside}
+          onKeyDown={keepInside}
+          onPointerDown={keepInside}
+          className="z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-[10rem] overflow-x-hidden overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-ui-pop"
+        >
+          {items.map((item, index) =>
+            item === "separator" ? (
+              <MenuPrimitive.Separator key={`separator-${index}`} className="-mx-1 my-1 h-px bg-border" />
+            ) : item.checked === undefined ? (
+              <MenuPrimitive.Item key={`item-${index}-${item.label}`} disabled={item.disabled} onSelect={item.onSelect} className={menuItemClass}>
+                <span className="truncate">{item.label}</span>
+              </MenuPrimitive.Item>
+            ) : (
+              <MenuPrimitive.CheckboxItem
+                key={`item-${index}-${item.label}`}
+                checked={item.checked}
+                disabled={item.disabled}
+                onSelect={item.onSelect}
+                className={menuItemClass}
+              >
+                <span className="absolute left-2 flex size-3.5 items-center justify-center">
+                  <MenuPrimitive.ItemIndicator>
+                    <CheckIcon className="size-4" />
+                  </MenuPrimitive.ItemIndicator>
+                </span>
+                <span className="truncate">{item.label}</span>
+              </MenuPrimitive.CheckboxItem>
+            ),
+          )}
+        </MenuPrimitive.Content>
+      </MenuPrimitive.Portal>
+    </MenuPrimitive.Root>
   );
 }
 

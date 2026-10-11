@@ -98,6 +98,8 @@ export class SpeechService {
   private idleTimer: NodeJS.Timeout | null = null;
   private readonly jobs = new Map<string, AbortController>();
   private shuttingDown = false;
+  /** Set once the recognizer crashed because this processor lacks an instruction set it needs. */
+  private unsupportedCpu = false;
 
   constructor(private readonly log: (line: string) => void) {}
 
@@ -131,10 +133,12 @@ export class SpeechService {
       return { captions };
     } catch (error) {
       if (controller.signal.aborted) throw new Error('Canceled', { cause: error });
+      // A stable code the editor shows as its own message.
+      if (this.unsupportedCpu) throw new Error('caption-cpu-unsupported', { cause: error });
       throw error;
     } finally {
       this.jobs.delete(id);
-      if (directory) await fs.rm(directory, { recursive: true, force: true }).catch(() => undefined);
+      if (directory) await fs.rm(directory, { recursive: true, force: true }).catch((error: unknown) => this.log(`Caption audio parts could not be removed: ${error instanceof Error ? error.message : String(error)}`));
       this.scheduleIdleStop();
     }
   }
@@ -242,8 +246,13 @@ export class SpeechService {
     const root = `http://127.0.0.1:${port}`;
     const server: Server = { child, root, ready: this.waitReady(child, root) };
     this.server = server;
-    child.once('exit', () => {
+    child.once('exit', (code, signal) => {
       if (this.server === server) this.server = null;
+      if (this.shuttingDown || code === 0) return;
+      // 0xC000001D: the processor lacks an instruction set the recognizer was built for.
+      const unsupportedCpu = IS_WINDOWS && (code === 3221225501 || code === -1073741795);
+      if (unsupportedCpu) this.unsupportedCpu = true;
+      this.log(`Caption recognizer exited (code ${code ?? 'none'}, signal ${signal ?? 'none'})${unsupportedCpu ? ': this processor is not supported by the caption recognizer' : ''}`);
     });
     this.log('Caption recognizer starting');
     try {

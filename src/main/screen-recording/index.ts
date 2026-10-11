@@ -170,8 +170,9 @@ export class ScreenRecorder {
     // Data of recordings deleted since last time goes first, then the images only they used.
     void pruneRecordingData()
       .then((removed) => { if (removed > 0) log(`Removed data of ${removed} deleted recording(s)`); })
-      .catch(() => undefined)
-      .then(() => this.editors.pruneBackgrounds());
+      .catch((error: unknown) => log(`Data of deleted recordings could not be cleaned up: ${error instanceof Error ? error.message : String(error)}`))
+      .then(() => this.editors.pruneBackgrounds())
+      .catch((error: unknown) => log(`Unused background images could not be cleaned up: ${error instanceof Error ? error.message : String(error)}`));
   }
 
   /** Opens the picker, or stops the recording that is running. */

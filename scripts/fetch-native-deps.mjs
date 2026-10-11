@@ -1,6 +1,7 @@
-// Downloads the pinned prebuilt libobs engine (obs-studio-node) and, on macOS,
-// the preview helper (node-window-rendering) from Streamlabs' official buckets.
-// Archives are verified against pinned SHA-256 hashes before extraction.
+// Downloads the pinned prebuilt libobs engine (obs-studio-node) from Streamlabs'
+// official bucket. Archives are verified against pinned SHA-256 hashes before
+// extraction. Folders this script installed for dependencies that are no longer
+// listed are removed, so they are not packaged.
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -69,12 +70,24 @@ async function fetchDependency(dep, key) {
   writeFileSync(stamp, wanted);
 }
 
+/** Removes vendor folders this script installed (they carry its stamp) whose dependency is no longer listed. */
+function removeRetired() {
+  if (!existsSync(VENDOR)) return;
+  const listed = new Set(MANIFEST.dependencies.map((dep) => dep.name));
+  for (const name of readdirSync(VENDOR)) {
+    if (listed.has(name) || !existsSync(path.join(VENDOR, name, ".seenalyze-version"))) continue;
+    rmSync(path.join(VENDOR, name), { recursive: true, force: true });
+    console.log(`[native-deps] removed ${name} (no longer used)`);
+  }
+}
+
 async function main() {
   const key = platformKey();
   if (!key) {
     console.warn(`[native-deps] ${process.platform} is not supported; skipping engine download.`);
     return;
   }
+  removeRetired();
   for (const dep of MANIFEST.dependencies) {
     if (dep.platforms.includes(key)) await fetchDependency(dep, key);
   }

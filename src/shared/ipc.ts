@@ -78,6 +78,8 @@ export interface StudioApi {
   setItemVisible(scene: string, itemId: number, visible: boolean): Promise<void>;
   setItemLocked(scene: string, itemId: number, locked: boolean): Promise<void>;
   moveSceneItem(scene: string, itemId: number, direction: "up" | "down"): Promise<void>;
+  /** Moves an item to `index` in the sources list (0 = top, drawn above the others). */
+  reorderSceneItem(scene: string, itemId: number, index: number): Promise<void>;
   applyTransform(scene: string, itemId: number, preset: TransformPreset): Promise<void>;
   /** Live transform from the preview editor; `commit` refreshes state and saves (drag end). */
   patchItemTransform(scene: string, itemId: number, patch: ItemTransformPatch, commit: boolean): Promise<void>;
@@ -95,6 +97,8 @@ export interface StudioApi {
 
   // Scene and source management
   moveScene(name: string, direction: "up" | "down"): Promise<void>;
+  /** Moves a scene to `index` in the scene list (0 = first). */
+  reorderScene(name: string, index: number): Promise<void>;
   /** Copies a scene with its items; resolves with the copy's name. */
   duplicateScene(name: string): Promise<string>;
   /** Copies an item right above itself; resolves with the new item. */
@@ -153,12 +157,6 @@ export interface StudioApi {
   listScreens(): Promise<ScreenChoice[]>;
   /** Opens a projector window, filling a screen when `screenId` is set. */
   openProjector(target: ProjectorTarget, screenId: number | null): Promise<void>;
-  /**
-   * Shows a native popup menu at a point in the window (CSS pixels). Native
-   * menus draw above the preview surface, so it never has to hide for them.
-   * Resolves with the chosen entry's index, or null when dismissed.
-   */
-  showMenu(entries: MenuEntry[], at: { x: number; y: number }): Promise<number | null>;
 
   // Settings
   setVideoSettings(settings: VideoSettings): Promise<void>;
@@ -329,6 +327,7 @@ export const STUDIO_METHODS: readonly StudioMethod[] = [
   "setItemVisible",
   "setItemLocked",
   "moveSceneItem",
+  "reorderSceneItem",
   "applyTransform",
   "patchItemTransform",
   "setSelectedItem",
@@ -341,6 +340,7 @@ export const STUDIO_METHODS: readonly StudioMethod[] = [
   "clickSourceButton",
   "renameSource",
   "moveScene",
+  "reorderScene",
   "duplicateScene",
   "duplicateSceneItem",
   "getItemPlacement",
@@ -370,7 +370,6 @@ export const STUDIO_METHODS: readonly StudioMethod[] = [
   "studioTransition",
   "listScreens",
   "openProjector",
-  "showMenu",
   "setVideoSettings",
   "setEncoder",
   "chooseRecordingFolder",

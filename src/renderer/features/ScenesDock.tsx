@@ -13,10 +13,12 @@ import {
   AlertDialogTitle,
   DialogFooter,
   DialogHeader,
-  NativeMenu,
+  ActionMenu,
 } from "@/components/ui/overlays";
+import { Tooltip } from "@/components/ui/tooltip";
 import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
+import { useReorder } from "@/lib/use-reorder";
 import { useStudio } from "@/store/studio";
 import { TransitionsDialog } from "./TransitionsDialog";
 import { CollectionsMenu } from "./CollectionsMenu";
@@ -32,6 +34,7 @@ export function ScenesDock() {
   /** In studio mode the highlighted scene is the preview; this one is on the program. */
   const programScene = useStudio((state) => (state.snapshot?.studioMode?.enabled ? state.snapshot.studioMode.programScene : null));
   const projectorMenu = useProjectorMenu();
+  const reorder = useReorder("scenes", scenes, (scene) => scene.name, (scene, index) => run(() => studio.reorderScene(scene.name, index)));
   const selectItem = useStudio((state) => state.selectItem);
   const [creating, setCreating] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -49,30 +52,34 @@ export function ScenesDock() {
       actions={
         <>
           <CollectionsMenu />
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={transitionLabel}
-            title={transitionLabel}
-            onClick={() => {
-              setPickingScene(null);
-              setPicking(true);
-            }}
-          >
-            <WandSparklesIcon />
-          </Button>
-          <Button variant="ghost" size="icon-sm" aria-label={t("add")} onClick={() => setCreating(true)}>
-            <PlusIcon />
-          </Button>
+          <Tooltip label={transitionLabel}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={transitionLabel}
+              onClick={() => {
+                setPickingScene(null);
+                setPicking(true);
+              }}
+            >
+              <WandSparklesIcon />
+            </Button>
+          </Tooltip>
+          <Tooltip label={t("add")}>
+            <Button variant="ghost" size="icon-sm" aria-label={t("add")} onClick={() => setCreating(true)}>
+              <PlusIcon />
+            </Button>
+          </Tooltip>
         </>
       }
     >
       {scenes.length === 0 ? (
         <DockEmpty icon={ClapperboardIcon} text={t("empty")} />
       ) : (
-        scenes.map((scene, index) => (
+        reorder.items.map((scene, index) => (
           <ListRow
             key={scene.name}
+            {...reorder.rowProps(scene, index)}
             active={scene.name === active}
             onClick={() => {
               if (scene.name === active) return;
@@ -84,7 +91,7 @@ export function ScenesDock() {
             {scene.name === programScene && (
               <span role="img" aria-label={t("onProgram")} title={t("onProgram")} className="size-2 shrink-0 rounded-full bg-live" />
             )}
-            <NativeMenu
+            <ActionMenu
               items={[
                 { label: tc("rename"), onSelect: () => setRenaming(scene.name) },
                 { label: t("duplicate"), onSelect: () => void run(() => studio.duplicateScene(scene.name)) },
@@ -104,15 +111,17 @@ export function ScenesDock() {
                 { label: tc("remove"), disabled: scenes.length <= 1, onSelect: () => setRemoving(scene.name) },
               ]}
             >
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={tc("more")}
-                className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
-              >
-                <MoreHorizontalIcon />
-              </Button>
-            </NativeMenu>
+              <Tooltip label={tc("more")}>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={tc("more")}
+                  className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+                >
+                  <MoreHorizontalIcon />
+                </Button>
+              </Tooltip>
+            </ActionMenu>
           </ListRow>
         ))
       )}

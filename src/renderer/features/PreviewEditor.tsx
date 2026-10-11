@@ -7,6 +7,7 @@ import {
   boxPoint,
   containsPoint,
   cropDrag,
+  itemSize,
   move,
   rotateAround,
   snapLines,
@@ -29,6 +30,9 @@ const HANDLES: Handle[] = [
   { hx: 0, hy: 0.5 },
 ];
 const HANDLE_SIZE = 10;
+/** Grab area around each handle and along each edge, in screen pixels. */
+const HANDLE_HIT = 22;
+const EDGE_HIT = 10;
 /** Distance of the rotation handle above the top edge, in screen pixels. */
 const ROTATE_OFFSET = 24;
 /** Snap distance to the canvas edges and centre lines, in screen pixels. */
@@ -45,8 +49,10 @@ const SETTLE_TIMEOUT_MS = 1000;
 
 type Drag = { itemId: number; pointerId: number; initial: ItemTransformDTO; lines: SnapGuides; lastPatch?: ItemTransformPatch } & (
   | { mode: "move"; start: Vec; moving?: boolean }
-  | { mode: "resize"; handle: Handle }
-  | { mode: "crop"; handle: Handle }
+  // `grab`: handle position minus the pointer at the press, so the handle
+  // keeps its offset from the pointer instead of jumping onto it.
+  | { mode: "resize"; handle: Handle; grab: Vec }
+  | { mode: "crop"; handle: Handle; grab: Vec }
   | { mode: "rotate"; start: Vec }
 );
 
@@ -59,9 +65,10 @@ function cursorFor(handle: Handle, rotation: number): string {
 
 /**
  * Transparent editing layer aligned with the preview frame: click to select a
- * source, drag to move, handles to resize (corners keep the aspect ratio,
- * Shift resizes freely, Option/Alt crops) and the top handle to rotate
- * (Shift snaps to 15°). Arrow keys nudge the selection (useArrowNudge).
+ * source, drag to move, handles or edges to resize (corners keep the aspect
+ * ratio, Shift resizes freely, Cmd/Ctrl resizes from the centre, Option/Alt
+ * crops) and the top handle to rotate (Shift snaps to 15°). While resizing,
+ * cropping or rotating, the size or angle is shown next to the source. Arrow keys nudge the selection (useArrowNudge).
  * Moving and resizing snap to the canvas edges and centre (Option/Alt turns
  * snapping off), and to other visible sources; sources never shrink below a
  * usable size.
@@ -80,6 +87,8 @@ export function PreviewEditor({ width, height, baseWidth, baseHeight }: { width:
   // place until the updated scene arrives, so it never jumps back first.
   const [live, setLive] = useState<{ itemId: number; transform: ItemTransformDTO; settling?: ItemTransformDTO } | null>(null);
   const [guides, setGuides] = useState<SnapGuides>(NO_GUIDES);
+  /** What the current drag changes, for the readout next to the source. */
+  const [readout, setReadout] = useState<"size" | "angle" | null>(null);
 
   // Engine updates are coalesced: at most one request in flight, and only the
   // newest patch is sent when it completes. The outline follows the pointer
@@ -126,7 +135,8 @@ export function PreviewEditor({ width, height, baseWidth, baseHeight }: { width:
     pendingRef.current = null;
     inFlightRef.current = studio
       .patchItemTransform(pending.scene, pending.itemId, pending.patch, false)
-      .catch(() => undefined)
+      // The drag keeps going; its end saves the position and reports a failure.
+      .catch((error: unknown) => console.error("[preview-editor] live move failed", error))
       .finally(() => {
         inFlightRef.current = null;
         if (pendingRef.current && !frameRef.current) frameRef.current = requestAnimationFrame(flush);
@@ -156,6 +166,18 @@ export function PreviewEditor({ width, height, baseWidth, baseHeight }: { width:
     event.stopPropagation();
     layerRef.current?.setPointerCapture(event.pointerId);
     dragRef.current = drag;
+    setReadout(drag.mode === "rotate" ? "angle" : drag.mode === "move" ? null : "size");
+  };
+
+  /** Starts resizing (or, with Option/Alt, cropping) from a handle. */
+  const beginResize = (event: ReactPointerEvent, handle: Handle) => {
+    if (event.button !== 0 || !selected || !transform) return;
+    const at = boxPoint(transform, handle.hx, handle.hy);
+    const point = toCanvasPoint(event);
+    const grab = { x: at.x - point.x, y: at.y - point.y };
+    // Option/Alt-drag crops instead of resizing (as in OBS).
+    begin(event, { mode: event.altKey ? "crop" : "resize", itemId: selected.id, pointerId: event.pointerId, handle, grab, initial: transform, lines: linesFor(selected.id) });
+    setLive({ itemId: selected.id, transform });
   };
 
   const onLayerDown = (event: ReactPointerEvent) => {
@@ -192,9 +214,11 @@ export function PreviewEditor({ width, height, baseWidth, baseHeight }: { width:
     if (drag.mode === "move") {
       ({ patch, guides: snapped } = snapMove(drag.initial, move(drag.initial, drag.start, point), drag.lines, threshold));
     } else if (drag.mode === "crop") {
-      patch = cropDrag(drag.initial, drag.handle, point);
+      patch = cropDrag(drag.initial, drag.handle, { x: point.x + drag.grab.x, y: point.y + drag.grab.y });
     } else if (drag.mode === "resize") {
-      ({ patch, guides: snapped } = snapResize(drag.initial, drag.handle, point, !event.shiftKey, MIN_SCREEN_SIZE / k, drag.lines, threshold));
+      const target = { x: point.x + drag.grab.x, y: point.y + drag.grab.y };
+      const fromCenter = event.metaKey || event.ctrlKey;
+      ({ patch, guides: snapped } = snapResize(drag.initial, drag.handle, target, !event.shiftKey, MIN_SCREEN_SIZE / k, drag.lines, threshold, fromCenter));
     } else {
       patch = rotateAround(drag.initial, drag.start, point, event.shiftKey);
     }
@@ -210,6 +234,7 @@ export function PreviewEditor({ width, height, baseWidth, baseHeight }: { width:
     if (!drag) return;
     dragRef.current = null;
     setGuides(NO_GUIDES);
+    setReadout(null);
     const layer = layerRef.current;
     if (layer?.hasPointerCapture(drag.pointerId)) layer.releasePointerCapture(drag.pointerId);
     cancelAnimationFrame(frameRef.current);
@@ -290,39 +315,94 @@ export function PreviewEditor({ width, height, baseWidth, baseHeight }: { width:
       {transform &&
         editable &&
         selected &&
+        HANDLES.filter((handle) => handle.hx === 0.5 || handle.hy === 0.5).map((handle) => {
+          // The whole edge (between the corner grab areas) resizes like its middle handle.
+          const vertical = handle.hy === 0.5;
+          const a = screen(boxPoint(transform, vertical ? handle.hx : 0, vertical ? 0 : handle.hy));
+          const b = screen(boxPoint(transform, vertical ? handle.hx : 1, vertical ? 1 : handle.hy));
+          const length = Math.hypot(b.x - a.x, b.y - a.y) - HANDLE_HIT;
+          if (length < HANDLE_HIT) return null;
+          const angle = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+          return (
+            <div
+              key={`edge-${handle.hx}-${handle.hy}`}
+              aria-hidden
+              className="absolute"
+              style={{
+                left: (a.x + b.x) / 2 - length / 2,
+                top: (a.y + b.y) / 2 - EDGE_HIT / 2,
+                width: length,
+                height: EDGE_HIT,
+                transform: `rotate(${angle}deg)`,
+                cursor: cursorFor(handle, transform.rotation),
+              }}
+              onPointerDown={(event) => beginResize(event, handle)}
+            />
+          );
+        })}
+      {transform &&
+        editable &&
+        selected &&
         HANDLES.map((handle) => {
           const p = screen(boxPoint(transform, handle.hx, handle.hy));
           return (
             <div
               key={`${handle.hx}-${handle.hy}`}
               aria-label={t("resize")}
-              className="absolute rounded-[2px] border border-primary bg-background"
+              className="group absolute flex items-center justify-center"
               style={{
-                left: p.x - HANDLE_SIZE / 2,
-                top: p.y - HANDLE_SIZE / 2,
-                width: HANDLE_SIZE,
-                height: HANDLE_SIZE,
+                left: p.x - HANDLE_HIT / 2,
+                top: p.y - HANDLE_HIT / 2,
+                width: HANDLE_HIT,
+                height: HANDLE_HIT,
                 cursor: cursorFor(handle, transform.rotation),
               }}
-              onPointerDown={(event) => {
-                if (event.button !== 0) return;
-                // Option/Alt-drag on a handle crops instead of resizing (as in OBS).
-                begin(event, { mode: event.altKey ? "crop" : "resize", itemId: selected.id, pointerId: event.pointerId, handle, initial: transform, lines: linesFor(selected.id) });
-              }}
-            />
+              onPointerDown={(event) => beginResize(event, handle)}
+            >
+              <span
+                className="block rounded-[2px] border border-primary bg-background shadow-sm transition-transform duration-100 group-hover:scale-125 motion-reduce:transition-none"
+                style={{ width: HANDLE_SIZE, height: HANDLE_SIZE }}
+              />
+            </div>
           );
         })}
       {rotateHandle && transform && (
         <div
           aria-label={t("rotate")}
-          className="absolute cursor-grab rounded-full border border-primary bg-background"
-          style={{ left: rotateHandle.to.x - HANDLE_SIZE / 2, top: rotateHandle.to.y - HANDLE_SIZE / 2, width: HANDLE_SIZE, height: HANDLE_SIZE }}
+          className="group absolute flex cursor-grab items-center justify-center active:cursor-grabbing"
+          style={{ left: rotateHandle.to.x - HANDLE_HIT / 2, top: rotateHandle.to.y - HANDLE_HIT / 2, width: HANDLE_HIT, height: HANDLE_HIT }}
           onPointerDown={(event) => {
             if (event.button !== 0 || !selected) return;
             begin(event, { mode: "rotate", itemId: selected.id, pointerId: event.pointerId, start: toCanvasPoint(event), initial: transform, lines: NO_GUIDES });
+            setLive({ itemId: selected.id, transform });
           }}
-        />
+        >
+          <span
+            className="block rounded-full border border-primary bg-background shadow-sm transition-transform duration-100 group-hover:scale-125 motion-reduce:transition-none"
+            style={{ width: HANDLE_SIZE, height: HANDLE_SIZE }}
+          />
+        </div>
       )}
+      {readout && transform && corners.length === 4 && <Readout transform={transform} kind={readout} corners={corners} width={width} height={height} />}
+    </div>
+  );
+}
+
+/** Size (canvas pixels) or angle of the source being edited, under its outline. */
+function Readout({ transform, kind, corners, width, height }: { transform: ItemTransformDTO; kind: "size" | "angle"; corners: Vec[]; width: number; height: number }) {
+  const size = itemSize(transform);
+  const angle = ((Math.round(transform.rotation) % 360) + 360) % 360;
+  const text = kind === "size" ? `${Math.round(size.width)} × ${Math.round(size.height)}` : `${angle}°`;
+  const bottom = Math.max(...corners.map((c) => c.y));
+  const centre = corners.reduce((sum, c) => sum + c.x, 0) / corners.length;
+  // Below the outline, or inside it when there is no room below.
+  const top = bottom + 30 > height ? bottom - 30 : bottom + 8;
+  return (
+    <div
+      className="pointer-events-none absolute -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground/85 px-2 py-0.5 text-xs font-medium text-background tabular-nums shadow-sm"
+      style={{ left: Math.min(Math.max(centre, 40), width - 40), top: Math.max(4, top) }}
+    >
+      {text}
     </div>
   );
 }

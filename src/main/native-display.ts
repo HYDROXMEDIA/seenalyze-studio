@@ -1,6 +1,6 @@
 // One engine display shown in an app window (main process side): asks the
 // engine worker to create, size or move it, and on macOS shows its surface
-// with a helper view (preview-mac.ts). Callers serialize calls per window.
+// in a presenter view (preview-mac.ts). Callers serialize calls per window.
 
 import type { BrowserWindow } from "electron";
 import type { DisplaySpec, Rect } from "../shared/types";
@@ -23,8 +23,10 @@ export class NativeDisplay {
     readonly name: string,
     /** What it shows; null is the main window's program display. A change takes effect on the next show. */
     public spec: DisplaySpec | null,
+    /** The picture stopped updating and could not be restored (macOS). */
+    onFailure: (code: string) => void,
   ) {
-    this.view = IS_MAC ? new MacPreviewView(window, name) : null;
+    this.view = IS_MAC ? new MacPreviewView(window, name, onFailure) : null;
   }
 
   /**
@@ -48,13 +50,14 @@ export class NativeDisplay {
     }
     this.created = true;
     if (!this.view) return false;
-    if (result.surface !== undefined) {
-      // The engine's first frames in a new surface can be partly drawn; keep
-      // the previous view up until a complete frame is in.
-      await new Promise((resolve) => setTimeout(resolve, NEW_SURFACE_SETTLE_MS));
-      if (!alive() || this.window.isDestroyed()) return false;
-    }
-    return this.view.show(rect, scale, result.surface);
+    if (result.surface === undefined) return this.view.show(rect);
+    // The engine's first frames in a new surface can be partly drawn: follow
+    // the new rect right away with the last picture, and switch to the new
+    // surface once a complete frame is in.
+    const created = this.view.show(rect);
+    await new Promise((resolve) => setTimeout(resolve, NEW_SURFACE_SETTLE_MS));
+    if (!alive() || this.window.isDestroyed()) return created;
+    return this.view.show(rect, result.surface) || created;
   }
 
   /** Removes the view and the engine display. */

@@ -17,6 +17,8 @@ interface StudioStore {
   overlays: number;
   /** Number of open anchored popups (menus, selects); they hide the preview only where they overlap it. */
   poppers: number;
+  /** Number of visible tooltips; like poppers they hide the preview only where they overlap it, but never block canvas shortcuts. */
+  tooltips: number;
   setSnapshot: (snapshot: StudioSnapshot) => void;
   setStats: (stats: EngineStats) => void;
   setLevels: (levels: AudioLevel[]) => void;
@@ -25,8 +27,10 @@ interface StudioStore {
   popOverlay: (kind?: OcclusionKind) => void;
 }
 
-/** "modal" always hides the preview; "popper" only while it overlaps it. */
-export type OcclusionKind = "modal" | "popper";
+/** "modal" always hides the preview; "popper" and "tooltip" only while they overlap it. */
+export type OcclusionKind = "modal" | "popper" | "tooltip";
+
+const OCCLUSION_COUNTER = { modal: "overlays", popper: "poppers", tooltip: "tooltips" } as const;
 
 export const useStudio = create<StudioStore>((set, get) => ({
   view: "studio",
@@ -37,6 +41,7 @@ export const useStudio = create<StudioStore>((set, get) => ({
   selectedItemId: null,
   overlays: 0,
   poppers: 0,
+  tooltips: 0,
   // The main process owns the selection so every window agrees on it.
   setSnapshot: (snapshot) => set({ snapshot, selectedItemId: snapshot.selectedItemId ?? null }),
   setStats: (stats) => set({ stats }),
@@ -50,12 +55,10 @@ export const useStudio = create<StudioStore>((set, get) => ({
     if (get().selectedItemId === selectedItemId) return;
     set({ selectedItemId });
     const scene = get().snapshot?.activeScene;
-    if (scene) studio.setSelectedItem(scene, selectedItemId).catch(() => undefined);
+    if (scene) studio.setSelectedItem(scene, selectedItemId).catch((error: unknown) => console.error("[studio] selection could not be shared", error));
   },
-  pushOverlay: (kind = "modal") =>
-    set((state) => (kind === "popper" ? { poppers: state.poppers + 1 } : { overlays: state.overlays + 1 })),
-  popOverlay: (kind = "modal") =>
-    set((state) => (kind === "popper" ? { poppers: Math.max(0, state.poppers - 1) } : { overlays: Math.max(0, state.overlays - 1) })),
+  pushOverlay: (kind = "modal") => set((state) => ({ [OCCLUSION_COUNTER[kind]]: state[OCCLUSION_COUNTER[kind]] + 1 })),
+  popOverlay: (kind = "modal") => set((state) => ({ [OCCLUSION_COUNTER[kind]]: Math.max(0, state[OCCLUSION_COUNTER[kind]] - 1) })),
 }));
 
 /**

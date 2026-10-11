@@ -41,6 +41,8 @@ export interface ProjectorHost {
   load(window: BrowserWindow): void;
   /** The sender's page is the app's own UI. */
   isAppUrl(url: string): boolean;
+  /** A projector's picture stopped updating and could not be restored. */
+  previewFailed(): void;
 }
 
 export function screenChoices(): ScreenChoice[] {
@@ -187,7 +189,7 @@ class Projector {
     specs.forEach((spec, index) => {
       const key = JSON.stringify(spec);
       if (!this.displays[index]) {
-        this.displays[index] = new NativeDisplay(this.host.engine, this.window, `seenalyze-projector-${this.id}-${index}`, spec);
+        this.displays[index] = new NativeDisplay(this.host.engine, this.window, `seenalyze-projector-${this.id}-${index}`, spec, () => this.host.previewFailed());
       } else if (this.specs[index] !== key) {
         this.displays[index].spec = spec;
         changed = true;
@@ -297,7 +299,12 @@ class Projector {
     this.displays = [];
     // The engine displays must go before their window does (Windows child windows).
     const removal = this.queue.then(() =>
-      Promise.all(displays.map((display) => this.host.engine.call("hidePreview", display.name).catch(() => undefined))),
+      Promise.all(
+        displays.map((display) =>
+          // The window closes either way; a display left behind goes with the engine.
+          this.host.engine.call("hidePreview", display.name).catch((error: unknown) => console.error(`[projector] could not remove display ${display.name}`, error)),
+        ),
+      ),
     );
     await Promise.race([removal, new Promise((resolve) => setTimeout(resolve, TEARDOWN_TIMEOUT_MS))]);
   }

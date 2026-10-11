@@ -91,7 +91,7 @@ export function ChatPanel() {
   const problems = sources.filter((source) => source.state !== "connected" && (activeTab === "all" || source.accountId === activeTab));
 
   return (
-    <aside className="flex w-[340px] shrink-0 flex-col overflow-hidden rounded-xl border bg-card" aria-label={t("title")}>
+    <aside className="flex w-[clamp(16rem,28vw,21.25rem)] shrink-0 flex-col overflow-hidden rounded-xl border bg-card" aria-label={t("title")}>
       <header className="flex h-10 shrink-0 items-center justify-between gap-2 border-b px-3">
         <h2 className="text-sm font-semibold">{t("title")}</h2>
       </header>

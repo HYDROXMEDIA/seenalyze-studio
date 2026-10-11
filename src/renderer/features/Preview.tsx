@@ -2,18 +2,20 @@ import { ChevronDownIcon } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useTranslations } from "use-intl";
 import { Button } from "@/components/ui/button";
-import { NativeMenu } from "@/components/ui/overlays";
+import { ActionMenu } from "@/components/ui/overlays";
+import { Tooltip } from "@/components/ui/tooltip";
 import { subscribePixelRatio, readPixelRatio } from "@/lib/pixel-ratio";
 import { isMac, studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
 import { cn } from "@/lib/utils";
 import { useStudio } from "@/store/studio";
+import { PREVIEW_EDITOR_MARGIN } from "../../shared/transform-geometry";
 import { DEFAULT_TRANSITION } from "../../shared/transitions";
 import { PreviewEditor } from "./PreviewEditor";
 import { TransitionsDialog } from "./TransitionsDialog";
 
 /** Gap between the canvas and the edge of the preview area, in pixels. */
-const CANVAS_INSET = 12;
+const CANVAS_INSET = Math.max(12, PREVIEW_EDITOR_MARGIN);
 /** Studio mode: height of the label above each canvas. */
 const LABEL_HEIGHT = 28;
 /** Studio mode: room for the transition controls between the two canvases. */
@@ -44,7 +46,7 @@ function measure(frame: HTMLElement | null) {
  * Reserves the on-screen rectangles where the engine draws: the program, or in
  * studio mode the editable preview and the program side by side (stacked when
  * the area is narrow). The native surfaces follow these elements. Modal
- * overlays park them off-screen; menus and selects do so only while they
+ * overlays park them off-screen; menus, selects and tooltips do so only while they
  * actually overlap one.
  */
 export function Preview() {
@@ -56,7 +58,8 @@ export function Preview() {
   const frameRef = useRef<HTMLDivElement>(null);
   const programRef = useRef<HTMLDivElement>(null);
   const overlays = useStudio((state) => state.overlays);
-  const poppers = useStudio((state) => state.poppers);
+  // Anchored popups and tooltips: both park the preview only while they overlap it.
+  const poppers = useStudio((state) => state.poppers + state.tooltips);
   const [popperCovers, setPopperCovers] = useState(false);
   const video = useStudio((state) => state.snapshot?.video);
   const studioMode = useStudio((state) => state.snapshot?.studioMode?.enabled ?? false);
@@ -89,7 +92,7 @@ export function Preview() {
     return () => observer.disconnect();
   }, [aspect, studioMode]);
 
-  // While a menu or select is open, track whether it overlaps a canvas
+  // While a menu, select or tooltip is open, track whether it overlaps a canvas
   // (it may move or animate, so check every frame until it closes).
   useEffect(() => {
     if (poppers === 0) return;
@@ -165,7 +168,7 @@ export function Preview() {
 
   if (!studioMode) {
     return (
-      <div ref={areaRef} className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-[var(--preview-surface)]">
+      <div ref={areaRef} className="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden bg-[var(--preview-surface)]">
         <div className="relative" style={canvas}>
           <div ref={frameRef} role="img" aria-label={t("label")} className="absolute inset-0 bg-black outline outline-1 outline-foreground/20" />
           {/* On macOS the editor runs in its own window above the native preview. */}
@@ -191,7 +194,7 @@ export function Preview() {
   );
 
   return (
-    <div ref={areaRef} className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-[var(--preview-surface)]">
+    <div ref={areaRef} className="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden bg-[var(--preview-surface)]">
       <div className={cn("flex items-center", layout.stacked ? "flex-col" : "flex-row")}>
         {pane(
           "preview",
@@ -215,17 +218,19 @@ export function Preview() {
             >
               {ts("transition")}
             </Button>
-            <NativeMenu
+            <ActionMenu
               items={[
                 { label: ts("cut"), disabled: same, onSelect: () => void run(() => studio.studioTransition("cut")) },
                 "separator",
                 { label: ts("chooseTransition"), onSelect: () => setPicking(true) },
               ]}
             >
-              <Button size="sm" className="rounded-l-none border-l border-primary-foreground/20 px-2" aria-label={ts("quick")}>
-                <ChevronDownIcon />
-              </Button>
-            </NativeMenu>
+              <Tooltip label={ts("quick")}>
+                <Button size="sm" className="rounded-l-none border-l border-primary-foreground/20 px-2" aria-label={ts("quick")}>
+                  <ChevronDownIcon />
+                </Button>
+              </Tooltip>
+            </ActionMenu>
           </div>
         </div>
         {pane(

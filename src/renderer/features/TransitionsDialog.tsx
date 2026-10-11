@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/overlays";
+import { Tooltip } from "@/components/ui/tooltip";
 import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
 import { cn } from "@/lib/utils";
@@ -119,9 +120,11 @@ function TransitionsPanel({ initialScene }: { initialScene: string | null }) {
         ) : (
           <>
             <div className="flex min-w-0 items-center gap-1">
-              <Button variant="ghost" size="icon-sm" className="-ml-1.5" aria-label={t("back")} title={t("back")} onClick={() => setTarget(null)}>
-                <ChevronLeftIcon />
-              </Button>
+              <Tooltip label={t("back")}>
+                <Button variant="ghost" size="icon-sm" className="-ml-1.5" aria-label={t("back")} onClick={() => setTarget(null)}>
+                  <ChevronLeftIcon />
+                </Button>
+              </Tooltip>
               <DialogTitle className="truncate">{t("sceneTitle", { name: target })}</DialogTitle>
             </div>
             <DialogDescription className="sr-only">{t("sceneDescription")}</DialogDescription>
@@ -167,9 +170,11 @@ function TransitionsPanel({ initialScene }: { initialScene: string | null }) {
                       <span className="text-muted-foreground"> · {t(`presets.${choice.id}`)}</span>
                       {preset && !preset.instant && !preset.file && <span className="text-muted-foreground tabular-nums"> · {t("durationValue", { ms: choice.durationMs })}</span>}
                     </button>
-                    <Button variant="ghost" size="icon-sm" aria-label={t("removeOverride", { name: entry.name })} title={t("removeOverride", { name: entry.name })} onClick={() => void run(() => studio.setSceneTransition(entry.name, null))}>
-                      <XIcon />
-                    </Button>
+                    <Tooltip label={t("removeOverride", { name: entry.name })}>
+                      <Button variant="ghost" size="icon-sm" aria-label={t("removeOverride", { name: entry.name })} onClick={() => void run(() => studio.setSceneTransition(entry.name, null))}>
+                        <XIcon />
+                      </Button>
+                    </Tooltip>
                   </li>
                 );
               })}

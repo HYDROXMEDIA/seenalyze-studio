@@ -19,8 +19,16 @@ function fixture(collection?: SceneCollection) {
       create: (name: string) => {
         const makeItem = (source: Source) => {
           let info = { boundsType: 0, boundsAlignment: 0, bounds: { x: 0, y: 0 } };
+          const id = nextId++;
+          // Engine order is bottom-to-top: "up" swaps with the next item.
+          const step = (offset: number): void => {
+            const from = items.findIndex((entry) => entry.id === id);
+            const to = from + offset;
+            if (to >= 0 && to < items.length) [items[from], items[to]] = [items[to], items[from]];
+          };
           return {
-            id: nextId++, source, visible: true, selected: false,
+            id, source, visible: true, selected: false,
+            moveUp(): void { step(1); }, moveDown(): void { step(-1); },
             position: { x: 0, y: 0 }, scale: { x: 1, y: 1 }, rotation: 0, alignment: 5,
             crop: { left: 0, right: 0, top: 0, bottom: 0 },
             get boundsType() { return info.boundsType; }, set boundsType(value: number) { info.boundsType = value; },
@@ -66,6 +74,42 @@ describe("combined transform controls", () => {
     graph.setItemLocked("Scene", item.id, true);
     expect(() => graph.patchItemTransform("Scene", item.id, { rotation: 45 })).toThrow("item-locked");
     expect(() => graph.setItemTransform("Scene", item.id, graph.getItemTransform("Scene", item.id))).toThrow("item-locked");
+  });
+});
+
+describe("reordering", () => {
+  test("moving a source in the list changes which source is drawn on top", () => {
+    const { graph } = fixture();
+    for (const name of ["A", "B", "C", "D"]) graph.addSource("Scene", "color", name);
+    const names = () => graph.listScenes()[0].items.map((item) => item.sourceName);
+    // Newest on top.
+    expect(names()).toEqual(["D", "C", "B", "A"]);
+    const idOf = (name: string) => graph.listScenes()[0].items.find((item) => item.sourceName === name)?.id ?? -1;
+    graph.reorderSceneItem("Scene", idOf("A"), 0);
+    expect(names()).toEqual(["A", "D", "C", "B"]);
+    graph.reorderSceneItem("Scene", idOf("A"), 3);
+    expect(names()).toEqual(["D", "C", "B", "A"]);
+    graph.reorderSceneItem("Scene", idOf("D"), 2);
+    expect(names()).toEqual(["C", "B", "D", "A"]);
+    // Saved bottom-to-top, so a reload keeps the stacking.
+    expect(graph.save().scenes.Scene.map((item) => item.source)).toEqual(["A", "D", "B", "C"]);
+    expect(() => graph.reorderSceneItem("Scene", idOf("A"), 4)).toThrow("invalid-request");
+    expect(() => graph.reorderSceneItem("Scene", idOf("A"), -1)).toThrow("invalid-request");
+    expect(() => graph.reorderSceneItem("Scene", 999, 0)).toThrow("item-not-found");
+  });
+
+  test("moving a scene changes the scene list order", () => {
+    const { graph } = fixture();
+    graph.createScene("Two");
+    graph.createScene("Three");
+    const names = () => graph.listScenes().map((scene) => scene.name);
+    graph.reorderScene("Three", 0);
+    expect(names()).toEqual(["Three", "Scene", "Two"]);
+    graph.reorderScene("Three", 2);
+    expect(names()).toEqual(["Scene", "Two", "Three"]);
+    expect(graph.save().sceneOrder).toEqual(["Scene", "Two", "Three"]);
+    expect(() => graph.reorderScene("Two", 3)).toThrow("invalid-request");
+    expect(() => graph.reorderScene("Missing", 0)).toThrow("scene-not-found");
   });
 });
 

@@ -13,8 +13,9 @@ import {
   AlertDialogTitle,
   DialogFooter,
   DialogHeader,
-  NativeMenu,
+  ActionMenu,
 } from "@/components/ui/overlays";
+import { Tooltip } from "@/components/ui/tooltip";
 import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
 import { useStudio } from "@/store/studio";
@@ -45,7 +46,7 @@ export function CollectionsMenu() {
 
   return (
     <>
-      <NativeMenu
+      <ActionMenu
         items={[
           ...collections.items.map((entry) => ({
             label: nameOf(entry),
@@ -68,10 +69,12 @@ export function CollectionsMenu() {
           { label: t("importFrom"), disabled: switching, onSelect: () => setImporting(true) },
         ]}
       >
-        <Button variant="ghost" size="icon-sm" aria-label={label} title={label} disabled={switching}>
-          {switching ? <Loader2Icon className="animate-spin" /> : <LayersIcon />}
-        </Button>
-      </NativeMenu>
+        <Tooltip label={label}>
+          <Button variant="ghost" size="icon-sm" aria-label={label} disabled={switching}>
+            {switching ? <Loader2Icon className="animate-spin" /> : <LayersIcon />}
+          </Button>
+        </Tooltip>
+      </ActionMenu>
 
       <NameDialog
         open={naming !== null}

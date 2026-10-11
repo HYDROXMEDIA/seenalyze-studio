@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "use-intl";
-import type { NativeMenuItem } from "@/components/ui/overlays";
+import type { ActionMenuItem } from "@/components/ui/overlays";
 import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
 import type { ProjectorTarget, ScreenChoice } from "../../../shared/types";
@@ -31,7 +31,7 @@ function useScreens(): ScreenChoice[] {
  * Menu rows that open a projector for a target: in a window, or filling a
  * screen (one row per screen when there are several).
  */
-export function useProjectorMenu(): (target: ProjectorTarget, label?: (kind: "window" | "screen", screen?: string) => string) => NativeMenuItem[] {
+export function useProjectorMenu(): (target: ProjectorTarget, label?: (kind: "window" | "screen", screen?: string) => string) => ActionMenuItem[] {
   const t = useTranslations("projector");
   const run = useAction();
   const screens = useScreens();
