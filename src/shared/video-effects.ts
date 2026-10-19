@@ -60,6 +60,20 @@ export interface EffectSnapshot {
   settings: Record<string, unknown>;
 }
 
+/**
+ * Effects that make sense for a kind of source. Keying, LUTs, sharpening and
+ * render delay work on captured pictures (cameras, screens, footage); drawn
+ * content (text, colors, overlays, web pages) is already exactly what it
+ * should be, so it only gets effects that shape or place it.
+ */
+const DRAWN_SOURCE_EFFECTS: readonly EffectKind[] = ["colorCorrection", "crop", "mask", "scale", "scroll"];
+const DRAWN_SOURCE_KINDS: ReadonlySet<string> = new Set(["text", "color", "browser", "chatOverlay", "overlay"]);
+
+export function effectSuitsSource(effect: EffectKind, sourceKind: string | null | undefined): boolean {
+  if (!sourceKind || !DRAWN_SOURCE_KINDS.has(sourceKind)) return true;
+  return DRAWN_SOURCE_EFFECTS.includes(effect);
+}
+
 export function isEffectKind(value: unknown): value is EffectKind {
   return typeof value === "string" && (EFFECT_KINDS as readonly string[]).includes(value);
 }

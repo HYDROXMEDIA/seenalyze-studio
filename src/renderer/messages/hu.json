@@ -10,7 +10,8 @@
     "name": "Név",
     "remove": "Eltávolítás",
     "rename": "Átnevezés",
-    "save": "Mentés"
+    "save": "Mentés",
+    "previewFailed": "Az előnézetet nem sikerült frissíteni. Próbáld újra."
   },
   "header": {
     "appName": "SEENALYZE STUDIO",
@@ -419,7 +420,10 @@
       "public": "Nyilvános",
       "unlisted": "Nem listázott",
       "private": "Privát"
-    }
+    },
+    "broadcast": "Közvetítés",
+    "newBroadcast": "Új közvetítés",
+    "scheduledBroadcast": "{title} · {start, date, short} {start, time, short}"
   },
   "controls": {
     "title": "Vezérlők",
@@ -713,7 +717,8 @@
       "import-invalid": "Ez a fájl nem jelenetgyűjtemény.",
       "import-not-found": "Ez a jelenetgyűjtemény már nem létezik.",
       "import-too-large": "Ez a fájl túl nagy az importáláshoz.",
-      "recording-encoder-failed": "A felvétel kódolója nem tudott elindulni ezen a számítógépen."
+      "recording-encoder-failed": "A felvétel kódolója nem tudott elindulni ezen a számítógépen.",
+      "youtube-broadcast-missing": "A kiválasztott YouTube-közvetítés már nem létezik. Válassz másikat a stream címének beállításainál."
     }
   },
   "permissions": {

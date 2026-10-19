@@ -19,6 +19,8 @@ export type ChatAccount =
 interface Deps {
   accounts: () => ChatAccount[];
   twitchLogin: (account: TwitchAccount) => Promise<string>;
+  /** Chat of the YouTube broadcast the studio streams into for this account, if known. */
+  youtubeChatId: (accountId: string) => string | undefined;
   emit: (event: ChatEvent) => void;
 }
 
@@ -89,6 +91,11 @@ export class ChatHub {
     this.emitSources();
   }
 
+  /** The studio's YouTube broadcast changed; connected YouTube chats switch to it now. */
+  retargetYouTube(): void {
+    for (const source of this.sources.values()) if (source instanceof YouTubeChat) source.retarget();
+  }
+
   stopAll(): void {
     this.panelActive = false;
     this.listeners.clear();
@@ -104,7 +111,7 @@ export class ChatHub {
     return new YouTubeChat(() => {
       const current = this.deps.accounts().find((entry) => entry.id === account.id);
       return current?.platform === "youtube" ? current : undefined;
-    }, sink);
+    }, sink, () => this.deps.youtubeChatId(account.id));
   }
 
   private sinkFor(accountId: string, platform: Platform): ChatSink {

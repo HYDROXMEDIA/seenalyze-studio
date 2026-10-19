@@ -433,6 +433,16 @@ export interface BroadcastInfo {
   categoryName?: string;
   /** YouTube privacy status. */
   privacy?: "public" | "unlisted" | "private";
+  /** YouTube: a broadcast already scheduled in YouTube Studio to stream into; unset makes a new one. */
+  youtubeBroadcastId?: string;
+}
+
+/** A scheduled YouTube broadcast the user can stream into. */
+export interface YouTubeBroadcastOption {
+  id: string;
+  title: string;
+  scheduledStartTime?: string;
+  privacy?: "public" | "unlisted" | "private";
 }
 
 export interface CategoryOption {

@@ -5,7 +5,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { shell } from "electron";
-import type { BroadcastInfo } from "../../shared/types";
+import type { BroadcastInfo, YouTubeBroadcastOption } from "../../shared/types";
 import { studioConfig } from "../config";
 import { fetchPlatform, platformJson, postForm, storeToken, validAccessToken, type StoredToken, type TokenResponse } from "./tokens";
 
@@ -191,9 +191,69 @@ export async function youtubeIngest(account: YouTubeAccount): Promise<YouTubeIng
   return { server: info.rtmpsIngestionAddress ?? info.ingestionAddress, streamKey: info.streamName, streamId: stream.id };
 }
 
+export interface PreparedBroadcast {
+  id: string;
+  /** Chat of the broadcast; exists before it goes live, so chat can connect right away. */
+  liveChatId?: string;
+}
+
+interface BroadcastResource {
+  id: string;
+  snippet?: { title?: string; scheduledStartTime?: string; liveChatId?: string };
+  status?: { privacyStatus?: YouTubeBroadcastOption["privacy"] };
+  contentDetails?: Record<string, unknown> & { enableAutoStart?: boolean; enableAutoStop?: boolean };
+}
+
+/** Broadcasts scheduled in YouTube Studio that haven't started yet. */
+export async function listUpcomingYouTubeBroadcasts(account: YouTubeAccount): Promise<(YouTubeBroadcastOption & { liveChatId?: string })[]> {
+  const result = await api<{ items?: BroadcastResource[] }>(
+    account.id,
+    "/liveBroadcasts?part=snippet,status&broadcastStatus=upcoming&broadcastType=all&maxResults=50",
+  );
+  return (result.items ?? [])
+    .map((item) => ({
+      id: item.id,
+      title: item.snippet?.title ?? "",
+      scheduledStartTime: item.snippet?.scheduledStartTime,
+      privacy: item.status?.privacyStatus,
+      liveChatId: item.snippet?.liveChatId,
+    }))
+    .sort((a, b) => (a.scheduledStartTime ?? "").localeCompare(b.scheduledStartTime ?? ""));
+}
+
+/**
+ * Binds a broadcast made in YouTube Studio to the ingest stream and makes it
+ * start and stop with the video, like broadcasts the app creates itself.
+ */
+export async function useExistingYouTubeBroadcast(account: YouTubeAccount, broadcastId: string, streamId: string): Promise<PreparedBroadcast> {
+  const found = await api<{ items?: BroadcastResource[] }>(
+    account.id,
+    `/liveBroadcasts?part=snippet,contentDetails&id=${encodeURIComponent(broadcastId)}`,
+  );
+  const broadcast = found.items?.[0];
+  if (!broadcast) throw new Error("youtube-broadcast-missing");
+  const details = broadcast.contentDetails ?? {};
+  if (!details.enableAutoStart || !details.enableAutoStop) {
+    // Only the fields YouTube accepts back on update; the rest are read-only.
+    const writable = { ...details };
+    delete writable.boundStreamId;
+    delete writable.boundStreamLastUpdateTimeMs;
+    await api(account.id, "/liveBroadcasts?part=contentDetails", {
+      method: "PUT",
+      body: JSON.stringify({ id: broadcastId, contentDetails: { ...writable, enableAutoStart: true, enableAutoStop: true } }),
+    });
+  }
+  await api(
+    account.id,
+    `/liveBroadcasts/bind?part=id&id=${encodeURIComponent(broadcastId)}&streamId=${encodeURIComponent(streamId)}`,
+    { method: "POST" },
+  );
+  return { id: broadcastId, liveChatId: broadcast.snippet?.liveChatId };
+}
+
 /** Creates a broadcast bound to the ingest stream; it goes live when video arrives. */
-export async function createYouTubeBroadcast(account: YouTubeAccount, streamId: string, info: BroadcastInfo): Promise<string> {
-  const broadcast = await api<{ id: string }>(account.id, "/liveBroadcasts?part=snippet,status,contentDetails", {
+export async function createYouTubeBroadcast(account: YouTubeAccount, streamId: string, info: BroadcastInfo): Promise<PreparedBroadcast> {
+  const broadcast = await api<BroadcastResource>(account.id, "/liveBroadcasts?part=snippet,status,contentDetails", {
     method: "POST",
     body: JSON.stringify({
       snippet: { title: info.title.trim() || "Live", scheduledStartTime: new Date().toISOString() },
@@ -215,7 +275,7 @@ export async function createYouTubeBroadcast(account: YouTubeAccount, streamId: 
     }
     throw error;
   }
-  return broadcast.id;
+  return { id: broadcast.id, liveChatId: broadcast.snippet?.liveChatId };
 }
 
 export async function completeYouTubeBroadcast(account: YouTubeAccount, broadcastId: string): Promise<void> {

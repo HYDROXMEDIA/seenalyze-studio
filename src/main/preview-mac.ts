@@ -20,6 +20,9 @@ interface PreviewPresenter {
   /** Content-relative points, top-left origin. */
   setFrame(name: string, x: number, y: number, width: number, height: number): void;
   setHidden(name: string, hidden: boolean): void;
+  /** Flat [x, y, width, height, ...] in content-relative points; left see-through. */
+  setCutouts(name: string, rects: number[]): void;
+  setDimmed(name: string, dimmed: boolean): void;
   detach(name: string): void;
 }
 
@@ -44,6 +47,8 @@ export class MacPreviewView {
   /** Surface the view shows; it stays valid while the engine runs. */
   private surface: number | null = null;
   private rect: Rect | null = null;
+  private cutouts: Rect[] = [];
+  private dimmed = false;
   /** Counts attaches, so a report from a removed view is ignored. */
   private generation = 0;
   private lastRebuild = 0;
@@ -68,7 +73,28 @@ export class MacPreviewView {
     // A surface that cannot be shown leaves the last picture up, still placed on the new rect.
     if (surface !== undefined) this.attempt(`cannot show its new surface ${surface}`, () => this.setSurface(surface));
     this.attempt("could not be placed", () => this.place(rect));
+    if (created && this.cutouts.length) this.attempt("could not cut out popups", () => this.applyCutouts());
+    if (created && this.dimmed) this.attempt("could not be dimmed", () => loadPresenter().setDimmed(this.name, true));
     return created;
+  }
+
+  /** Areas (content-relative points) where popups cover the view; kept across rebuilds. */
+  setCutouts(rects: Rect[]): void {
+    this.cutouts = rects;
+    if (this.attached) this.attempt("could not cut out popups", () => this.applyCutouts());
+  }
+
+  setDimmed(dimmed: boolean): void {
+    if (this.dimmed === dimmed) return;
+    this.dimmed = dimmed;
+    if (this.attached) this.attempt("could not be dimmed", () => loadPresenter().setDimmed(this.name, dimmed));
+  }
+
+  private applyCutouts(): void {
+    loadPresenter().setCutouts(
+      this.name,
+      this.cutouts.flatMap((rect) => [rect.x, rect.y, rect.width, rect.height]),
+    );
   }
 
   detach(): void {

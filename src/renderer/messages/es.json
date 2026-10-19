@@ -10,7 +10,8 @@
     "name": "Nombre",
     "remove": "Quitar",
     "rename": "Renombrar",
-    "save": "Guardar"
+    "save": "Guardar",
+    "previewFailed": "No se pudo actualizar la vista previa. Inténtalo de nuevo."
   },
   "header": {
     "appName": "SEENALYZE STUDIO",
@@ -419,7 +420,10 @@
       "public": "Pública",
       "unlisted": "No listada",
       "private": "Privada"
-    }
+    },
+    "broadcast": "Emisión",
+    "newBroadcast": "Nueva emisión",
+    "scheduledBroadcast": "{title} · {start, date, short} {start, time, short}"
   },
   "controls": {
     "title": "Controles",
@@ -713,7 +717,8 @@
       "import-invalid": "Ese archivo no es una colección de escenas.",
       "import-not-found": "Esa colección de escenas ya no existe.",
       "import-too-large": "Ese archivo es demasiado grande para importarlo.",
-      "recording-encoder-failed": "El codificador de la grabación no pudo iniciarse en este ordenador."
+      "recording-encoder-failed": "El codificador de la grabación no pudo iniciarse en este ordenador.",
+      "youtube-broadcast-missing": "La emisión de YouTube que elegiste ya no existe. Elige otra en los ajustes del título."
     }
   },
   "permissions": {

@@ -18,6 +18,7 @@ import type {
   PermissionKind,
   PermissionState,
   BroadcastInfo,
+  YouTubeBroadcastOption,
   CategoryOption,
   DestinationDraft,
   DeviceCodePrompt,
@@ -28,6 +29,7 @@ import type {
   ItemPlacement,
   ItemTransformPatch,
   Rect,
+  DisplaySpec,
   SourceKind,
   SourceChoiceDTO,
   SourceTransform,
@@ -90,6 +92,10 @@ export interface StudioApi {
   redoCanvas(): Promise<void>;
   getItemTransform(scene: string, itemId: number): Promise<SourceTransformDTO>;
   setItemTransform(scene: string, itemId: number, transform: SourceTransform): Promise<void>;
+  /** Shows an unsaved transform live; null puts the item back where it was. Save with setItemTransform. */
+  previewItemTransform(scene: string, itemId: number, transform: SourceTransform | null): Promise<void>;
+  /** Right-click on a source in the preview: opens its menu in the main window at `x`, `y` (CSS pixels from the canvas's top-left). */
+  openSourceMenu(itemId: number, x: number, y: number): Promise<void>;
   getSourceProperties(source: string): Promise<PropertyDTO[]>;
   updateSourceSettings(source: string, settings: Record<string, unknown>): Promise<PropertyDTO[]>;
   clickSourceButton(source: string, property: string): Promise<PropertyDTO[]>;
@@ -147,6 +153,16 @@ export interface StudioApi {
   setProgramBounds(rect: Rect | null, pixelRatio?: number): Promise<void>;
   /** Parks the preview off-screen while floating UI covers it, without tearing it down. */
   setPreviewHidden(hidden: boolean): Promise<void>;
+  /**
+   * macOS: areas (same units as setPreviewBounds) where popups such as menus
+   * and selects cover the preview. They are cut out of the native preview so
+   * the popup shows above it while the preview keeps running. `dialogs` are
+   * open dialogs: cut out of the main preview too, which is then dimmed like
+   * the page behind them (a dialog's own live picture is not).
+   */
+  setPreviewCutouts(rects: Rect[], dialogs?: Rect[]): Promise<void>;
+  /** Shows a source or scene live at `rect` (same units as setPreviewBounds) inside a dialog; null removes it. */
+  setDialogPreview(spec: DisplaySpec | null, rect: Rect | null, pixelRatio?: number): Promise<void>;
 
   // Studio mode and projectors
   /** Studio mode: scene clicks load the preview; studioTransition sends it to the program. */
@@ -201,6 +217,7 @@ export interface StudioApi {
   getBroadcastInfo(destinationId: string): Promise<BroadcastInfo>;
   setBroadcastInfo(destinationId: string, info: BroadcastInfo): Promise<void>;
   searchCategories(accountId: string, query: string): Promise<CategoryOption[]>;
+  listYouTubeBroadcasts(destinationId: string): Promise<YouTubeBroadcastOption[]>;
   openExternal(url: string): Promise<void>;
 
   // Go live / record
@@ -276,6 +293,15 @@ export interface StudioApi {
   /** Fired when the user tries to close the window while live or recording. */
   onQuitRequest(listener: () => void): () => void;
   onChat(listener: (event: ChatEvent) => void): () => void;
+  /** A source's menu was asked for from the preview (see openSourceMenu). */
+  onSourceMenu(listener: (request: SourceMenuRequest) => void): () => void;
+}
+
+export interface SourceMenuRequest {
+  itemId: number;
+  /** CSS pixels from the canvas's top-left. */
+  x: number;
+  y: number;
 }
 
 /** One row of a native popup menu; `separator` rows ignore the other fields. */
@@ -302,6 +328,7 @@ export const IPC = {
   notice: "studio:notice",
   quitRequest: "studio:quit-request",
   chat: "studio:chat",
+  sourceMenu: "studio:source-menu",
 } as const;
 
 export type StudioMethod = Exclude<keyof StudioApi, `on${string}`>;
@@ -365,6 +392,10 @@ export const STUDIO_METHODS: readonly StudioMethod[] = [
   "setMonitoringDevice",
   "setPreviewBounds",
   "setPreviewHidden",
+  "setPreviewCutouts",
+  "setDialogPreview",
+  "previewItemTransform",
+  "openSourceMenu",
   "setProgramBounds",
   "setStudioMode",
   "studioTransition",
@@ -398,6 +429,7 @@ export const STUDIO_METHODS: readonly StudioMethod[] = [
   "getBroadcastInfo",
   "setBroadcastInfo",
   "searchCategories",
+  "listYouTubeBroadcasts",
   "openExternal",
   "goLive",
   "checkStream",

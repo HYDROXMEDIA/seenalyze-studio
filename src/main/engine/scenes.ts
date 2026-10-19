@@ -1286,10 +1286,15 @@ function lockKey(scene: string, itemId: number): string {
   return `${scene}\u0000${itemId}`;
 }
 
+/** The engine's built-in labels name the app it was made for; show our own name instead. */
+function ownLabel(text: string): string {
+  return text.replace(/Streamlabs(?: Desktop| OBS)?/gu, "SEENALYZE STUDIO");
+}
+
 export function toPropertyDTO(property: IProperty, settings: Record<string, unknown>, inputId: string): PropertyDTO | null {
   const base = {
     name: property.name,
-    label: property.description || property.name,
+    label: ownLabel(property.description || property.name),
     enabled: property.enabled,
     value: settings[property.name] ?? property.value,
   };
@@ -1311,7 +1316,7 @@ export function toPropertyDTO(property: IProperty, settings: Record<string, unkn
     case P.Text: {
       const textType = Number(details.type ?? 0);
       kind = textType === 1 ? "password" : textType === 2 ? "multiline" : textType === 3 ? "info" : "text";
-      if (kind === "info") return { ...base, kind, value: property.description };
+      if (kind === "info") return { ...base, kind, value: ownLabel(property.description) };
       break;
     }
     case P.Path:
@@ -1323,7 +1328,7 @@ export function toPropertyDTO(property: IProperty, settings: Record<string, unkn
       };
     case P.List: {
       const items = Array.isArray(details.items) ? (details.items as { name: string; value: string | number }[]) : [];
-      return { ...base, kind: "list", options: items.map((item) => ({ label: item.name, value: item.value })) };
+      return { ...base, kind: "list", options: items.map((item) => ({ label: ownLabel(item.name), value: item.value })) };
     }
     case P.Font:
       return { ...base, kind: "font" };

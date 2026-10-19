@@ -10,7 +10,8 @@
     "name": "Name",
     "remove": "Remove",
     "rename": "Rename",
-    "save": "Save"
+    "save": "Save",
+    "previewFailed": "The preview could not be updated. Try again."
   },
   "header": {
     "appName": "SEENALYZE STUDIO",
@@ -419,7 +420,10 @@
       "public": "Public",
       "unlisted": "Unlisted",
       "private": "Private"
-    }
+    },
+    "broadcast": "Broadcast",
+    "newBroadcast": "New broadcast",
+    "scheduledBroadcast": "{title} · {start, date, short} {start, time, short}"
   },
   "controls": {
     "title": "Controls",
@@ -713,7 +717,8 @@
       "import-invalid": "That file isn't a scene collection.",
       "import-not-found": "That scene collection no longer exists.",
       "import-too-large": "That file is too large to import.",
-      "recording-encoder-failed": "The recording encoder couldn't start on this computer."
+      "recording-encoder-failed": "The recording encoder couldn't start on this computer.",
+      "youtube-broadcast-missing": "The YouTube broadcast you picked no longer exists. Pick another one in the stream title settings."
     }
   },
   "permissions": {

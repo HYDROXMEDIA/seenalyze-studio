@@ -2,6 +2,7 @@ import { FolderOpenIcon, RefreshCwIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "use-intl";
 import type { PropertyDTO } from "../../shared/types";
+import { LivePreview } from "@/components/LivePreview";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ColorPicker } from "@/components/ui/color-picker";
@@ -21,6 +22,10 @@ import {
 import { studio } from "@/lib/studio";
 import { formatColor, packSourceColor, parseColor, toHex, unpackSourceColor } from "@/lib/color";
 import { useAction } from "@/lib/use-action";
+import { useStudio } from "@/store/studio";
+
+/** Sources that make sound only; they have no picture to preview. */
+export const PICTURELESS_KINDS: ReadonlySet<string> = new Set(["microphone", "desktopAudio", "applicationAudio"]);
 
 /** Edits a source's engine properties. Changes apply live, like OBS. */
 export function SourcePropertiesDialog({ source, onClose }: { source: string | null; onClose: () => void }) {
@@ -42,6 +47,7 @@ function PropertiesForm({ source, onClose }: { source: string; onClose: () => vo
   const mounted = useRef(true);
   const updateVersion = useRef(0);
   const [loadFailed, setLoadFailed] = useState(false);
+  const kind = useStudio((state) => state.snapshot?.scenes.flatMap((scene) => scene.items).find((item) => item.sourceName === source)?.kind);
 
   useEffect(() => {
     mounted.current = true;
@@ -97,6 +103,7 @@ function PropertiesForm({ source, onClose }: { source: string; onClose: () => vo
       <DialogHeader>
         <DialogTitle>{t("title", { name: source })}</DialogTitle>
       </DialogHeader>
+      {kind && !PICTURELESS_KINDS.has(kind) && <LivePreview spec={{ kind: "source", name: source }} />}
       <div className="-mx-6 max-h-[60vh] overflow-y-auto px-6">
         {properties === null ? (
           <div className="flex h-24 items-center justify-center">

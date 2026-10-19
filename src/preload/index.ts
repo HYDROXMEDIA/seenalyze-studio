@@ -19,6 +19,7 @@ const api = {
   onNotice: (listener) => subscribe(IPC.notice, listener),
   onQuitRequest: (listener) => subscribe(IPC.quitRequest, listener),
   onChat: (listener) => subscribe(IPC.chat, listener),
+  onSourceMenu: (listener) => subscribe(IPC.sourceMenu, listener),
 } as StudioApi;
 
 contextBridge.exposeInMainWorld("studio", api);

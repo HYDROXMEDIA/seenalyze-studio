@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "use-intl";
-import type { BroadcastInfo, CategoryOption, DestinationConfig } from "../../shared/types";
+import type { BroadcastInfo, CategoryOption, DestinationConfig, YouTubeBroadcastOption } from "../../shared/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
 import {
@@ -19,6 +19,8 @@ import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
 import { cn } from "@/lib/utils";
 
+const NEW_BROADCAST = "new";
+
 /** Title, category (Twitch) and privacy (YouTube) for an account destination. */
 export function BroadcastInfoDialog({ destination, onClose }: { destination: DestinationConfig | null; onClose: () => void }) {
   return (
@@ -36,6 +38,7 @@ function InfoForm({ destination, onClose }: { destination: DestinationConfig; on
   const [query, setQuery] = useState("");
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [pending, setPending] = useState(false);
+  const [broadcasts, setBroadcasts] = useState<YouTubeBroadcastOption[] | null>(destination.platform === "youtube" ? null : []);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,6 +51,17 @@ function InfoForm({ destination, onClose }: { destination: DestinationConfig; on
   }, [destination.id, run]);
 
   useEffect(() => {
+    if (destination.platform !== "youtube") return;
+    let cancelled = false;
+    void run(() => studio.listYouTubeBroadcasts(destination.id)).then((result) => {
+      if (!cancelled) setBroadcasts(result ?? []);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [destination.id, destination.platform, run]);
+
+  useEffect(() => {
     if (destination.platform !== "twitch" || !destination.accountId || query.trim().length < 2) return;
     const accountId = destination.accountId;
     const timer = window.setTimeout(() => {
@@ -56,7 +70,7 @@ function InfoForm({ destination, onClose }: { destination: DestinationConfig; on
     return () => window.clearTimeout(timer);
   }, [query, destination.platform, destination.accountId, run]);
 
-  if (!info) {
+  if (!info || !broadcasts) {
     return (
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -69,15 +83,43 @@ function InfoForm({ destination, onClose }: { destination: DestinationConfig; on
     );
   }
 
+  // A broadcast that has started or ended since it was picked is no longer offered.
+  const picked = info.youtubeBroadcastId && broadcasts.some((broadcast) => broadcast.id === info.youtubeBroadcastId) ? info.youtubeBroadcastId : undefined;
+
   return (
     <DialogContent className="sm:max-w-md">
       <DialogHeader>
         <DialogTitle>{t("title")}</DialogTitle>
       </DialogHeader>
       <div className="grid gap-4">
-        <Field label={t("streamTitle")} htmlFor="broadcast-title">
-          <Input id="broadcast-title" value={info.title} maxLength={140} onChange={(event) => setInfo({ ...info, title: event.target.value })} />
-        </Field>
+        {destination.platform === "youtube" && (
+          <Field label={t("broadcast")} htmlFor="broadcast-pick">
+            <Select
+              value={picked ?? NEW_BROADCAST}
+              onValueChange={(value) => setInfo({ ...info, youtubeBroadcastId: value === NEW_BROADCAST ? undefined : value })}
+            >
+              <SelectTrigger id="broadcast-pick">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NEW_BROADCAST}>{t("newBroadcast")}</SelectItem>
+                {broadcasts.map((broadcast) => (
+                  <SelectItem key={broadcast.id} value={broadcast.id}>
+                    {broadcast.scheduledStartTime
+                      ? t("scheduledBroadcast", { title: broadcast.title, start: new Date(broadcast.scheduledStartTime) })
+                      : broadcast.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        )}
+
+        {!picked && (
+          <Field label={t("streamTitle")} htmlFor="broadcast-title">
+            <Input id="broadcast-title" value={info.title} maxLength={140} onChange={(event) => setInfo({ ...info, title: event.target.value })} />
+          </Field>
+        )}
 
         {destination.platform === "twitch" && (
           <Field label={t("category")} htmlFor="broadcast-category">
@@ -111,7 +153,7 @@ function InfoForm({ destination, onClose }: { destination: DestinationConfig; on
           </Field>
         )}
 
-        {destination.platform === "youtube" && (
+        {destination.platform === "youtube" && !picked && (
           <Field label={t("privacy")} htmlFor="broadcast-privacy">
             <Select value={info.privacy ?? "public"} onValueChange={(value) => setInfo({ ...info, privacy: value as BroadcastInfo["privacy"] })}>
               <SelectTrigger id="broadcast-privacy">
@@ -137,7 +179,7 @@ function InfoForm({ destination, onClose }: { destination: DestinationConfig; on
           onClick={async () => {
             setPending(true);
             const ok = await run(async () => {
-              await studio.setBroadcastInfo(destination.id, info);
+              await studio.setBroadcastInfo(destination.id, { ...info, youtubeBroadcastId: picked });
               return true;
             });
             setPending(false);

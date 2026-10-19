@@ -16,6 +16,10 @@
 //   setSurface(name, surfaceId)               after every new engine surface
 //   setFrame(name, x, y, width, height)       content-relative points, top-left origin
 //   setHidden(name, hidden)                   covered by floating UI
+//   setCutouts(name, [x, y, w, h, ...])       content-relative points, top-left origin:
+//                                             areas left see-through so popups drawn in
+//                                             the web content show above the preview
+//   setDimmed(name, dimmed)                   a dialog is open above it
 //   detach(name)
 //   stats(name)                               { frames, width, height, x, y, viewWidth, viewHeight, hidden }
 // Every call must come from the main thread (main-process JS runs there).
@@ -56,6 +60,8 @@ static const uint64_t kMaxWaitNs = 50 * NSEC_PER_MSEC;
 - (NSString *)setSurface:(IOSurfaceID)surfaceId;
 - (void)setFrame:(NSRect)topLeftFrame;
 - (void)setHidden:(BOOL)hidden;
+- (void)setCutouts:(NSArray<NSValue *> *)cutouts;
+- (void)setDimmed:(BOOL)dimmed;
 /** `releaseReport` is false while the Node environment is being torn down (it frees the callback itself). */
 - (void)closeReleasingReport:(BOOL)releaseReport;
 /** Frames shown so far, the drawable size and the view's frame (content-relative, top-left origin). */
@@ -68,8 +74,11 @@ static const uint64_t kMaxWaitNs = 50 * NSEC_PER_MSEC;
   SeenalyzePreviewView *_view;
   id _occlusionObserver;
   BOOL _hasSurface;
+  NSArray<NSValue *> *_cutouts;
   // Set once; used from the render queue.
   CAMetalLayer *_layer;
+  /** The view's own layer; holds the Metal layer so popups can be masked out (AppKit ignores a mask on the view's root layer). */
+  CALayer *_host;
   id<MTLCommandQueue> _commands;
   dispatch_queue_t _queue;
   dispatch_source_t _timer;
@@ -115,7 +124,12 @@ static const uint64_t kMaxWaitNs = 50 * NSEC_PER_MSEC;
   _layer.actions = @{@"bounds" : none, @"position" : none, @"frame" : none, @"contents" : none, @"hidden" : none};
 
   _view = [[SeenalyzePreviewView alloc] initWithFrame:NSZeroRect];
-  _view.layer = _layer;  // layer-hosting: AppKit never redraws or replaces the layer's contents
+  _host = [CALayer layer];
+  _host.actions = _layer.actions;
+  _host.backgroundColor = CGColorGetConstantColor(kCGColorClear);
+  _layer.autoresizingMask = kCALayerWidthSizable | kCALayerHeightSizable;
+  [_host addSublayer:_layer];
+  _view.layer = _host;  // layer-hosting: AppKit never redraws or replaces the layer's contents
   _view.wantsLayer = YES;
   // The web content is laid out from the top; keep the distance to the top
   // while the window resizes, until the next setFrame.
@@ -183,7 +197,71 @@ static const uint64_t kMaxWaitNs = 50 * NSEC_PER_MSEC;
   [CATransaction begin];
   [CATransaction setDisableActions:YES];
   _view.frame = frame;
+  _layer.frame = _host.bounds;
+  [self applyMask];
   [CATransaction commit];
+}
+
+- (void)setCutouts:(NSArray<NSValue *> *)cutouts {
+  _cutouts = cutouts.count ? cutouts : nil;
+  [CATransaction begin];
+  [CATransaction setDisableActions:YES];
+  [self applyMask];
+  [CATransaction commit];
+}
+
+/** Dims the picture like the backdrop behind an open dialog. */
+- (void)setDimmed:(BOOL)dimmed {
+  [CATransaction begin];
+  [CATransaction setDisableActions:YES];
+  _host.opacity = dimmed ? 0.4f : 1.0f;
+  [CATransaction commit];
+}
+
+/** Masks the cutouts (content-relative, top-left origin) out of the layer; the preview keeps running around them. */
+- (void)applyMask {
+  if (!_view) return;
+  // An opaque layer may skip blending; it must blend while parts are cut out.
+  _layer.opaque = _cutouts == nil;
+  if (!_cutouts) {
+    _layer.mask = nil;
+    return;
+  }
+  NSRect bounds = _view.bounds;
+  // The view's top-left corner in content coordinates (top-left origin), as setFrame received it.
+  NSRect frame = _view.frame;
+  CGFloat viewTop = _content.isFlipped ? NSMinY(frame) : NSHeight(_content.bounds) - NSMaxY(frame);
+  CGMutablePathRef path = CGPathCreateMutable();
+  CGPathAddRect(path, nullptr, bounds);
+  // Overlapping cutouts are merged first: with even-odd filling, two that overlap would cancel out.
+  NSMutableArray<NSValue *> *merged = [_cutouts mutableCopy];
+  for (BOOL changed = YES; changed;) {
+    changed = NO;
+    for (NSUInteger a = 0; a < merged.count && !changed; a++) {
+      for (NSUInteger b = a + 1; b < merged.count; b++) {
+        if (!NSIntersectsRect(merged[a].rectValue, merged[b].rectValue)) continue;
+        merged[a] = [NSValue valueWithRect:NSUnionRect(merged[a].rectValue, merged[b].rectValue)];
+        [merged removeObjectAtIndex:b];
+        changed = YES;
+        break;
+      }
+    }
+  }
+  for (NSValue *value in merged) {
+    NSRect cut = value.rectValue;
+    // The layer's origin is bottom-left.
+    NSRect local = NSMakeRect(cut.origin.x - NSMinX(frame), NSHeight(bounds) - (cut.origin.y - viewTop) - cut.size.height, cut.size.width, cut.size.height);
+    NSRect clipped = NSIntersectionRect(local, bounds);
+    if (!NSIsEmptyRect(clipped)) CGPathAddRect(path, nullptr, clipped);
+  }
+  CAShapeLayer *mask = [CAShapeLayer layer];
+  mask.actions = @{@"path" : [NSNull null], @"bounds" : [NSNull null], @"position" : [NSNull null]};
+  mask.frame = bounds;
+  mask.fillRule = kCAFillRuleEvenOdd;
+  mask.fillColor = CGColorGetConstantColor(kCGColorBlack);
+  mask.path = path;
+  CGPathRelease(path);
+  _layer.mask = mask;
 }
 
 - (void)setHidden:(BOOL)hidden {
@@ -257,6 +335,9 @@ static const uint64_t kMaxWaitNs = 50 * NSEC_PER_MSEC;
     @"viewWidth" : @(frame.size.width),
     @"viewHeight" : @(frame.size.height),
     @"hidden" : @(_view.hidden),
+    @"cutouts" : @(_cutouts.count),
+    @"masked" : @(_layer.mask != nil),
+    @"opacity" : @(_host.opacity),
   };
 }
 
@@ -463,6 +544,43 @@ static napi_value SetHidden(napi_env env, napi_callback_info info) {
   return Undefined(env);
 }
 
+static napi_value SetDimmed(napi_env env, napi_callback_info info) {
+  napi_value argv[2];
+  bool dimmed = false;
+  if (!Args(env, info, argv, 2) || napi_get_value_bool(env, argv[1], &dimmed) != napi_ok) return Throw(env, "invalid-request");
+  SeenalyzePresenter *presenter = Find(env, argv[0]);
+  if (!presenter) return Throw(env, "preview-not-attached");
+  [presenter setDimmed:dimmed];
+  return Undefined(env);
+}
+
+static napi_value SetCutouts(napi_env env, napi_callback_info info) {
+  napi_value argv[2];
+  bool isArray = false;
+  uint32_t length = 0;
+  if (!Args(env, info, argv, 2) || napi_is_array(env, argv[1], &isArray) != napi_ok || !isArray ||
+      napi_get_array_length(env, argv[1], &length) != napi_ok || length % 4 != 0 || length > 4 * 64) {
+    return Throw(env, "invalid-request");
+  }
+  NSMutableArray<NSValue *> *cutouts = [NSMutableArray arrayWithCapacity:length / 4];
+  for (uint32_t index = 0; index < length; index += 4) {
+    double values[4];
+    for (uint32_t part = 0; part < 4; part++) {
+      napi_value element;
+      if (napi_get_element(env, argv[1], index + part, &element) != napi_ok || napi_get_value_double(env, element, &values[part]) != napi_ok ||
+          !isfinite(values[part])) {
+        return Throw(env, "invalid-request");
+      }
+    }
+    if (values[2] <= 0 || values[3] <= 0) continue;
+    [cutouts addObject:[NSValue valueWithRect:NSMakeRect(values[0], values[1], values[2], values[3])]];
+  }
+  SeenalyzePresenter *presenter = Find(env, argv[0]);
+  if (!presenter) return Throw(env, "preview-not-attached");
+  [presenter setCutouts:cutouts];
+  return Undefined(env);
+}
+
 static napi_value Detach(napi_env env, napi_callback_info info) {
   napi_value argv[1];
   if (!Args(env, info, argv, 1)) return Throw(env, "invalid-request");
@@ -503,6 +621,8 @@ NAPI_MODULE_INIT() {
       {"setSurface", nullptr, SetSurface, nullptr, nullptr, nullptr, napi_default, nullptr},
       {"setFrame", nullptr, SetFrame, nullptr, nullptr, nullptr, napi_default, nullptr},
       {"setHidden", nullptr, SetHidden, nullptr, nullptr, nullptr, napi_default, nullptr},
+      {"setDimmed", nullptr, SetDimmed, nullptr, nullptr, nullptr, napi_default, nullptr},
+      {"setCutouts", nullptr, SetCutouts, nullptr, nullptr, nullptr, napi_default, nullptr},
       {"detach", nullptr, Detach, nullptr, nullptr, nullptr, napi_default, nullptr},
       {"stats", nullptr, Stats, nullptr, nullptr, nullptr, napi_default, nullptr},
   };

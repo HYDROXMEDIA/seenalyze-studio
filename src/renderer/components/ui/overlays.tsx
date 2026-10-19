@@ -164,8 +164,26 @@ const menuItemClass =
  * app on every platform. Like selects, it hides the native preview only
  * while it overlaps it.
  */
-export function ActionMenu({ items, children, align = "start" }: { items: ActionMenuItem[]; children: ReactElement; align?: "start" | "center" | "end" }) {
-  const [open, setOpen] = useState(false);
+export function ActionMenu({
+  items,
+  children,
+  align = "start",
+  open: controlledOpen,
+  onOpenChange,
+}: {
+  items: ActionMenuItem[];
+  children: ReactElement;
+  align?: "start" | "center" | "end";
+  /** Controlled use, for a menu opened from elsewhere (such as a right-click). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = (next: boolean) => {
+    if (controlledOpen === undefined) setInternalOpen(next);
+    onOpenChange?.(next);
+  };
   usePreviewOcclusion(open, "popper");
   return (
     // Not modal: actions often open a dialog, which then manages focus itself.

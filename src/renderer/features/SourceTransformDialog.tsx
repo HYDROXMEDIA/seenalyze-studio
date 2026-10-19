@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useTranslations } from "use-intl";
 import { TRANSFORM_ANCHORS } from "../../shared/transforms";
 import type { SourceTransform, SourceTransformDTO, TransformAnchor } from "../../shared/types";
+import { LivePreview } from "@/components/LivePreview";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogTitle, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/overlays";
@@ -23,6 +24,33 @@ function TransformForm({ scene, itemId, onClose }: { scene: string; itemId: numb
   const [pending, setPending] = useState(false);
   const [discard, setDiscard] = useState(false);
   const dirty = original && draft && JSON.stringify(original) !== JSON.stringify(draft);
+  const saved = useRef(false);
+  const savedRef = () => { saved.current = true; };
+  // Show the draft on the canvas as it is typed; Cancel puts the source back.
+  const shown = useRef(false);
+  useEffect(() => {
+    if (!draft || !original) return;
+    const same = JSON.stringify(draft) === JSON.stringify(original);
+    if (same && !shown.current) return;
+    const timer = window.setTimeout(() => {
+      shown.current = !same;
+      studio.previewItemTransform(scene, itemId, same ? null : draft).catch((error: unknown) => {
+        console.error("[transform] live preview failed", error);
+        toast.error(tc("previewFailed"));
+      });
+    }, 60);
+    return () => window.clearTimeout(timer);
+  }, [draft, original, scene, itemId, tc]);
+  useEffect(
+    () => () => {
+      if (saved.current || !shown.current) return;
+      studio.previewItemTransform(scene, itemId, null).catch((error: unknown) => {
+        console.error("[transform] could not restore the source", error);
+        toast.error(tc("previewFailed"));
+      });
+    },
+    [scene, itemId, tc],
+  );
   useEffect(() => {
     let cancelled = false;
     void run(() => studio.getItemTransform(scene, itemId)).then((value) => {
@@ -53,6 +81,7 @@ function TransformForm({ scene, itemId, onClose }: { scene: string; itemId: numb
           </div>
         ) : (
           <div className="grid max-h-[65vh] gap-4 overflow-y-auto">
+            <LivePreview spec={{ kind: "scene", name: scene }} />
             <div className="grid grid-cols-2 gap-3">{numberField("x", -100000, 100000)}{numberField("y", -100000, 100000)}</div>
             <div className="grid grid-cols-2 gap-3">{numberField("width", 1, 32768)}{numberField("height", 1, 32768)}</div>
             <div className="grid grid-cols-2 gap-3">
@@ -88,7 +117,7 @@ function TransformForm({ scene, itemId, onClose }: { scene: string; itemId: numb
             setPending(true);
             const saved = await run(async () => { await studio.setItemTransform(scene, itemId, draft); return true; });
             setPending(false);
-            if (saved) { toast.success(t("saved")); onClose(); }
+            if (saved) { savedRef(); toast.success(t("saved")); onClose(); }
           }}>{tc("save")}</Button>
         </DialogFooter>
         <AlertDialog open={discard} onOpenChange={setDiscard}>

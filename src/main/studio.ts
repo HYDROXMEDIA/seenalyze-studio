@@ -65,7 +65,7 @@ import { DEFAULT_AUDIO_FORMAT, sanitizeVideoFormat, type AudioFormat } from "../
 import { availablePresets, isStingerPath, parseTransition, sanitizeTransition, STINGER_EXTENSIONS, type TransitionChoice } from "../shared/transitions";
 import { virtualCameraAvailability, virtualCameraScene, type VirtualCameraProbe } from "../shared/virtual-camera";
 import { sanitizePlacement, sanitizeTransformPatch } from "../shared/transform-geometry";
-import { isEffectKind, sanitizeEffectSnapshots } from "../shared/video-effects";
+import { effectSuitsSource, isEffectKind, sanitizeEffectSnapshots } from "../shared/video-effects";
 
 type AccountRecord =
   | ({ platform: "twitch" } & twitch.TwitchAccount & { login?: string })
@@ -102,6 +102,9 @@ interface YouTubeBroadcast {
   accountId: string;
   broadcastId: string;
   wentLive: boolean;
+  /** Picked from YouTube Studio: the user's broadcast, never deleted by the app. */
+  scheduled: boolean;
+  liveChatId?: string;
 }
 
 const STATE_FILE = "studio.json";
@@ -125,6 +128,8 @@ const DESIGN_SIZES: Record<OverlayKind, { width: number; height: number }> = {
 const PREVIEW_PARK_OFFSET = -20000;
 /** The studio-mode preview's display (the program keeps PREVIEW_DISPLAY_NAME). */
 const STUDIO_DISPLAY_NAME = "seenalyze-studio-preview";
+/** The live picture inside a dialog that changes a source or its layout. */
+const DIALOG_DISPLAY_NAME = "seenalyze-dialog-preview";
 /** Studio mode switched: longer than the page's 80 ms wait before it reports the new layout. */
 const STUDIO_LAYOUT_FALLBACK_MS = 300;
 
@@ -157,6 +162,8 @@ export class Studio {
   private engineErrorKey: string | undefined;
   private readonly statuses = new Map<string, DestinationStatus>();
   private readonly youtubeBroadcasts = new Map<string, YouTubeBroadcast>();
+  /** Chat ids of scheduled broadcasts, learned when they are listed. */
+  private readonly scheduledChatIds = new Map<string, string>();
   private readonly preparations = new Map<string, { cancelled: boolean }>();
   /** Destinations being restarted on the software encoder after a graphics-card encoder failed. */
   private readonly encoderRetries = new Set<string>();
@@ -167,6 +174,8 @@ export class Studio {
   private readonly programDisplay: NativeDisplay;
   /** The editable studio-mode preview (shows `previewScene`). */
   private readonly studioDisplay: NativeDisplay;
+  private readonly dialogDisplay: NativeDisplay;
+  private dialogQueue: Promise<void> = Promise.resolve();
   /** Where the program goes in studio mode (window points), or null. */
   private programRect: Rect | null = null;
   /** Scene in the studio-mode preview. */
@@ -175,6 +184,8 @@ export class Studio {
   private previewRect: Rect | null = null;
   /** Floating UI covers the preview: keep the surface but park it off-screen. */
   private previewHidden = false;
+  /** Popups currently cut out of the preview (macOS). */
+  private previewCutout = false;
   private previewQueue: Promise<void> = Promise.resolve();
   /**
    * The window's backing scale, from the renderer's devicePixelRatio (0 until
@@ -204,6 +215,7 @@ export class Studio {
       }
       return login;
     },
+    youtubeChatId: (accountId) => this.youtubeChatId(accountId),
     emit: (event) => this.send(IPC.chat, event),
   });
   private readonly library = new OverlayLibrary(path.join(app.getPath("userData"), "overlays"));
@@ -288,6 +300,7 @@ export class Studio {
     const previewFailed = () => this.notify({ kind: "error", key: "errors.codes.preview-failed" });
     this.programDisplay = new NativeDisplay(this.engine, window, PREVIEW_DISPLAY_NAME, null, previewFailed);
     this.studioDisplay = new NativeDisplay(this.engine, window, STUDIO_DISPLAY_NAME, { kind: "studioPreview" }, previewFailed);
+    this.dialogDisplay = new NativeDisplay(this.engine, window, DIALOG_DISPLAY_NAME, null, previewFailed);
     this.projectors = projectorPages
       ? new Projectors({
           ...projectorPages,
@@ -373,6 +386,7 @@ export class Studio {
     await this.projectors?.closeAll().catch((error: unknown) => console.error("[studio] projectors did not close cleanly", error));
     this.programDisplay.reset();
     this.studioDisplay.reset();
+    this.dialogDisplay.reset();
     try {
       await this.screenRecorder.shutdown();
     } catch (error) {
@@ -544,7 +558,8 @@ export class Studio {
       await this.engine.call("setSelectedItem", scene, typeof itemId === "number" ? itemId : null);
     },
     getItemTransform: async (scene, itemId) => this.engine.call("getItemTransform", scene, itemId),
-    setItemTransform: async (scene, itemId, transform) => this.canvasEdit(scene, itemId, () => this.engine.call("setItemTransform", scene, itemId, transform)),
+    // A transform shown live by previewItemTransform is undone back to where it started.
+    setItemTransform: async (scene, itemId, transform) => this.canvasEdit(scene, itemId, () => this.engine.call("setItemTransform", scene, itemId, transform), `${scene}\u0000${itemId}`),
     getSourceProperties: async (source) => this.engine.call("getProperties", source),
     updateSourceSettings: async (source, settings) => {
       const result = await this.engine.call("updateSettings", source, settings);
@@ -578,6 +593,8 @@ export class Studio {
     listEffects: async (source) => this.engine.call("listEffects", String(source)),
     addEffect: async (source, kind) => {
       if (!isEffectKind(kind)) throw new Error("invalid-request");
+      const sourceKind = this.engineState?.scenes.flatMap((scene) => scene.items).find((item) => item.sourceName === String(source))?.kind;
+      if (!effectSuitsSource(kind, sourceKind)) throw new Error("invalid-request");
       return this.mutate(() => this.engine.call("addEffect", String(source), kind));
     },
     removeEffect: async (source, effect) => this.mutate(() => this.engine.call("removeEffect", String(source), String(effect))),
@@ -589,7 +606,12 @@ export class Studio {
       return this.mutate(() => this.engine.call("updateEffectSettings", String(source), String(effect), settings));
     },
     copyEffects: async (source) => this.engine.call("copyEffects", String(source)),
-    pasteEffects: async (source, effects) => this.mutate(() => this.engine.call("pasteEffects", String(source), sanitizeEffectSnapshots(effects))),
+    pasteEffects: async (source, effects) => {
+      const sourceKind = this.engineState?.scenes.flatMap((scene) => scene.items).find((item) => item.sourceName === String(source))?.kind;
+      // Effects copied from a camera are not pasted onto text or other drawn sources.
+      const suited = sanitizeEffectSnapshots(effects).filter((effect) => effectSuitsSource(effect.kind, sourceKind));
+      return this.mutate(() => this.engine.call("pasteEffects", String(source), suited));
+    },
     pickFile: async (filter, directory) => {
       const result = await dialog.showOpenDialog(this.window, {
         properties: [directory ? "openDirectory" : "openFile"],
@@ -661,6 +683,70 @@ export class Studio {
       }
       // Placed with the setPreviewBounds call that follows, so both rects
       // change together and no display is made for a size it never keeps.
+    },
+    setPreviewCutouts: async (rects, dialogs) => {
+      const zoom = this.window.webContents.getZoomFactor();
+      const factor = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+      const clean = (list: unknown) =>
+        (Array.isArray(list) ? (list as Rect[]) : [])
+          .slice(0, 64)
+          .filter((rect) => [rect?.x, rect?.y, rect?.width, rect?.height].every((value) => typeof value === "number" && Number.isFinite(value)) && rect.width > 0 && rect.height > 0)
+          .map((rect) => ({ x: rect.x * factor, y: rect.y * factor, width: rect.width * factor, height: rect.height * factor }));
+      const popups = clean(rects);
+      const boxes = clean(dialogs);
+      const all = [...popups, ...boxes];
+      this.programDisplay.setCutouts(all, boxes.length > 0);
+      this.studioDisplay.setCutouts(all, boxes.length > 0);
+      // A dialog's own live picture sits inside the dialog: only popups are cut from it.
+      this.dialogDisplay.setCutouts(popups);
+      // The editing layer sits above the preview in its own window and would
+      // catch clicks meant for the popup or dialog; it steps aside meanwhile.
+      this.previewCutout = all.length > 0;
+      this.syncEditor();
+    },
+    setDialogPreview: async (spec, rect, pixelRatio) => {
+      const valid = spec && (spec.kind === "source" || spec.kind === "scene") && typeof spec.name === "string" && spec.name.length > 0;
+      const zoom = this.window.webContents.getZoomFactor();
+      const factor = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+      const shown =
+        valid && rect && [rect.x, rect.y, rect.width, rect.height].every((value) => typeof value === "number" && Number.isFinite(value))
+          ? { x: Math.round(rect.x * factor), y: Math.round(rect.y * factor), width: Math.round(rect.width * factor), height: Math.round(rect.height * factor) }
+          : null;
+      const scale =
+        typeof pixelRatio === "number" && Number.isFinite(pixelRatio) && pixelRatio > 0
+          ? Math.round((pixelRatio / factor) * 100) / 100
+          : screen.getDisplayMatching(this.window.getBounds()).scaleFactor;
+      const run = this.dialogQueue.then(async () => {
+        if (!shown || !valid) return this.dialogDisplay.hide();
+        if (!this.engine.running || !this.engineState) return;
+        // A different source or scene needs a new engine display.
+        if (JSON.stringify(this.dialogDisplay.spec) !== JSON.stringify(spec)) await this.dialogDisplay.hide();
+        this.dialogDisplay.spec = { kind: spec.kind, name: spec.name };
+        await this.dialogDisplay.show(shown, scale, () => this.engine.running && this.engineState !== null && !this.window.isDestroyed());
+      });
+      this.dialogQueue = run.catch((error: unknown) => console.error("[studio] dialog preview update failed", error));
+      await run;
+    },
+    openSourceMenu: async (itemId, x, y) => {
+      if (![itemId, x, y].every((value) => typeof value === "number" && Number.isFinite(value))) throw new Error("invalid-request");
+      if (this.window.isDestroyed()) return;
+      // Keyboard and the menu belong to the main window.
+      this.window.focus();
+      this.window.webContents.send(IPC.sourceMenu, { itemId, x, y });
+    },
+    previewItemTransform: async (scene, itemId, transform) => {
+      const key = `${scene}\u0000${itemId}`;
+      return this.inCanvasQueue(async () => {
+        if (transform) {
+          // Like a drag: the engine shows it, and Save records one undo step from the start.
+          if (!this.dragStarts.has(key)) this.dragStarts.set(key, await this.engine.call("getItemPlacement", scene, itemId));
+          await this.engine.call("setItemTransform", scene, itemId, transform);
+          return;
+        }
+        const start = this.dragStarts.get(key);
+        this.dragStarts.delete(key);
+        if (start) await this.engine.call("setItemPlacement", scene, itemId, start);
+      });
     },
     setPreviewHidden: async (hidden) => {
       if (this.previewHidden === Boolean(hidden)) return;
@@ -829,8 +915,17 @@ export class Studio {
         categoryId: info.categoryId,
         categoryName: info.categoryName,
         privacy: info.privacy,
+        youtubeBroadcastId: account?.platform === "youtube" ? info.youtubeBroadcastId : undefined,
       };
       this.persist();
+      this.chat.retargetYouTube();
+    },
+    listYouTubeBroadcasts: async (destinationId) => {
+      const account = this.accountFor(this.requireDestination(destinationId));
+      if (account?.platform !== "youtube") return [];
+      const broadcasts = await youtube.listUpcomingYouTubeBroadcasts(account);
+      for (const { id, liveChatId } of broadcasts) if (liveChatId) this.scheduledChatIds.set(id, liveChatId);
+      return broadcasts.map(({ liveChatId: _chat, ...option }) => option);
     },
     searchCategories: async (accountId, query) => twitch.searchTwitchCategories(accountId, query),
     openExternal: async (url) => {
@@ -1094,8 +1189,12 @@ export class Studio {
         account.streamId = ingest.streamId;
         this.persist();
       }
-      const broadcastId = await youtube.createYouTubeBroadcast(account, ingest.streamId, info);
-      this.youtubeBroadcasts.set(destination.id, { accountId: account.id, broadcastId, wentLive: false });
+      const scheduled = Boolean(info.youtubeBroadcastId);
+      const broadcast = info.youtubeBroadcastId
+        ? await youtube.useExistingYouTubeBroadcast(account, info.youtubeBroadcastId, ingest.streamId)
+        : await youtube.createYouTubeBroadcast(account, ingest.streamId, info);
+      this.youtubeBroadcasts.set(destination.id, { accountId: account.id, broadcastId: broadcast.id, wentLive: false, scheduled, liveChatId: broadcast.liveChatId });
+      this.chat.retargetYouTube();
       return { config: destination, server: ingest.server, streamKey: ingest.streamKey };
     }
 
@@ -1201,12 +1300,37 @@ export class Studio {
     await this.refreshState();
   }
 
+  /** Chat of the broadcast being streamed, else of the scheduled broadcast picked for the next stream. */
+  private youtubeChatId(accountId: string): string | undefined {
+    for (const broadcast of this.youtubeBroadcasts.values()) {
+      if (broadcast.accountId === accountId && broadcast.liveChatId) return broadcast.liveChatId;
+    }
+    for (const destination of this.state.destinations) {
+      if (destination.accountId !== accountId || !destination.enabled) continue;
+      const picked = this.state.broadcastInfo[destination.id]?.youtubeBroadcastId;
+      const chatId = picked ? this.scheduledChatIds.get(picked) : undefined;
+      if (chatId) return chatId;
+    }
+    return undefined;
+  }
+
   private finishYouTubeBroadcast(destinationId: string): void {
     const broadcast = this.youtubeBroadcasts.get(destinationId);
     if (!broadcast) return;
     this.youtubeBroadcasts.delete(destinationId);
+    this.chat.retargetYouTube();
     const account = this.state.accounts.find((entry) => entry.id === broadcast.accountId);
     if (account?.platform !== "youtube") return;
+    if (broadcast.scheduled) {
+      // A finished broadcast can't be streamed into again; the next stream makes a new one.
+      const saved = this.state.broadcastInfo[destinationId];
+      if (broadcast.wentLive && saved?.youtubeBroadcastId === broadcast.broadcastId) {
+        saved.youtubeBroadcastId = undefined;
+        this.persist();
+      }
+      // The user scheduled it in YouTube Studio; leave it there if it never went live.
+      if (!broadcast.wentLive) return;
+    }
     const finish = broadcast.wentLive ? youtube.completeYouTubeBroadcast : youtube.deleteYouTubeBroadcast;
     finish(account, broadcast.broadcastId).catch((error: unknown) => {
       // enableAutoStop also ends a live broadcast once video stops arriving.
@@ -1280,6 +1404,7 @@ export class Studio {
     this.dragStarts.clear();
     this.programDisplay.reset();
     this.studioDisplay.reset();
+    this.dialogDisplay.reset();
     this.projectors?.reset();
     this.editor?.setRect(null);
     this.pushSnapshot();
@@ -1298,6 +1423,7 @@ export class Studio {
     this.engineState = null;
     this.programDisplay.reset();
     this.studioDisplay.reset();
+    this.dialogDisplay.reset();
     this.projectors?.reset();
     this.editor?.setRect(null);
     for (const preparation of this.preparations.values()) preparation.cancelled = true;
@@ -1325,7 +1451,7 @@ export class Studio {
   /** The editor window covers the visible preview only (never while parked or torn down). */
   private syncEditor(): void {
     if (!this.editor) return;
-    const visible = this.previewRect && !this.previewHidden && this.engine.running && this.engineState;
+    const visible = this.previewRect && !this.previewHidden && !this.previewCutout && this.engine.running && this.engineState;
     this.editor.setRect(visible ? this.previewRect : null);
   }
 

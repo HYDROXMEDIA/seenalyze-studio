@@ -60,3 +60,9 @@ Run `bun run typecheck`, `bun run lint`, `bun test src` after changes. For engin
 ## No silent errors
 
 No error may fail silently here. Every caught error must be logged (without secrets) and either recovered from, rolled back to the last valid step with a clear user-facing error and retry, or surfaced loudly (visible error, or non-zero exit for scripts). Empty or swallowing `catch` blocks, unhandled rejections, and output-hiding shell tricks are forbidden. Full rule: "No Silent Errors" in `~/Desktop/dev/AGENTS.md` §10a.
+
+## End-of-response summary (all projects)
+
+- End every response with a short, plain-language summary in **bold** that says what happened, so it can be understood at a glance. Example: "**Everything schema-related is synced.**"
+- Lead with the outcome. No file names, commands, SQL, or implementation detail; those belong earlier in the response.
+- If several things happened, use at most three short bullets. If something is not done, not verified, or needs the user's decision, say so plainly here.

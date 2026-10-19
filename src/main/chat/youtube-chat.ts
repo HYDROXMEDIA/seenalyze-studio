@@ -1,5 +1,7 @@
-// YouTube live chat. Chat only exists while a broadcast is live, so the source
-// waits for an active broadcast, then polls at the interval YouTube asks for.
+// YouTube live chat. When the studio knows the broadcast it streams into (one
+// picked from YouTube Studio or one it created), chat connects to it at once,
+// even before it goes live. Otherwise the source waits for an active
+// broadcast. Either way it polls at the interval YouTube asks for.
 // Every request counts against the app's daily YouTube API quota, which is
 // why idle checks are slow and polling never runs faster than YouTube allows.
 
@@ -17,11 +19,26 @@ export class YouTubeChat implements ChatSource {
   private stopped = true;
   private liveChatId: string | null = null;
   private pageToken: string | undefined;
+  /** Chats that ended; never reconnected to, so a finished broadcast doesn't block the active one. */
+  private readonly ended = new Set<string>();
 
   constructor(
     private readonly account: () => YouTubeAccount | undefined,
     private readonly sink: ChatSink,
+    /** Chat of the broadcast the studio is about to stream or is streaming into. */
+    private readonly preferredChatId: () => string | undefined = () => undefined,
   ) {}
+
+  /** The studio's broadcast changed: look up the chat again right away. */
+  retarget(): void {
+    if (this.stopped) return;
+    const preferred = this.preferredChatId();
+    if (preferred && preferred === this.liveChatId) return;
+    this.liveChatId = null;
+    this.pageToken = undefined;
+    this.sink.status({ state: "connecting" });
+    this.schedule(0);
+  }
 
   start(): void {
     if (!this.stopped) return;
@@ -50,7 +67,9 @@ export class YouTubeChat implements ChatSource {
     if (this.stopped || !account) return;
     try {
       if (!this.liveChatId) {
-        this.liveChatId = await activeLiveChatId(account);
+        const preferred = this.preferredChatId();
+        this.liveChatId = preferred && !this.ended.has(preferred) ? preferred : await activeLiveChatId(account);
+        if (this.liveChatId && this.ended.has(this.liveChatId)) this.liveChatId = null;
         if (!this.liveChatId) {
           this.sink.status({ state: "waiting" });
           this.schedule(IDLE_CHECK_MS);
@@ -64,6 +83,7 @@ export class YouTubeChat implements ChatSource {
       this.sink.status({ state: "connected" });
       this.dispatch(page.items, account.id);
       if (page.offlineAt) {
+        this.ended.add(this.liveChatId);
         this.liveChatId = null;
         this.schedule(IDLE_CHECK_MS);
         return;
@@ -72,6 +92,7 @@ export class YouTubeChat implements ChatSource {
     } catch (error) {
       const code = error instanceof Error ? error.message : "";
       if (code === "youtube-chat-ended") {
+        if (this.liveChatId) this.ended.add(this.liveChatId);
         this.liveChatId = null;
         this.sink.status({ state: "waiting" });
         this.schedule(IDLE_CHECK_MS);

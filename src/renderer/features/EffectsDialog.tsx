@@ -19,7 +19,8 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "use-intl";
 import type { PropertyDTO } from "../../shared/types";
-import type { EffectDTO, EffectKind, EffectList } from "../../shared/video-effects";
+import { effectSuitsSource, type EffectDTO, type EffectKind, type EffectList } from "../../shared/video-effects";
+import { useStudio } from "@/store/studio";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/form";
 import {
@@ -75,6 +76,7 @@ function EffectsPanel({ source, onClose }: { source: string; onClose: () => void
   const [list, setList] = useState<EffectList | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [removing, setRemoving] = useState<EffectDTO | null>(null);
+  const sourceKind = useStudio((state) => state.snapshot?.scenes.flatMap((scene) => scene.items).find((item) => item.sourceName === source)?.kind);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,7 +107,8 @@ function EffectsPanel({ source, onClose }: { source: string; onClose: () => void
   const effects = list?.effects ?? [];
   const current = effects.find((effect) => effect.name === selected) ?? null;
   const index = current ? effects.indexOf(current) : -1;
-  const addItems = (list?.available ?? []).map((kind) => ({ label: t(`kinds.${kind}`), onSelect: () => void add(kind) }));
+  const available = (list?.available ?? []).filter((kind) => effectSuitsSource(kind, sourceKind));
+  const addItems = available.map((kind) => ({ label: t(`kinds.${kind}`), onSelect: () => void add(kind) }));
 
   return (
     <DialogContent className="sm:max-w-3xl">
@@ -116,12 +119,12 @@ function EffectsPanel({ source, onClose }: { source: string; onClose: () => void
         <div className="flex h-40 items-center justify-center">
           <span className="size-5 animate-spin rounded-full border-2 border-muted border-t-foreground" aria-label={tc("loading")} />
         </div>
-      ) : list.available.length === 0 ? (
+      ) : available.length === 0 ? (
         <p className="py-6 text-center text-sm text-muted-foreground">{t("unavailable")}</p>
       ) : effects.length === 0 ? (
         <div className="grid gap-3">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {QUICK_EFFECTS.filter((kind) => list.available.includes(kind)).map((kind) => {
+            {QUICK_EFFECTS.filter((kind) => available.includes(kind)).map((kind) => {
               const Icon = EFFECT_ICONS[kind];
               return (
                 <button

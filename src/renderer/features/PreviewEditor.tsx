@@ -285,6 +285,17 @@ export function PreviewEditor({ width, height, baseWidth, baseHeight }: { width:
       className="absolute inset-0 touch-none select-none"
       style={{ width, height }}
       onPointerDown={onLayerDown}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        if (!scene || dragRef.current) return;
+        const point = toCanvasPoint(event);
+        // Hidden and locked sources are picked too: their menu can show or unlock them.
+        const under = (item: (typeof scene.items)[number]) => Boolean(item.transform && containsPoint(item.transform, point));
+        const hit = scene.items.find((item) => item.visible && under(item)) ?? scene.items.find(under);
+        if (!hit) return;
+        selectItem(hit.id);
+        studio.openSourceMenu(hit.id, point.x * k, point.y * k).catch((error: unknown) => console.error("[preview] source menu could not open", error));
+      }}
       onPointerMove={onMove}
       onPointerUp={finish}
       onPointerCancel={finish}

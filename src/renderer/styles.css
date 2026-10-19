@@ -300,6 +300,10 @@
   animation-play-state: running;
   animation-delay: 0s;
 }
+.transition-thumb.tt-play > * {
+  animation-play-state: running;
+  animation-delay: 0s;
+}
 .transition-thumb > .tt-mid { opacity: 0; }
 
 /* Mini scene content so motion direction reads at thumbnail size. */

@@ -1,5 +1,5 @@
 import { ChevronDownIcon } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { useTranslations } from "use-intl";
 import { Button } from "@/components/ui/button";
 import { ActionMenu } from "@/components/ui/overlays";
@@ -9,6 +9,7 @@ import { isMac, studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
 import { cn } from "@/lib/utils";
 import { useStudio } from "@/store/studio";
+import type { Rect } from "../../shared/types";
 import { PREVIEW_EDITOR_MARGIN } from "../../shared/transform-geometry";
 import { DEFAULT_TRANSITION } from "../../shared/transitions";
 import { PreviewEditor } from "./PreviewEditor";
@@ -61,6 +62,7 @@ export function Preview() {
   // Anchored popups and tooltips: both park the preview only while they overlap it.
   const poppers = useStudio((state) => state.poppers + state.tooltips);
   const [popperCovers, setPopperCovers] = useState(false);
+  const [dialogShown, setDialogShown] = useState(false);
   const video = useStudio((state) => state.snapshot?.video);
   const studioMode = useStudio((state) => state.snapshot?.studioMode?.enabled ?? false);
   const previewScene = useStudio((state) => state.snapshot?.activeScene ?? null);
@@ -92,36 +94,74 @@ export function Preview() {
     return () => observer.disconnect();
   }, [aspect, studioMode]);
 
-  // While a menu, select or tooltip is open, track whether it overlaps a canvas
-  // (it may move or animate, so check every frame until it closes).
+  // While a menu, select or tooltip is open, track where it overlaps a canvas
+  // (it may move or animate, so check every frame until it closes). On macOS
+  // those areas are cut out of the native preview, which keeps running around
+  // the popup like a native app; elsewhere the preview steps aside.
+  // Dialogs are handled the same way on macOS: cut out, with the preview dimmed like the page.
+  const tracking = poppers > 0 || (isMac && overlays > 0);
   useEffect(() => {
-    if (poppers === 0) return;
+    if (!tracking) return;
     let raf = 0;
+    let lastKey = "";
     const check = () => {
-      let covers = false;
-      for (const frame of [frameRef.current, programRef.current]) {
-        const box = frame?.getBoundingClientRect();
-        if (!box || box.width <= 0) continue;
-        for (const element of document.querySelectorAll("[data-radix-popper-content-wrapper], [role='menu'], [role='listbox']")) {
-          const popper = element.getBoundingClientRect();
-          if (popper.width > 0 && popper.height > 0 && popper.left < box.right && popper.right > box.left && popper.top < box.bottom && popper.bottom > box.top) {
-            covers = true;
-            break;
-          }
+      const cutouts: Rect[] = [];
+      const dialogs: Rect[] = [];
+      if (isMac) {
+        for (const element of document.querySelectorAll("[role='dialog'], [role='alertdialog']")) {
+          const box = element.getBoundingClientRect();
+          if (box.width > 0 && box.height > 0) dialogs.push({ x: Math.floor(box.left - 8), y: Math.floor(box.top - 8), width: Math.ceil(box.width + 16), height: Math.ceil(box.height + 16) });
         }
-        if (covers) break;
       }
-      setPopperCovers(covers);
+      const frames = [frameRef.current, programRef.current].map((frame) => frame?.getBoundingClientRect()).filter((box): box is DOMRect => !!box && box.width > 0);
+      for (const element of document.querySelectorAll("[data-radix-popper-content-wrapper], [role='menu'], [role='listbox']")) {
+        // A menu sits inside its popper wrapper: count each popup once.
+        if (element.parentElement?.closest("[data-radix-popper-content-wrapper]")) continue;
+        const popper = element.getBoundingClientRect();
+        if (popper.width <= 0 || popper.height <= 0) continue;
+        // macOS cuts every popup out (a dialog may show its own live picture too); elsewhere only overlaps matter.
+        if (!isMac && !frames.some((box) => popper.left < box.right && popper.right > box.left && popper.top < box.bottom && popper.bottom > box.top)) continue;
+        // A little extra so the popup's shadow is not clipped by the preview.
+        const pad = 8;
+        cutouts.push({ x: Math.floor(popper.left - pad), y: Math.floor(popper.top - pad), width: Math.ceil(popper.width + 2 * pad), height: Math.ceil(popper.height + 2 * pad) });
+      }
+      if (isMac) {
+        setDialogShown(dialogs.length > 0);
+        const key = JSON.stringify([cutouts, dialogs]);
+        if (key !== lastKey) {
+          lastKey = key;
+          studio.setPreviewCutouts(cutouts, dialogs).catch((error: unknown) => console.error("[preview] popups could not be cut out", error));
+        }
+      } else {
+        setPopperCovers(cutouts.length > 0);
+      }
       raf = requestAnimationFrame(check);
     };
     raf = requestAnimationFrame(check);
     return () => {
       cancelAnimationFrame(raf);
       setPopperCovers(false);
+      setDialogShown(false);
+      if (isMac && lastKey !== "[[],[]]" && lastKey !== "") {
+        studio.setPreviewCutouts([]).catch((error: unknown) => console.error("[preview] popup cutouts could not be cleared", error));
+      }
     };
-  }, [poppers]);
+  }, [tracking]);
 
-  const hidden = overlays > 0 || (poppers > 0 && popperCovers);
+  // Right-click in the preview (possibly from the macOS editor window) opens the source's menu here.
+  const setSourceMenu = useStudio((state) => state.setSourceMenu);
+  useEffect(
+    () =>
+      studio.onSourceMenu(({ itemId, x, y }) => {
+        const box = frameRef.current?.getBoundingClientRect();
+        if (!box) return;
+        setSourceMenu({ itemId, x: box.left + x, y: box.top + y });
+      }),
+    [setSourceMenu],
+  );
+
+  // macOS: a modal whose box was found is cut out instead; anything else still parks the preview.
+  const hidden = (overlays > 0 && !(isMac && dialogShown)) || (poppers > 0 && popperCovers);
   useEffect(() => {
     studio.setPreviewHidden(hidden).catch(console.error);
   }, [hidden]);
@@ -161,6 +201,16 @@ export function Preview() {
     [],
   );
 
+  // A click on the empty surround (not the canvas or its controls) clears the selection, like OBS.
+  const selectItem = useStudio((state) => state.selectItem);
+  const deselectOutside = (event: ReactPointerEvent) => {
+    if (event.button !== 0) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("button, a, input, [role='menu'], [role='application']")) return;
+    if (frameRef.current?.contains(target) || programRef.current?.contains(target)) return;
+    selectItem(null);
+  };
+
   const canvas = { width: layout.width, height: layout.height };
   const editor = !isMac && video && layout.width >= 2 && (
     <PreviewEditor width={layout.width} height={layout.height} baseWidth={video.baseWidth} baseHeight={video.baseHeight} />
@@ -168,7 +218,7 @@ export function Preview() {
 
   if (!studioMode) {
     return (
-      <div ref={areaRef} className="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden bg-[var(--preview-surface)]">
+      <div ref={areaRef} onPointerDown={deselectOutside} className="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden bg-[var(--preview-surface)]">
         <div className="relative" style={canvas}>
           <div ref={frameRef} role="img" aria-label={t("label")} className="absolute inset-0 bg-black outline outline-1 outline-foreground/20" />
           {/* On macOS the editor runs in its own window above the native preview. */}
@@ -194,7 +244,7 @@ export function Preview() {
   );
 
   return (
-    <div ref={areaRef} className="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden bg-[var(--preview-surface)]">
+    <div ref={areaRef} onPointerDown={deselectOutside} className="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden bg-[var(--preview-surface)]">
       <div className={cn("flex items-center", layout.stacked ? "flex-col" : "flex-row")}>
         {pane(
           "preview",

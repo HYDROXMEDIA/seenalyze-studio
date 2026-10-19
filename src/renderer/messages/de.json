@@ -10,7 +10,8 @@
     "name": "Name",
     "remove": "Entfernen",
     "rename": "Umbenennen",
-    "save": "Speichern"
+    "save": "Speichern",
+    "previewFailed": "Die Vorschau konnte nicht aktualisiert werden. Versuche es erneut."
   },
   "header": {
     "appName": "SEENALYZE STUDIO",
@@ -419,7 +420,10 @@
       "public": "Öffentlich",
       "unlisted": "Nicht gelistet",
       "private": "Privat"
-    }
+    },
+    "broadcast": "Übertragung",
+    "newBroadcast": "Neue Übertragung",
+    "scheduledBroadcast": "{title} · {start, date, short} {start, time, short}"
   },
   "controls": {
     "title": "Steuerung",
@@ -713,7 +717,8 @@
       "import-invalid": "Diese Datei ist keine Szenensammlung.",
       "import-not-found": "Diese Szenensammlung existiert nicht mehr.",
       "import-too-large": "Diese Datei ist zu groß zum Importieren.",
-      "recording-encoder-failed": "Der Aufnahme-Encoder konnte auf diesem Computer nicht starten."
+      "recording-encoder-failed": "Der Aufnahme-Encoder konnte auf diesem Computer nicht starten.",
+      "youtube-broadcast-missing": "Die ausgewählte YouTube-Übertragung existiert nicht mehr. Wähle in den Titeleinstellungen eine andere aus."
     }
   },
   "permissions": {

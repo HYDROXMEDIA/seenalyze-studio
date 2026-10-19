@@ -1,4 +1,4 @@
-import { ChevronLeftIcon, FilmIcon, XIcon } from "lucide-react";
+import { CheckIcon, ChevronLeftIcon, FilmIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 import { useTranslations } from "use-intl";
 import { Button } from "@/components/ui/button";
@@ -49,9 +49,9 @@ function fileName(file: string): string {
 }
 
 /** Looping thumbnail: scene B replaces scene A the way the transition does. */
-export function TransitionThumb({ preset, className }: { preset: TransitionPreset; className?: string }) {
+export function TransitionThumb({ preset, className, playing = false }: { preset: TransitionPreset; className?: string; playing?: boolean }) {
   return (
-    <span aria-hidden className={cn("transition-thumb block aspect-video", className)} data-kind={preset.id} data-dir={direction(preset)}>
+    <span aria-hidden className={cn("transition-thumb block aspect-video", playing && "tt-play", className)} data-kind={preset.id} data-dir={direction(preset)}>
       <span className="tt-a bg-gradient-to-br from-sky-500 to-indigo-600" />
       <span className="tt-b bg-gradient-to-br from-amber-400 to-rose-500" />
       {(preset.id === "fadeBlack" || preset.id === "fadeWhite") && <span className={cn("tt-mid", preset.id === "fadeBlack" ? "bg-black" : "bg-white")} />}
@@ -90,6 +90,7 @@ function TransitionsPanel({ initialScene }: { initialScene: string | null }) {
   const fallbackPreset = transitionPreset(fallback.id) ?? TRANSITION_PRESETS[0];
   const overrides = scenes.filter((entry) => entry.transition);
   const withoutOverride = scenes.filter((entry) => !entry.transition);
+  const shownPreset = (current ? (transitionPreset(current.id) ?? fallbackPreset) : fallbackPreset);
 
   const apply = (choice: TransitionChoice | null) =>
     run(() => (target === null ? studio.setTransition(choice ?? DEFAULT_TRANSITION) : studio.setSceneTransition(target, choice)));
@@ -132,24 +133,35 @@ function TransitionsPanel({ initialScene }: { initialScene: string | null }) {
         )}
       </DialogHeader>
 
-      <ul className="grid max-h-[40vh] grid-cols-3 gap-2 overflow-y-auto p-0.5 animate-ui-list sm:grid-cols-4">
-        {target !== null && (
-          <li>
-            <PresetTile preset={fallbackPreset} label={t("useDefault", { name: t(`presets.${fallbackPreset.id}`) })} selected={current === null} onClick={() => current !== null && void apply(null)} />
-          </li>
-        )}
-        {presets.map((preset) => (
-          <li key={preset.id}>
-            <PresetTile preset={preset} label={t(`presets.${preset.id}`)} selected={preset.id === current?.id} onClick={() => choose(preset)} />
-          </li>
-        ))}
-      </ul>
+      {/* One list and a large preview of the selected transition: a single animation keeps the dialog smooth. */}
+      <div className="grid gap-4 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
+        <ul role="listbox" aria-label={t("title")} className="-mx-1 grid max-h-72 content-start gap-0.5 overflow-y-auto px-1 sm:max-h-80">
+          {target !== null && (
+            <li>
+              <PresetRow
+                label={t("useDefault", { name: t(`presets.${fallbackPreset.id}`) })}
+                selected={current === null}
+                onClick={() => current !== null && void apply(null)}
+              />
+            </li>
+          )}
+          {presets.map((preset) => (
+            <li key={preset.id}>
+              <PresetRow label={t(`presets.${preset.id}`)} selected={preset.id === current?.id} onClick={() => choose(preset)} />
+            </li>
+          ))}
+        </ul>
+        <div className="grid content-start gap-3">
+          <TransitionThumb key={shownPreset.id} preset={shownPreset} playing className="w-full overflow-hidden rounded-lg border" />
+          {current?.stinger ? null : current ? (
+            <DurationField key={`${target ?? ""}\u0000${current.id}`} choice={current} onCommit={(durationMs) => void apply({ ...current, durationMs })} />
+          ) : null}
+        </div>
+      </div>
 
-      {current?.stinger ? (
+      {current?.stinger && (
         <StingerOptionsPanel key={`${target ?? ""}\u0000${current.stinger.path}`} options={current.stinger} onChange={(stinger) => void apply({ ...current, stinger })} onPickFile={() => void pickStinger(current.stinger)} />
-      ) : current ? (
-        <DurationField key={`${target ?? ""}\u0000${current.id}`} choice={current} onCommit={(durationMs) => void apply({ ...current, durationMs })} />
-      ) : null}
+      )}
 
       {target === null && scenes.length > 0 && (
         <div className="grid gap-2 border-t pt-3">
@@ -200,19 +212,20 @@ function TransitionsPanel({ initialScene }: { initialScene: string | null }) {
   );
 }
 
-function PresetTile({ preset, label, selected, onClick }: { preset: TransitionPreset; label: string; selected: boolean; onClick: () => void }) {
+function PresetRow({ label, selected, onClick }: { label: string; selected: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
-      aria-pressed={selected}
+      role="option"
+      aria-selected={selected}
       onClick={onClick}
       className={cn(
-        "tt-host w-full overflow-hidden rounded-lg border text-left outline-none transition-colors hover:bg-accent/60 focus-visible:ring-[3px] focus-visible:ring-ring/50",
-        selected && "border-primary",
+        "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
+        selected && "bg-accent font-medium",
       )}
     >
-      <TransitionThumb preset={preset} />
-      <span className="block truncate px-2.5 py-1.5 text-xs font-semibold">{label}</span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {selected && <CheckIcon className="size-4 shrink-0" aria-hidden />}
     </button>
   );
 }

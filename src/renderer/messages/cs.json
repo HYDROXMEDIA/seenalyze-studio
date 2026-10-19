@@ -10,7 +10,8 @@
     "name": "Název",
     "remove": "Odstranit",
     "rename": "Přejmenovat",
-    "save": "Uložit"
+    "save": "Uložit",
+    "previewFailed": "Náhled se nepodařilo aktualizovat. Zkuste to znovu."
   },
   "header": {
     "appName": "SEENALYZE STUDIO",
@@ -419,7 +420,10 @@
       "public": "Veřejné",
       "unlisted": "Neveřejné",
       "private": "Soukromé"
-    }
+    },
+    "broadcast": "Přenos",
+    "newBroadcast": "Nový přenos",
+    "scheduledBroadcast": "{title} · {start, date, short} {start, time, short}"
   },
   "controls": {
     "title": "Ovládání",
@@ -713,7 +717,8 @@
       "import-invalid": "Tento soubor není kolekce scén.",
       "import-not-found": "Tato kolekce scén už neexistuje.",
       "import-too-large": "Tento soubor je pro import příliš velký.",
-      "recording-encoder-failed": "Enkodér nahrávání se na tomto počítači nepodařilo spustit."
+      "recording-encoder-failed": "Enkodér nahrávání se na tomto počítači nepodařilo spustit.",
+      "youtube-broadcast-missing": "Vybraný přenos na YouTube už neexistuje. Vyber jiný v nastavení názvu streamu."
     }
   },
   "permissions": {

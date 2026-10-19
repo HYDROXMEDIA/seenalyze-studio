@@ -10,7 +10,8 @@
     "name": "Naziv",
     "remove": "Ukloni",
     "rename": "Preimenuj",
-    "save": "Spremi"
+    "save": "Spremi",
+    "previewFailed": "Pregled se nije mogao ažurirati. Pokušajte ponovno."
   },
   "header": {
     "appName": "SEENALYZE STUDIO",
@@ -419,7 +420,10 @@
       "public": "Javno",
       "unlisted": "Nenavedeno",
       "private": "Privatno"
-    }
+    },
+    "broadcast": "Prijenos",
+    "newBroadcast": "Novi prijenos",
+    "scheduledBroadcast": "{title} · {start, date, short} {start, time, short}"
   },
   "controls": {
     "title": "Upravljanje",
@@ -713,7 +717,8 @@
       "import-invalid": "Ta datoteka nije zbirka scena.",
       "import-not-found": "Ta zbirka scena više ne postoji.",
       "import-too-large": "Ta je datoteka prevelika za uvoz.",
-      "recording-encoder-failed": "Koder snimanja nije se mogao pokrenuti na ovom računalu."
+      "recording-encoder-failed": "Koder snimanja nije se mogao pokrenuti na ovom računalu.",
+      "youtube-broadcast-missing": "Odabrani YouTube prijenos više ne postoji. Odaberi drugi u postavkama naslova streama."
     }
   },
   "permissions": {

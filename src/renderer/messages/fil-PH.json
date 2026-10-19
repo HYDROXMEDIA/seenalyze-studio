@@ -10,7 +10,8 @@
     "name": "Pangalan",
     "remove": "Alisin",
     "rename": "Palitan ang pangalan",
-    "save": "I-save"
+    "save": "I-save",
+    "previewFailed": "Hindi ma-update ang preview. Subukang muli."
   },
   "header": {
     "appName": "SEENALYZE STUDIO",
@@ -419,7 +420,10 @@
       "public": "Pampubliko",
       "unlisted": "Unlisted",
       "private": "Pribado"
-    }
+    },
+    "broadcast": "Broadcast",
+    "newBroadcast": "Bagong broadcast",
+    "scheduledBroadcast": "{title} · {start, date, short} {start, time, short}"
   },
   "controls": {
     "title": "Mga kontrol",
@@ -713,7 +717,8 @@
       "import-invalid": "Hindi scene collection ang file na iyan.",
       "import-not-found": "Wala na ang scene collection na iyan.",
       "import-too-large": "Masyadong malaki ang file na iyan para i-import.",
-      "recording-encoder-failed": "Hindi nakapagsimula ang encoder ng recording sa computer na ito."
+      "recording-encoder-failed": "Hindi nakapagsimula ang encoder ng recording sa computer na ito.",
+      "youtube-broadcast-missing": "Wala na ang YouTube broadcast na pinili mo. Pumili ng iba sa settings ng stream title."
     }
   },
   "permissions": {

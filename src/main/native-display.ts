@@ -60,6 +60,12 @@ export class NativeDisplay {
     return this.view.show(rect, result.surface) || created;
   }
 
+  /** macOS: areas (content-relative points) where popups cover the display. */
+  setCutouts(rects: Rect[], dimmed = false): void {
+    this.view?.setCutouts(rects);
+    this.view?.setDimmed(dimmed);
+  }
+
   /** Removes the view and the engine display. */
   async hide(): Promise<void> {
     this.view?.detach();

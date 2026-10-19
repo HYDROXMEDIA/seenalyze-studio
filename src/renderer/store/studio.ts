@@ -23,6 +23,9 @@ interface StudioStore {
   setStats: (stats: EngineStats) => void;
   setLevels: (levels: AudioLevel[]) => void;
   selectItem: (id: number | null) => void;
+  /** A source menu opened by right-clicking the preview, at window CSS pixels. */
+  sourceMenu: { itemId: number; x: number; y: number } | null;
+  setSourceMenu: (menu: { itemId: number; x: number; y: number } | null) => void;
   pushOverlay: (kind?: OcclusionKind) => void;
   popOverlay: (kind?: OcclusionKind) => void;
 }
@@ -42,6 +45,8 @@ export const useStudio = create<StudioStore>((set, get) => ({
   overlays: 0,
   poppers: 0,
   tooltips: 0,
+  sourceMenu: null,
+  setSourceMenu: (sourceMenu) => set({ sourceMenu }),
   // The main process owns the selection so every window agrees on it.
   setSnapshot: (snapshot) => set({ snapshot, selectedItemId: snapshot.selectedItemId ?? null }),
   setStats: (stats) => set({ stats }),
