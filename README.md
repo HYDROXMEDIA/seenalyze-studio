@@ -19,5 +19,8 @@ Account sign-in needs public OAuth client IDs: copy `config/studio.config.exampl
 
 See [streaming functionality and remaining OBS gaps](docs/streaming-parity.md) for source coverage, account setup requirements and verification limits. Native source and synthetic account checks run with `bun run check:sources` and `bun run check:platforms`.
 
+## Installers
+`bun run dist:mac` and `bun run dist:win` build the macOS disk image and the Windows installer. The Windows installer is one compact window (welcome, optional Options with install location and shortcuts, installing, done) drawn by `build/installer.nsh`, in the same layout as Seenalyze Input and Clipper. Its picture `build/installer/hero.bmp` and the disk image background are rendered from `build/source/` by `scripts/render-installer-art.sh` (needs `rsvg-convert` and ImageMagick). It always installs for the current user, so it never asks for administrator rights. Its text is translated for every language in `nsis.installerLanguages`; `src/main/installer-script.test.ts` checks each string exists. Open the installer on a real Windows machine before releasing it.
+
 ## License
 GPL-2.0-or-later. This application uses libobs (OBS Studio) through obs-studio-node. It is not affiliated with or endorsed by the OBS Project. See `LICENSE`.

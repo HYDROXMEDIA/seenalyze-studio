@@ -35,6 +35,21 @@ mac:
     - from: bin
       to: bin
       filter: [screen-recorder, video-muxer, media-tools, window-list, audio-inputs, preview-presenter.node]
+dmg:
+  # Rendered from build/source/dmg-background.svg (scripts/render-installer-art.sh, 1x and @2x).
+  background: build/dmg-background.png
+  iconSize: 112
+  window:
+    width: 660
+    height: 400
+  contents:
+    - x: 180
+      y: 210
+      type: file
+    - x: 480
+      y: 210
+      type: link
+      path: /Applications
 win:
   target: [nsis]
   # Screen-recording helpers (window list and caption audio preparation).
@@ -42,6 +57,22 @@ win:
     - from: native
       to: native
       filter: ["*.ps1"]
+# The installer window is custom (build/installer.nsh + build/installer/hero.bmp, rendered by
+# scripts/render-installer-art.sh): one compact window with Install and an optional Options page
+# (location, shortcuts). It always installs for the current user under %LOCALAPPDATA%\Programs, so
+# neither installing nor updating needs administrator rights.
 nsis:
   oneClick: false
-  allowToChangeInstallationDirectory: true
+  perMachine: false
+  # The custom Options page picks the folder; the stock directory page stays off.
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  installerLanguages:
+    - en_US
+    - hu_HU
+    - de_DE
+    - cs_CZ
+    - es_ES
+    - pt_BR
+    - hr_HR
