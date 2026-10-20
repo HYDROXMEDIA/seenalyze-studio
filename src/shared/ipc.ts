@@ -245,6 +245,8 @@ export interface StudioApi {
   openRecordingEditor(): Promise<void>;
   /** Tells the screen-recording windows which appearance the app uses. */
   setAppearance(theme: "dark" | "light"): Promise<void>;
+  /** The interface language, for text the app shows outside the studio window (for example native dialogs). */
+  setInterfaceLanguage(locale: string): Promise<void>;
 
   quitApp(): Promise<void>;
   /** Starts the engine again after it stopped unexpectedly. */
@@ -281,6 +283,11 @@ export interface StudioApi {
   // SEENALYZE account
   getSeenalyzeAccount(): Promise<SeenalyzeAccount | null>;
   signInSeenalyze(): Promise<SeenalyzeAccount>;
+  /** Stops waiting for the Twitch activation code to be entered. */
+  cancelTwitchSignIn(): Promise<void>;
+  cancelSeenalyzeSignIn(): Promise<void>;
+  /** Opens the SEENALYZE website in the browser, for account and plan changes. */
+  openSeenalyzeDashboard(): Promise<void>;
   signOutSeenalyze(): Promise<void>;
   /** Saves the interface language to the signed-in account. */
   setSeenalyzeLanguage(language: string): Promise<void>;
@@ -444,6 +451,7 @@ export const STUDIO_METHODS: readonly StudioMethod[] = [
   "toggleScreenRecording",
   "openRecordingEditor",
   "setAppearance",
+  "setInterfaceLanguage",
   "quitApp",
   "restartEngine",
   "requestPermission",
@@ -465,6 +473,9 @@ export const STUDIO_METHODS: readonly StudioMethod[] = [
   "resetStreamSession",
   "getSeenalyzeAccount",
   "signInSeenalyze",
+  "cancelTwitchSignIn",
+  "cancelSeenalyzeSignIn",
+  "openSeenalyzeDashboard",
   "signOutSeenalyze",
   "setSeenalyzeLanguage",
 ];

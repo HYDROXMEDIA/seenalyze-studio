@@ -201,7 +201,10 @@ class ElementFrames {
 // samples (before time zero) are left out.
 async function decodeMp4Audio(read, track) {
   const config = { codec: track.codec, sampleRate: track.sampleRate, numberOfChannels: track.channels, description: track.description };
-  const support = await AudioDecoder.isConfigSupported(config).catch(() => ({ supported: false }));
+  const support = await AudioDecoder.isConfigSupported(config).catch((error) => {
+    console.warn('[export] could not check the sound decoder', error);
+    return { supported: false };
+  });
   if (!support.supported) return null;
   const last = track.samples[track.samples.length - 1];
   if (last === undefined) return null;
@@ -256,7 +259,11 @@ async function decodeWholeAudio(url, fileSize) {
   if (fileSize > MAX_WHOLE_AUDIO_BYTES) throw new Error('The recording is too large to read its sound');
   const bytes = await (await fetch(url)).arrayBuffer();
   const context = new OfflineAudioContext(1, 1, 48000);
-  const buffer = await context.decodeAudioData(bytes).catch(() => null);
+  // A recording without readable sound is exported silent; the reason is logged.
+  const buffer = await context.decodeAudioData(bytes).catch((error) => {
+    console.warn('[export] the recording sound could not be read', error);
+    return null;
+  });
   if (buffer === null) return null;
   const channels = Array.from({ length: Math.min(2, buffer.numberOfChannels) }, (_, c) => buffer.getChannelData(c));
   return { sampleRate: buffer.sampleRate, channels };
@@ -269,7 +276,10 @@ async function pickAudioCodec(sampleRate, channels) {
   if (typeof AudioEncoder === 'undefined') return null;
   for (const codec of ['mp4a.40.2', 'opus']) {
     const config = { codec, sampleRate, numberOfChannels: channels, bitrate: AUDIO_BITRATE };
-    const support = await AudioEncoder.isConfigSupported(config).catch(() => ({ supported: false }));
+    const support = await AudioEncoder.isConfigSupported(config).catch((error) => {
+      console.warn(`[export] could not check ${codec} sound encoding`, error);
+      return { supported: false };
+    });
     if (support.supported) return config;
   }
   return null;
@@ -353,7 +363,11 @@ export async function runExport(job) {
   const written = async (result) => {
     if (!(await result)) throw new Error('The export could not be written');
   };
-  const file = fileSize > 0 ? await openMp4(read, fileSize).catch(() => null) : null;
+  // Files that are not plain MP4 (for example WebM) are read through the player instead.
+  const file = fileSize > 0 ? await openMp4(read, fileSize).catch((error) => {
+    console.warn('[export] reading the recording directly is not possible; using the player', error);
+    return null;
+  }) : null;
   let frames = null;
   if (file !== null) {
     const decoded = new Mp4Frames(read, file.video);
@@ -365,7 +379,10 @@ export async function runExport(job) {
   let cameraFrames = null;
   if (cameraVideo !== null && project.look.showCamera) {
     const readCamera = reader('camera');
-    const cameraFile = cameraFileSize > 0 ? await openMp4(readCamera, cameraFileSize).catch(() => null) : null;
+    const cameraFile = cameraFileSize > 0 ? await openMp4(readCamera, cameraFileSize).catch((error) => {
+      console.warn('[export] reading the camera track directly is not possible; using the player', error);
+      return null;
+    }) : null;
     if (cameraFile !== null) {
       const decoded = new Mp4Frames(readCamera, cameraFile.video);
       if (await decoded.start()) cameraFrames = decoded;
@@ -381,12 +398,20 @@ export async function runExport(job) {
     cameraFrames?.close();
   }
 
-  async function encodeAll() {
+  // The decoded recording is only needed to build the edited soundtrack. It lives in this function alone, so it
+  // is released before encoding starts instead of being kept for the whole export (half the memory for long sound).
+  async function editedSound() {
     const sound = file !== null
       ? file.audio === null ? null : await decodeMp4Audio(read, file.audio)
       : await decodeWholeAudio(videoUrl, fileSize);
-    const edited = sound === null ? null : assembleSoundtrack(sound.channels, sound.sampleRate, clips);
-    const sampleRate = sound?.sampleRate ?? EFFECTS_SAMPLE_RATE;
+    return {
+      edited: sound === null ? null : assembleSoundtrack(sound.channels, sound.sampleRate, clips),
+      sampleRate: sound?.sampleRate ?? EFFECTS_SAMPLE_RATE
+    };
+  }
+
+  async function encodeAll() {
+    const { edited, sampleRate } = await editedSound();
     // Click and typing sounds are mixed in; they also make a soundtrack when the recording has none.
     const soundtrack = mixSoundEffects(edited, sampleRate, total, derived.events, project.look);
     if (isCanceled()) throw new ExportCanceled();
@@ -545,6 +570,7 @@ export async function runExport(job) {
       onProgress(1);
       return await api.exportDone();
     } catch (error) {
+      // The export already failed with `error`; a pending write's own failure adds nothing.
       await sending.catch(() => undefined);
       await api.exportCancel();
       throw error;

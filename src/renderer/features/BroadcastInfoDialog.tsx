@@ -39,27 +39,34 @@ function InfoForm({ destination, onClose }: { destination: DestinationConfig; on
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [pending, setPending] = useState(false);
   const [broadcasts, setBroadcasts] = useState<YouTubeBroadcastOption[] | null>(destination.platform === "youtube" ? null : []);
+  // Saving a form that never loaded would overwrite the live title and drop the picked broadcast.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     void run(() => studio.getBroadcastInfo(destination.id)).then((result) => {
-      if (!cancelled) setInfo(result ?? { title: "" });
+      if (cancelled) return;
+      if (result) setInfo(result);
+      else setLoadFailed(true);
     });
     return () => {
       cancelled = true;
     };
-  }, [destination.id, run]);
+  }, [destination.id, run, attempt]);
 
   useEffect(() => {
     if (destination.platform !== "youtube") return;
     let cancelled = false;
     void run(() => studio.listYouTubeBroadcasts(destination.id)).then((result) => {
-      if (!cancelled) setBroadcasts(result ?? []);
+      if (cancelled) return;
+      if (result) setBroadcasts(result);
+      else setLoadFailed(true);
     });
     return () => {
       cancelled = true;
     };
-  }, [destination.id, destination.platform, run]);
+  }, [destination.id, destination.platform, run, attempt]);
 
   useEffect(() => {
     if (destination.platform !== "twitch" || !destination.accountId || query.trim().length < 2) return;
@@ -69,6 +76,33 @@ function InfoForm({ destination, onClose }: { destination: DestinationConfig; on
     }, 300);
     return () => window.clearTimeout(timer);
   }, [query, destination.platform, destination.accountId, run]);
+
+  if (loadFailed) {
+    return (
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t("title")}</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">{t("loadFailed")}</p>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            {tc("cancel")}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              setLoadFailed(false);
+              setInfo(null);
+              if (destination.platform === "youtube") setBroadcasts(null);
+              setAttempt((value) => value + 1);
+            }}
+          >
+            {tc("retry")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    );
+  }
 
   if (!info || !broadcasts) {
     return (
@@ -137,7 +171,10 @@ function InfoForm({ destination, onClose }: { destination: DestinationConfig; on
                       type="button"
                       role="option"
                       aria-selected={category.id === info.categoryId}
-                      className={cn("w-full px-3 py-1.5 text-left text-sm hover:bg-accent", category.id === info.categoryId && "bg-accent")}
+                      className={cn(
+                        "w-full px-3 py-1.5 text-left text-sm outline-none hover:bg-accent focus-visible:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                        category.id === info.categoryId && "bg-accent",
+                      )}
                       onClick={() => {
                         setInfo({ ...info, categoryId: category.id, categoryName: category.name });
                         setQuery("");

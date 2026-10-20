@@ -1,4 +1,4 @@
-import { StrictMode } from "react";
+import { StrictMode, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { IntlProvider } from "use-intl";
 import { TooltipProvider } from "./components/ui/tooltip";
@@ -8,6 +8,7 @@ import { ProjectorRoot } from "./features/projector/ProjectorRoot";
 import { applyTheme, readTheme } from "./lib/theme";
 import { initLanguage, useLanguage } from "./lib/language";
 import { loadMessages } from "./i18n";
+import { studio } from "./lib/studio";
 import "./styles.css";
 
 applyTheme(readTheme());
@@ -24,6 +25,11 @@ if (editorOnly) {
 function LocalizedRoot() {
   const language = useLanguage();
   const { locale, messages } = loadMessages(language);
+  // Native dialogs follow the chosen language too; only the studio window may tell the app.
+  useEffect(() => {
+    if (editorOnly || projectorOnly) return;
+    studio.setInterfaceLanguage(locale).catch((error: unknown) => console.warn("[language] could not share the interface language", error));
+  }, [locale]);
   return (
     <IntlProvider locale={locale} messages={messages} onError={(error) => console.error(error)}>
       <TooltipProvider>{editorOnly ? <PreviewEditorRoot /> : projectorOnly ? <ProjectorRoot /> : <App />}</TooltipProvider>

@@ -504,7 +504,9 @@ function listJson(dir: string): string[] {
       .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".json") && entry.name !== "manifest.json")
       .map((entry) => entry.name)
       .sort();
-  } catch {
+  } catch (error) {
+    // A missing folder simply has no collections; anything else (for example no permission) is logged.
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") console.warn(`[obs-import] ${dir} could not be read`, error);
     return [];
   }
 }
@@ -546,7 +548,9 @@ export function obsCanvas(root: string): CanvasSize | null {
     const width = Number(iniValue(content, "Video", "BaseCX"));
     const height = Number(iniValue(content, "Video", "BaseCY"));
     return Number.isInteger(width) && Number.isInteger(height) && width >= 16 && height >= 16 ? { width, height } : null;
-  } catch {
+  } catch (error) {
+    // The canvas size is only a suggestion; the import still works without it.
+    console.warn("[obs-import] OBS canvas size could not be read", error);
     return null;
   }
 }

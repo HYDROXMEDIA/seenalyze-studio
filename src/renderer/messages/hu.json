@@ -11,7 +11,8 @@
     "remove": "Eltávolítás",
     "rename": "Átnevezés",
     "save": "Mentés",
-    "previewFailed": "Az előnézetet nem sikerült frissíteni. Próbáld újra."
+    "previewFailed": "Az előnézetet nem sikerült frissíteni. Próbáld újra.",
+    "retry": "Újra"
   },
   "header": {
     "appName": "SEENALYZE STUDIO",
@@ -408,7 +409,9 @@
   "twitchCode": {
     "title": "Twitch csatlakoztatása",
     "description": "Nyisd meg a Twitch-et, és add meg ezt a kódot a csatornád csatlakoztatásához.",
-    "open": "Twitch megnyitása"
+    "open": "Twitch megnyitása",
+    "failed": "Ez a kód lejárt, vagy a bejelentkezés nem fejeződött be. Kérj új kódot, és próbáld újra.",
+    "newCode": "Új kód kérése"
   },
   "streamInfo": {
     "title": "Közvetítés címe",
@@ -423,7 +426,8 @@
     },
     "broadcast": "Közvetítés",
     "newBroadcast": "Új közvetítés",
-    "scheduledBroadcast": "{title} · {start, date, short} {start, time, short}"
+    "scheduledBroadcast": "{title} · {start, date, short} {start, time, short}",
+    "loadFailed": "Nem sikerült betölteni a közvetítés adatait. Ellenőrizd a kapcsolatot, és próbáld újra."
   },
   "controls": {
     "title": "Vezérlők",
@@ -455,7 +459,8 @@
       "unavailableDescription": "Ez a verzió nem tudja hozzáadni a szükséges rendszerkamerát ezen a gépen.",
       "checkAgain": "Újraellenőrzés",
       "install": "Telepítés"
-    }
+    },
+    "noDestination": "Kapcsolj be egy célt az élő adáshoz."
   },
   "settings": {
     "title": "Beállítások",
@@ -601,7 +606,10 @@
     "replayBufferHint": "Az utolsó pillanatokat készenlétben tartja, hogy klipként mentsd.",
     "replayLength": "Az utolsó",
     "replaySeconds": "{seconds} mp",
-    "replayLengthRange": "{min} és {max} másodperc közötti értéket adj meg."
+    "replayLengthRange": "{min} és {max} másodperc közötti értéket adj meg.",
+    "seenalyzeCheckFailed": "Nem sikerült ellenőrizni a fiókodat. Ellenőrizd a kapcsolatot.",
+    "seenalyzeWaiting": "Fejezd be a bejelentkezést a böngészőben.",
+    "noEncoders": "Nem található videókódoló. Indítsd újra az alkalmazást, vagy frissítsd a grafikus illesztőprogramokat."
   },
   "quit": {
     "title": "Kilépsz élő adás közben?",
@@ -613,7 +621,18 @@
     "sourcesUnavailable": "Néhány mentett forrást nem sikerült megnyitni. Csatlakoztasd újra az eszközeidet, vagy ellenőrizd az engedélyeket, majd indítsd újra az alkalmazást. A beállításaik megmaradnak.",
     "microphoneCheckFailed": "Nem sikerült ellenőrizni a mikrofonokat. Ha az alapértelmezett mikrofonod Bluetooth-headset, romolhat a hangja. Ennek elkerüléséhez válassz másik mikrofont a Hang panelen.",
     "replaySaved": "Klip mentve ide: {folder}",
-    "encoderFallback": "A videokártya kódolója nem tudott elindulni, ezért a szoftveres kódoló működik helyette. A Beállításokban módosíthatod."
+    "encoderFallback": "A videokártya kódolója nem tudott elindulni, ezért a szoftveres kódoló működik helyette. A Beállításokban módosíthatod.",
+    "saveFailed": "A módosításokat nem sikerült menteni. Ellenőrizd, hogy van-e szabad hely a lemezen, majd próbáld újra.",
+    "screenRecordingStartFailed": "Nem sikerült elindítani a képernyőfelvételt. Próbáld újra, vagy válassz másik képernyőt vagy ablakot.",
+    "screenRecordingStopped": "A képernyőfelvétel váratlanul leállt, és nem sikerült menteni.",
+    "screenRecordingPartial": "A képernyőfelvétel váratlanul leállt. Az addig felvett rész megmaradt.",
+    "screenRecording": {
+      "savedToMovies": "A felvételek mappája nem érhető el, ezért ez a felvétel a Filmek mappába kerül.",
+      "noCamera": "A kamera nem érhető el, ezért ezen a felvételen nincs kamerakép.",
+      "noMicrophone": "A kiválasztott mikrofon nem érhető el, ezért ezen a felvételen nincs mikrofonhang."
+    },
+    "youtubeCleanupFailed": "Egy fel nem használt YouTube-közvetítést nem sikerült eltávolítani. A YouTube Studióban törölheted.",
+    "dataReset": "Néhány mentett beállítást nem sikerült beolvasni, ezért visszaálltak. A régi fájl {file} néven megmaradt."
   },
   "errors": {
     "output": {
@@ -718,7 +737,12 @@
       "import-not-found": "Ez a jelenetgyűjtemény már nem létezik.",
       "import-too-large": "Ez a fájl túl nagy az importáláshoz.",
       "recording-encoder-failed": "A felvétel kódolója nem tudott elindulni ezen a számítógépen.",
-      "youtube-broadcast-missing": "A kiválasztott YouTube-közvetítés már nem létezik. Válassz másikat a stream címének beállításainál."
+      "youtube-broadcast-missing": "A kiválasztott YouTube-közvetítés már nem létezik. Válassz másikat a stream címének beállításainál.",
+      "recording-open-failed": "Ezt a felvételt nem sikerült megnyitni. Lehet, hogy áthelyezték vagy törölték.",
+      "screen-recording-unavailable": "A képernyőfelvételt nem sikerült előkészíteni. Indítsd újra az alkalmazást, és próbáld újra.",
+      "overlay-server-unavailable": "A chat- és overlayforrások most nem jeleníthetők meg. Indítsd újra az alkalmazást, és próbáld újra.",
+      "recording-stop-failed": "A felvételt nem sikerült automatikusan leállítani. Állítsd le a vezérlőkkel.",
+      "recording-start-failed": "Nem sikerült elindítani a felvételt. Próbáld újra."
     }
   },
   "permissions": {
@@ -780,7 +804,9 @@
       "member": "Tag",
       "subscriber": "Feliratkozó",
       "verified": "Ellenőrzött"
-    }
+    },
+    "connect": "Fiók csatlakoztatása",
+    "reconnect": "Újracsatlakozás"
   },
   "overlays": {
     "title": "Overlayek",
@@ -874,8 +900,13 @@
       "signInHint": "Jelentkezz be a SEENALYZE-fiókoddal, és tervezz overlayeket egyszerű leírással.",
       "notAvailable": "Az AI-tervező ezen a fiókon még nem érhető el.",
       "done": "{name} elkészült",
-      "doneWithCredits": "{name} elkészült · {credits} kredit felhasználva"
-    }
+      "doneWithCredits": "{name} elkészült · {credits} kredit felhasználva",
+      "checkFailed": "Nem sikerült ellenőrizni a fiókodat. Ellenőrizd a kapcsolatot, és próbáld újra.",
+      "openAccount": "SEENALYZE megnyitása",
+      "checkAgain": "Újraellenőrzés"
+    },
+    "loadFailed": "Nem sikerült betölteni az overlayeket.",
+    "previewFailed": "Ezt az előnézetet nem sikerült betölteni."
   },
   "screenRecording": {
     "capture": {
@@ -930,7 +961,8 @@
         "size": "{width} × {height}"
       },
       "errors": {
-        "captureFailed": "Nem sikerült elindítani a felvételt. Próbáld újra."
+        "captureFailed": "Nem sikerült elindítani a felvételt. Próbáld újra.",
+        "folderFailed": "A mappát nem sikerült kiválasztani. Próbáld újra."
       },
       "systemAudio": "Rendszerhang",
       "audioApp": "Hangforrás",
@@ -1155,8 +1187,17 @@
         "end": "Felirat vége másodpercben",
         "invalidTiming": "A feliratok legyenek sorrendben, és a videón belül.",
         "preparing": "Feliratok előkészítése…",
-        "cpuUnsupported": "Ezen a számítógép processzorán nem készíthetők feliratok."
-      }
+        "cpuUnsupported": "Ezen a számítógép processzorán nem készíthetők feliratok.",
+        "toolsMissing": "A feliratokhoz az Apple Command Line Tools szükséges. Telepítsd, majd próbáld újra.",
+        "runtimeMissing": "A feliratokhoz a Microsoft Visual C++ Redistributable szükséges. Telepítsd, majd próbáld újra.",
+        "unsupported": "Ezen a számítógépen nem lehet feliratot készíteni.",
+        "downloadFailed": "Nem sikerült letölteni a feliratkészítő eszközöket. Ellenőrizd az internetkapcsolatot, és próbáld újra.",
+        "tooLong": "Ez a felvétel túl hosszú a feliratkészítéshez.",
+        "prepareFailed": "A felvétel hangját nem sikerült beolvasni a feliratokhoz.",
+        "exported": "Felirat mentve",
+        "exportFailed": "A feliratot nem sikerült menteni. Próbáld újra."
+      },
+      "playFailed": "A videót nem sikerült lejátszani. Próbáld újra."
     },
     "main": {
       "dialogs": {
@@ -1174,7 +1215,8 @@
         "cancel": "Mégse",
         "discard": "Elvetés",
         "discardRecording": "Elveted ezt a felvételt?",
-        "discardRecordingDetail": "A felvétel, a kameravideó és a módosítások törlődnek."
+        "discardRecordingDetail": "A felvétel, a kameravideó és a módosítások törlődnek.",
+        "subtitles": "Feliratok"
       },
       "capture": {
         "noSession": "Nincs előkészítés alatt álló felvétel",
@@ -1249,7 +1291,8 @@
       "cameraOnly": "Csak kamera",
       "screenOnly": "Csak képernyő",
       "none": "Jeleneteim megtartása"
-    }
+    },
+    "donePartial": "A beállítás kész, de néhány lépés nem sikerült. Ellenőrizd a jeleneteket és a célokat."
   },
   "hotkeys": {
     "streamGroup": "Stream és felvétel",
@@ -1393,7 +1436,8 @@
       "skippedFilters": "Megfelelő nélküli, kihagyott szűrők: {count}.",
       "setupFound": "OBS Studio- vagy Streamlabs-jeleneteket találtunk.",
       "setupAction": "Importálás"
-    }
+    },
+    "profileUnsaved": "Mentsd vagy vond vissza a módosításokat a profilváltáshoz."
   },
   "tooltips": {
     "projectors": "Kivetítő megnyitása",

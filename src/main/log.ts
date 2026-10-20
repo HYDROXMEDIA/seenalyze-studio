@@ -13,8 +13,9 @@ const MAX_BYTES = 5 * 1024 * 1024;
 let file: string | null = null;
 
 /** Never persist credentials: stream URLs can carry keys, and tokens may appear in errors. */
-function redact(text: string): string {
+export function redact(text: string): string {
   return text
+    .replace(/"(stream_?key|streamKey|key|token|access_?token|accessToken|refresh_?token|refreshToken|client_?secret|password|secret)"\s*:\s*"[^"]*"/giu, '"$1":"[redacted]"')
     .replace(/\b(rtmps?|srt):\/\/[^\s"'<>]+/giu, "$1://[redacted]")
     .replace(/\b(Bearer)\s+[\w.~+/=-]+/giu, "$1 [redacted]")
     .replace(/\b(access_token|refresh_token|client_secret|code|key|token)=[^\s&"']+/giu, "$1=[redacted]");
@@ -48,8 +49,10 @@ export function installAppLog(): void {
   for (const level of ["warn", "error"] as const) {
     const original = console[level].bind(console);
     console[level] = (...args: unknown[]) => {
-      original(...args);
-      appendLog(level, format(...args));
+      const text = format(...args);
+      // The terminal copy is redacted too: development sessions may be shared or recorded.
+      original(redact(text));
+      appendLog(level, text);
     };
   }
   // The monitor variant records without changing how Electron handles the error.

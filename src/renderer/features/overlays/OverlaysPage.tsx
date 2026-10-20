@@ -1,6 +1,7 @@
 import {
   ArrowLeftIcon,
   CopyIcon,
+  ExternalLinkIcon,
   LayersIcon,
   Loader2Icon,
   LogInIcon,
@@ -20,7 +21,6 @@ import {
   type OverlaySummary,
   type OverlayValue,
   type PresetSummary,
-  type SeenalyzeAccount,
 } from "../../../shared/overlays";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Label, Textarea } from "@/components/ui/form";
@@ -39,8 +39,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/overlays";
-import { errorCode, studio } from "@/lib/studio";
+import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
+import { useSeenalyzeAccount } from "@/lib/use-seenalyze-account";
 import { cn } from "@/lib/utils";
 import { useStudio } from "@/store/studio";
 import { OverlayPreview } from "./OverlayPreview";
@@ -54,6 +55,7 @@ export function OverlaysPage() {
   const tc = useTranslations("common");
   const run = useAction();
   const setView = useStudio((state) => state.setView);
+  const openSettings = useStudio((state) => state.openSettings);
   const scenes = useStudio((state) => state.snapshot?.scenes ?? []);
   const activeScene = useStudio((state) => state.snapshot?.activeScene ?? null);
   const twitchFollows = useStudio((state) => state.snapshot?.overlayData.twitchFollows ?? "unavailable");
@@ -69,6 +71,13 @@ export function OverlaysPage() {
   const [confirm, setConfirm] = useState<"delete" | "reset" | null>(null);
   const pendingValues = useRef<Record<string, OverlayValue>>({});
   const saveTimer = useRef<number | null>(null);
+  // Distinct from "no overlays yet": a failed load offers a retry instead of the empty state.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const [previewAttempt, setPreviewAttempt] = useState(0);
+  // The overlay whose pending values are saved; a ref, so edits don't restart the save delay.
+  const overlayIdRef = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     const [mine, gallery] = await Promise.all([run(() => studio.listOverlays()), run(() => studio.listOverlayPresets())]);
@@ -82,49 +91,61 @@ export function OverlaysPage() {
     Promise.all([studio.listOverlays(), studio.listOverlayPresets()])
       .then(([mine, gallery]) => {
         if (cancelled) return;
+        setLoadFailed(false);
         setOverlays(mine);
         setPresets(gallery);
         // First visit: start in the preset gallery.
         if (mine.length === 0) setTab("presets");
       })
       .catch((error: unknown) => {
-        console.error(error);
-        if (!cancelled) setOverlays([]);
+        console.error("[overlays] could not be loaded", error);
+        if (!cancelled) setLoadFailed(true);
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadAttempt]);
+
+  const retryLoad = () => {
+    setLoadFailed(false);
+    setOverlays(null);
+    setLoadAttempt((value) => value + 1);
+  };
 
   // Load the selected overlay or preset and its preview address.
   useEffect(() => {
     let cancelled = false;
     if (!selection) return;
     void (async () => {
+      setPreviewFailed(false);
       const url = await run(() => studio.overlayPreviewUrl(selection.type === "overlay" ? { overlayId: selection.id } : { presetId: selection.id }));
       const definition = selection.type === "overlay" ? await run(() => studio.getOverlay(selection.id)) : null;
       if (cancelled) return;
       setPreviewUrl(url ?? null);
       setOverlay(definition ?? null);
+      if (url === undefined || (selection.type === "overlay" && definition === undefined)) setPreviewFailed(true);
     })();
     return () => {
       cancelled = true;
     };
-  }, [selection, run]);
+  }, [selection, run, previewAttempt]);
 
   const flush = useCallback(async () => {
     if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
     saveTimer.current = null;
     const values = pendingValues.current;
     pendingValues.current = {};
-    if (!overlay || Object.keys(values).length === 0) return;
-    await run(() => studio.updateOverlay(overlay.id, { values }));
-  }, [overlay, run]);
+    const id = overlayIdRef.current;
+    if (!id || Object.keys(values).length === 0) return;
+    await run(() => studio.updateOverlay(id, { values }));
+  }, [run]);
 
+  // Saves what is still waiting when the page closes; `flush` is stable, so this runs on unmount only.
   useEffect(() => () => void flush(), [flush]);
 
   const changeValue = (key: string, value: OverlayValue) => {
     if (!overlay) return;
+    overlayIdRef.current = overlay.id;
     setOverlay({ ...overlay, values: { ...overlay.values, [key]: value } });
     pendingValues.current[key] = value;
     if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
@@ -210,7 +231,14 @@ export function OverlaysPage() {
             </Select>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-            {tab === "presets" ? (
+            {loadFailed ? (
+              <div className="grid gap-2 p-4 text-center">
+                <p className="text-sm text-muted-foreground">{t("loadFailed")}</p>
+                <Button size="sm" variant="outline" onClick={retryLoad}>
+                  {tc("retry")}
+                </Button>
+              </div>
+            ) : tab === "presets" ? (
               <ul key="presets" className="grid gap-2 animate-ui-list">
                 {visiblePresets.map((preset) => (
                   <li key={preset.id}>
@@ -287,7 +315,7 @@ export function OverlaysPage() {
           {twitchFollows === "needsReconnect" && (
             <div className="flex items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
               <span className="flex-1">{t("twitchReconnect")}</span>
-              <Button size="sm" variant="outline" onClick={() => setView("settings")}>
+              <Button size="sm" variant="outline" onClick={() => openSettings("accounts")}>
                 {t("openAccounts")}
               </Button>
             </div>
@@ -303,7 +331,12 @@ export function OverlaysPage() {
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
               <LayersIcon aria-hidden className="size-16 text-muted-foreground" strokeWidth={1.5} />
-              <p className="text-sm text-muted-foreground">{t("pick")}</p>
+              <p className="text-sm text-muted-foreground">{selection && previewFailed ? t("previewFailed") : t("pick")}</p>
+              {selection && previewFailed && (
+                <Button size="sm" variant="outline" onClick={() => setPreviewAttempt((value) => value + 1)}>
+                  {tc("retry")}
+                </Button>
+              )}
             </div>
           )}
         </main>
@@ -468,75 +501,72 @@ function AiDesigner({
 }) {
   const t = useTranslations("overlays.ai");
   const tk = useTranslations("overlays.kinds");
-  const te = useTranslations("errors.codes");
-  const [account, setAccount] = useState<SeenalyzeAccount | null | undefined>(undefined);
+  const tc = useTranslations("common");
+  const { state, retry, signIn, cancelSignIn, signingIn, showError } = useSeenalyzeAccount();
   const [prompt, setPrompt] = useState("");
   const [kind, setKind] = useState<OverlayKind>("alert");
   const [mode, setMode] = useState<"new" | "change">("new");
   const [busy, setBusy] = useState(false);
+  const fail = showError;
 
-  useEffect(() => {
-    let cancelled = false;
-    studio
-      .getSeenalyzeAccount()
-      .then((result) => {
-        if (!cancelled) setAccount(result);
-      })
-      .catch((error: unknown) => {
-        console.error(error);
-        if (!cancelled) setAccount(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const fail = (error: unknown) => {
-    const code = errorCode(error);
-    toast.error(te.has(code) ? te(code) : te("generic"));
-    if (code === "seenalyze-signed-out") setAccount(null);
-  };
-
-  if (account === undefined) {
+  if (state.status === "loading") {
     return (
       <div className="flex h-16 items-center justify-center border-t">
-        <Loader2Icon className="size-4 animate-spin text-muted-foreground" />
+        <Loader2Icon className="size-4 animate-spin text-muted-foreground" aria-label={tc("loading")} />
       </div>
     );
   }
 
+  if (state.status === "failed") {
+    return (
+      <div className="grid gap-2 border-t p-3">
+        <p className="text-sm font-semibold">{t("title")}</p>
+        <p className="text-xs text-muted-foreground">{t("checkFailed")}</p>
+        <Button size="sm" variant="outline" onClick={retry}>
+          {tc("retry")}
+        </Button>
+      </div>
+    );
+  }
+
+  const account = state.account;
   if (account === null) {
     return (
       <div className="grid gap-2 border-t p-3">
         <p className="text-sm font-semibold">{t("title")}</p>
-        <p className="text-xs text-muted-foreground">{t("signInHint")}</p>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              setAccount(await studio.signInSeenalyze());
-            } catch (error) {
-              fail(error);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {busy ? <Loader2Icon className="animate-spin" /> : <LogInIcon />}
-          {busy ? t("waitingForBrowser") : t("signIn")}
-        </Button>
+        <p className="text-xs text-muted-foreground">{signingIn ? t("waitingForBrowser") : t("signInHint")}</p>
+        {signingIn ? (
+          <Button size="sm" variant="ghost" onClick={cancelSignIn}>
+            {tc("cancel")}
+          </Button>
+        ) : (
+          <Button size="sm" variant="outline" onClick={() => void signIn()}>
+            <LogInIcon />
+            {t("signIn")}
+          </Button>
+        )}
       </div>
     );
   }
 
   if (!account.canUseDesigner) {
     return (
-      <div className="grid gap-1 border-t p-3">
+      <div className="grid gap-2 border-t p-3">
         <p className="text-sm font-semibold">{t("title")}</p>
         <p className="text-xs text-muted-foreground">{t("notAvailable")}</p>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => studio.openSeenalyzeDashboard().catch((error: unknown) => fail(error))}
+          >
+            <ExternalLinkIcon />
+            {t("openAccount")}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={retry}>
+            {t("checkAgain")}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -609,7 +639,7 @@ function AiDesigner({
         }}
       />
       <Button size="sm" disabled={busy || !prompt.trim()} onClick={() => void submit()}>
-        {busy ? <Loader2Icon className="animate-spin" /> : <WandSparklesIcon />}
+        {busy ? <Loader2Icon aria-hidden className="animate-spin" /> : <WandSparklesIcon aria-hidden />}
         {busy ? t("designing") : changing ? t("change") : t("create")}
       </Button>
       <p className="text-xs text-muted-foreground">{t("creditsNote")}</p>

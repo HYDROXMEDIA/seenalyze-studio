@@ -11,7 +11,8 @@
     "remove": "Odstranit",
     "rename": "Přejmenovat",
     "save": "Uložit",
-    "previewFailed": "Náhled se nepodařilo aktualizovat. Zkuste to znovu."
+    "previewFailed": "Náhled se nepodařilo aktualizovat. Zkuste to znovu.",
+    "retry": "Zkusit znovu"
   },
   "header": {
     "appName": "SEENALYZE STUDIO",
@@ -408,7 +409,9 @@
   "twitchCode": {
     "title": "Připojit Twitch",
     "description": "Otevřete Twitch a zadejte tento kód pro připojení kanálu.",
-    "open": "Otevřít Twitch"
+    "open": "Otevřít Twitch",
+    "failed": "Platnost kódu vypršela nebo přihlášení nebylo dokončeno. Získejte nový kód a zkuste to znovu.",
+    "newCode": "Získat nový kód"
   },
   "streamInfo": {
     "title": "Název vysílání",
@@ -423,7 +426,8 @@
     },
     "broadcast": "Přenos",
     "newBroadcast": "Nový přenos",
-    "scheduledBroadcast": "{title} · {start, date, short} {start, time, short}"
+    "scheduledBroadcast": "{title} · {start, date, short} {start, time, short}",
+    "loadFailed": "Údaje o streamu se nepodařilo načíst. Zkontrolujte připojení a zkuste to znovu."
   },
   "controls": {
     "title": "Ovládání",
@@ -455,7 +459,8 @@
       "unavailableDescription": "Tato verze nemůže na tomto počítači přidat potřebnou systémovou kameru.",
       "checkAgain": "Zkontrolovat znovu",
       "install": "Nainstalovat"
-    }
+    },
+    "noDestination": "Zapněte cíl, abyste mohli vysílat."
   },
   "settings": {
     "title": "Nastavení",
@@ -601,7 +606,10 @@
     "replayBufferHint": "Uchovává poslední chvíle připravené k uložení jako klip.",
     "replayLength": "Uchovat posledních",
     "replaySeconds": "{seconds} s",
-    "replayLengthRange": "Zadejte hodnotu od {min} do {max} sekund."
+    "replayLengthRange": "Zadejte hodnotu od {min} do {max} sekund.",
+    "seenalyzeCheckFailed": "Účet se nepodařilo ověřit. Zkontrolujte připojení.",
+    "seenalyzeWaiting": "Dokončete přihlášení v prohlížeči.",
+    "noEncoders": "Nebyl nalezen žádný video enkodér. Restartujte aplikaci nebo aktualizujte grafické ovladače."
   },
   "quit": {
     "title": "Ukončit během vysílání?",
@@ -613,7 +621,18 @@
     "sourcesUnavailable": "Některé uložené zdroje se nepodařilo otevřít. Znovu připojte zařízení nebo zkontrolujte oprávnění a pak aplikaci restartujte. Jejich nastavení zůstane zachováno.",
     "microphoneCheckFailed": "Mikrofony se nepodařilo zkontrolovat. Pokud jsou výchozím mikrofonem sluchátka Bluetooth, jejich zvuk se může zhoršit. Abyste tomu předešli, vyberte jiný mikrofon v panelu Zvuk.",
     "replaySaved": "Klip uložen do {folder}",
-    "encoderFallback": "Enkodér grafické karty se nepodařilo spustit, proto se používá softwarový enkodér. Změnit ho můžete v Nastavení."
+    "encoderFallback": "Enkodér grafické karty se nepodařilo spustit, proto se používá softwarový enkodér. Změnit ho můžete v Nastavení.",
+    "saveFailed": "Změny se nepodařilo uložit. Zkontrolujte, zda je na disku volné místo, a zkuste to znovu.",
+    "screenRecordingStartFailed": "Nahrávání obrazovky se nepodařilo spustit. Zkuste to znovu nebo vyberte jinou obrazovku či okno.",
+    "screenRecordingStopped": "Nahrávání obrazovky se nečekaně zastavilo a nepodařilo se ho uložit.",
+    "screenRecordingPartial": "Nahrávání obrazovky se nečekaně zastavilo. To, co se dosud nahrálo, zůstalo zachováno.",
+    "screenRecording": {
+      "savedToMovies": "Složka pro nahrávky není dostupná, proto se tato nahrávka ukládá do složky Filmy.",
+      "noCamera": "Kamera není dostupná, proto tato nahrávka nemá obraz z kamery.",
+      "noMicrophone": "Vybraný mikrofon není dostupný, proto tato nahrávka nemá zvuk z mikrofonu."
+    },
+    "youtubeCleanupFailed": "Nepoužitý přenos na YouTube se nepodařilo odstranit. Můžete ho smazat v YouTube Studiu.",
+    "dataReset": "Některá uložená nastavení se nepodařilo načíst, a byla proto obnovena. Původní soubor byl zachován jako {file}."
   },
   "errors": {
     "output": {
@@ -718,7 +737,12 @@
       "import-not-found": "Tato kolekce scén už neexistuje.",
       "import-too-large": "Tento soubor je pro import příliš velký.",
       "recording-encoder-failed": "Enkodér nahrávání se na tomto počítači nepodařilo spustit.",
-      "youtube-broadcast-missing": "Vybraný přenos na YouTube už neexistuje. Vyber jiný v nastavení názvu streamu."
+      "youtube-broadcast-missing": "Vybraný přenos na YouTube už neexistuje. Vyber jiný v nastavení názvu streamu.",
+      "recording-open-failed": "Tuto nahrávku se nepodařilo otevřít. Možná byla přesunuta nebo smazána.",
+      "screen-recording-unavailable": "Nahrávání obrazovky se nepodařilo připravit. Restartujte aplikaci a zkuste to znovu.",
+      "overlay-server-unavailable": "Zdroje chatu a překryvů teď nelze zobrazit. Restartujte aplikaci a zkuste to znovu.",
+      "recording-stop-failed": "Nahrávání se nepodařilo zastavit automaticky. Zastavte ho v ovládání.",
+      "recording-start-failed": "Nahrávání se nepodařilo spustit. Zkuste to znovu."
     }
   },
   "permissions": {
@@ -780,7 +804,9 @@
       "member": "Člen",
       "subscriber": "Odběratel",
       "verified": "Ověřeno"
-    }
+    },
+    "connect": "Připojit účet",
+    "reconnect": "Připojit znovu"
   },
   "overlays": {
     "title": "Překryvy",
@@ -874,8 +900,13 @@
       "signInHint": "Přihlaste se účtem SEENALYZE a navrhujte překryvy pouhým popisem.",
       "notAvailable": "Návrhář s AI zatím není pro tento účet dostupný.",
       "done": "{name} je připraveno",
-      "doneWithCredits": "{name} je připraveno · použito kreditů: {credits}"
-    }
+      "doneWithCredits": "{name} je připraveno · použito kreditů: {credits}",
+      "checkFailed": "Účet se nepodařilo ověřit. Zkontrolujte připojení a zkuste to znovu.",
+      "openAccount": "Otevřít SEENALYZE",
+      "checkAgain": "Zkontrolovat znovu"
+    },
+    "loadFailed": "Překryvy se nepodařilo načíst.",
+    "previewFailed": "Tento náhled se nepodařilo načíst."
   },
   "screenRecording": {
     "capture": {
@@ -930,7 +961,8 @@
         "size": "{width} × {height}"
       },
       "errors": {
-        "captureFailed": "Nahrávání se nepodařilo spustit. Zkuste to znovu."
+        "captureFailed": "Nahrávání se nepodařilo spustit. Zkuste to znovu.",
+        "folderFailed": "Složku se nepodařilo vybrat. Zkuste to znovu."
       },
       "systemAudio": "Zvuk systému",
       "audioApp": "Zvuk z",
@@ -1155,8 +1187,17 @@
         "end": "Konec titulku v sekundách",
         "invalidTiming": "Titulky musí jít po sobě a být v rámci videa.",
         "preparing": "Příprava titulků…",
-        "cpuUnsupported": "Na procesoru tohoto počítače nelze titulky vytvořit."
-      }
+        "cpuUnsupported": "Na procesoru tohoto počítače nelze titulky vytvořit.",
+        "toolsMissing": "Titulky vyžadují Apple Command Line Tools. Nainstalujte je a zkuste to znovu.",
+        "runtimeMissing": "Titulky vyžadují Microsoft Visual C++ Redistributable. Nainstalujte ho a zkuste to znovu.",
+        "unsupported": "Na tomto počítači nelze vytvářet titulky.",
+        "downloadFailed": "Nástroje pro titulky se nepodařilo stáhnout. Zkontrolujte připojení k internetu a zkuste to znovu.",
+        "tooLong": "Tato nahrávka je pro titulky příliš dlouhá.",
+        "prepareFailed": "Zvuk nahrávky se pro titulky nepodařilo načíst.",
+        "exported": "Titulky uloženy",
+        "exportFailed": "Titulky se nepodařilo uložit. Zkuste to znovu."
+      },
+      "playFailed": "Video se nepodařilo přehrát. Zkuste to znovu."
     },
     "main": {
       "dialogs": {
@@ -1174,7 +1215,8 @@
         "cancel": "Zrušit",
         "discard": "Zahodit",
         "discardRecording": "Zahodit tuto nahrávku?",
-        "discardRecordingDetail": "Nahrávka, video z kamery i úpravy budou smazány."
+        "discardRecordingDetail": "Nahrávka, video z kamery i úpravy budou smazány.",
+        "subtitles": "Titulky"
       },
       "capture": {
         "noSession": "Žádné nahrávání se nepřipravuje",
@@ -1249,7 +1291,8 @@
       "cameraOnly": "Jen kamera",
       "screenOnly": "Jen obrazovka",
       "none": "Ponechat mé scény"
-    }
+    },
+    "donePartial": "Nastavení je hotové, ale některé kroky nefungovaly. Zkontrolujte scény a cíle."
   },
   "hotkeys": {
     "streamGroup": "Stream a nahrávání",
@@ -1393,7 +1436,8 @@
       "skippedFilters": "Filtry bez náhrady, vynechány: {count}.",
       "setupFound": "Byly nalezeny scény z OBS Studio nebo Streamlabs.",
       "setupAction": "Importovat"
-    }
+    },
+    "profileUnsaved": "Před přepnutím profilu změny uložte nebo vraťte."
   },
   "tooltips": {
     "projectors": "Otevřít projektor",

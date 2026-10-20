@@ -824,7 +824,10 @@ func mixRecordedAudio(at url: URL) async {
         guard let merge = AVAssetExportSession(asset: result, presetName: AVAssetExportPresetPassthrough) else { return }
         merge.outputURL = mergedURL; merge.outputFileType = .mp4; await merge.export()
         if merge.status == .completed { _ = try FileManager.default.replaceItemAt(url, withItemAt: mergedURL) }
-    } catch { /* Preserve the valid original tracks if mixing cannot finish. */ }
+    } catch {
+        // The valid original tracks are kept; the app logs that they were not mixed into one.
+        emit(["type": "warning", "message": "Recorded sound tracks could not be mixed: \(error.localizedDescription)"])
+    }
 }
 
 let recorder = Recorder(options: parseOptions())

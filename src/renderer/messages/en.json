@@ -11,7 +11,8 @@
     "remove": "Remove",
     "rename": "Rename",
     "save": "Save",
-    "previewFailed": "The preview could not be updated. Try again."
+    "previewFailed": "The preview could not be updated. Try again.",
+    "retry": "Retry"
   },
   "header": {
     "appName": "SEENALYZE STUDIO",
@@ -408,7 +409,9 @@
   "twitchCode": {
     "title": "Connect Twitch",
     "description": "Open Twitch and enter this code to connect your channel.",
-    "open": "Open Twitch"
+    "open": "Open Twitch",
+    "failed": "This code expired or sign-in didn't finish. Get a new code to try again.",
+    "newCode": "Get a new code"
   },
   "streamInfo": {
     "title": "Stream title",
@@ -423,7 +426,8 @@
     },
     "broadcast": "Broadcast",
     "newBroadcast": "New broadcast",
-    "scheduledBroadcast": "{title} · {start, date, short} {start, time, short}"
+    "scheduledBroadcast": "{title} · {start, date, short} {start, time, short}",
+    "loadFailed": "Your stream details couldn't be loaded. Check your connection and try again."
   },
   "controls": {
     "title": "Controls",
@@ -455,7 +459,8 @@
       "unavailableDescription": "This version can't add the system camera it needs on this computer.",
       "checkAgain": "Check again",
       "install": "Install"
-    }
+    },
+    "noDestination": "Turn on a destination to go live."
   },
   "settings": {
     "title": "Settings",
@@ -601,7 +606,10 @@
     "replayBufferHint": "Keeps the last moments ready to save as a clip.",
     "replayLength": "Keep the last",
     "replaySeconds": "{seconds} s",
-    "replayLengthRange": "Use a value from {min} to {max} seconds."
+    "replayLengthRange": "Use a value from {min} to {max} seconds.",
+    "seenalyzeCheckFailed": "Your account couldn't be checked. Check your connection.",
+    "seenalyzeWaiting": "Finish signing in in your browser.",
+    "noEncoders": "No video encoder was found. Restart the app, or update your graphics drivers."
   },
   "quit": {
     "title": "Quit while live?",
@@ -613,7 +621,18 @@
     "sourcesUnavailable": "Some saved sources couldn't be opened. Reconnect your devices or check permissions, then restart. Their settings are kept.",
     "microphoneCheckFailed": "Couldn't check your microphones. If your default microphone is a Bluetooth headset, its sound may get worse. Choose another microphone in the Audio panel to avoid this.",
     "replaySaved": "Clip saved to {folder}",
-    "encoderFallback": "Your graphics card's encoder couldn't start, so the software encoder is used instead. You can change it in Settings."
+    "encoderFallback": "Your graphics card's encoder couldn't start, so the software encoder is used instead. You can change it in Settings.",
+    "saveFailed": "Your changes couldn't be saved. Check that your disk has free space, then try again.",
+    "screenRecordingStartFailed": "The screen recording couldn't start. Try again, or choose another screen or window.",
+    "screenRecordingStopped": "The screen recording stopped unexpectedly and couldn't be saved.",
+    "screenRecordingPartial": "The screen recording stopped unexpectedly. What was recorded so far was kept.",
+    "screenRecording": {
+      "savedToMovies": "Your recording folder isn't available, so this recording is saved in Movies.",
+      "noCamera": "The camera isn't available, so this recording has no camera video.",
+      "noMicrophone": "The chosen microphone isn't available, so this recording has no microphone sound."
+    },
+    "youtubeCleanupFailed": "An unused YouTube broadcast couldn't be removed. You can delete it in YouTube Studio.",
+    "dataReset": "Some saved settings couldn't be read and were reset. The old file was kept as {file}."
   },
   "errors": {
     "output": {
@@ -718,7 +737,12 @@
       "import-not-found": "That scene collection no longer exists.",
       "import-too-large": "That file is too large to import.",
       "recording-encoder-failed": "The recording encoder couldn't start on this computer.",
-      "youtube-broadcast-missing": "The YouTube broadcast you picked no longer exists. Pick another one in the stream title settings."
+      "youtube-broadcast-missing": "The YouTube broadcast you picked no longer exists. Pick another one in the stream title settings.",
+      "recording-open-failed": "This recording couldn't be opened. It may have been moved or deleted.",
+      "screen-recording-unavailable": "Screen recording couldn't be set up. Restart the app to try again.",
+      "overlay-server-unavailable": "Chat and overlay sources can't be shown right now. Restart the app to try again.",
+      "recording-stop-failed": "The recording couldn't be stopped automatically. Stop it from the controls.",
+      "recording-start-failed": "The recording couldn't start. Try again."
     }
   },
   "permissions": {
@@ -780,7 +804,9 @@
       "member": "Member",
       "subscriber": "Subscriber",
       "verified": "Verified"
-    }
+    },
+    "connect": "Connect an account",
+    "reconnect": "Reconnect"
   },
   "overlays": {
     "title": "Overlays",
@@ -874,8 +900,13 @@
       "signInHint": "Sign in with your SEENALYZE account to design overlays by describing them.",
       "notAvailable": "The AI designer isn't available on this account yet.",
       "done": "{name} is ready",
-      "doneWithCredits": "{name} is ready · {credits} credits used"
-    }
+      "doneWithCredits": "{name} is ready · {credits} credits used",
+      "checkFailed": "Your account couldn't be checked. Check your connection and try again.",
+      "openAccount": "Open SEENALYZE",
+      "checkAgain": "Check again"
+    },
+    "loadFailed": "Your overlays couldn't be loaded.",
+    "previewFailed": "This preview couldn't be loaded."
   },
   "screenRecording": {
     "capture": {
@@ -930,7 +961,8 @@
         "size": "{width} × {height}"
       },
       "errors": {
-        "captureFailed": "Recording could not start. Try again."
+        "captureFailed": "Recording could not start. Try again.",
+        "folderFailed": "The folder couldn't be chosen. Try again."
       },
       "systemAudio": "System audio",
       "audioApp": "Audio from",
@@ -1155,8 +1187,17 @@
         "end": "Caption end in seconds",
         "invalidTiming": "Keep captions in order and within the video.",
         "preparing": "Preparing captions…",
-        "cpuUnsupported": "Captions can't be created on this computer's processor."
-      }
+        "cpuUnsupported": "Captions can't be created on this computer's processor.",
+        "toolsMissing": "Captions need the Apple Command Line Tools. Install them, then try again.",
+        "runtimeMissing": "Captions need the Microsoft Visual C++ Redistributable. Install it, then try again.",
+        "unsupported": "Captions can't be created on this computer.",
+        "downloadFailed": "The caption tools couldn't be downloaded. Check your internet connection and try again.",
+        "tooLong": "This recording is too long for captions.",
+        "prepareFailed": "The recording's sound couldn't be read for captions.",
+        "exported": "Subtitles saved",
+        "exportFailed": "Subtitles couldn't be saved. Try again."
+      },
+      "playFailed": "The video couldn't be played. Try again."
     },
     "main": {
       "dialogs": {
@@ -1174,7 +1215,8 @@
         "cancel": "Cancel",
         "discard": "Discard",
         "discardRecording": "Discard this recording?",
-        "discardRecordingDetail": "The recording, camera video, and edits will be deleted."
+        "discardRecordingDetail": "The recording, camera video, and edits will be deleted.",
+        "subtitles": "Subtitles"
       },
       "capture": {
         "noSession": "No recording is being set up",
@@ -1249,7 +1291,8 @@
       "cameraOnly": "Camera only",
       "screenOnly": "Screen only",
       "none": "Keep my scenes"
-    }
+    },
+    "donePartial": "Setup finished, but some steps didn't work. Check your scenes and destinations."
   },
   "hotkeys": {
     "streamGroup": "Stream and recording",
@@ -1393,7 +1436,8 @@
       "skippedFilters": "Filters without an equivalent here, left out: {count}.",
       "setupFound": "Scenes from OBS Studio or Streamlabs were found.",
       "setupAction": "Import"
-    }
+    },
+    "profileUnsaved": "Save or undo your changes to switch profiles."
   },
   "tooltips": {
     "projectors": "Open a projector",

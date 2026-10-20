@@ -19,6 +19,8 @@ export class YouTubeChat implements ChatSource {
   private stopped = true;
   private liveChatId: string | null = null;
   private pageToken: string | undefined;
+  /** Bumped on every start, stop and retarget; a request from an older round must not change state. */
+  private generation = 0;
   /** Chats that ended; never reconnected to, so a finished broadcast doesn't block the active one. */
   private readonly ended = new Set<string>();
 
@@ -34,6 +36,7 @@ export class YouTubeChat implements ChatSource {
     if (this.stopped) return;
     const preferred = this.preferredChatId();
     if (preferred && preferred === this.liveChatId) return;
+    this.generation += 1;
     this.liveChatId = null;
     this.pageToken = undefined;
     this.sink.status({ state: "connecting" });
@@ -43,12 +46,14 @@ export class YouTubeChat implements ChatSource {
   start(): void {
     if (!this.stopped) return;
     this.stopped = false;
+    this.generation += 1;
     this.sink.status({ state: "connecting" });
     this.schedule(0);
   }
 
   stop(): void {
     this.stopped = true;
+    this.generation += 1;
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
     this.liveChatId = null;
@@ -65,11 +70,14 @@ export class YouTubeChat implements ChatSource {
   private async tick(): Promise<void> {
     const account = this.account();
     if (this.stopped || !account) return;
+    const generation = this.generation;
+    const current = () => !this.stopped && generation === this.generation;
     try {
       if (!this.liveChatId) {
         const preferred = this.preferredChatId();
-        this.liveChatId = preferred && !this.ended.has(preferred) ? preferred : await activeLiveChatId(account);
-        if (this.liveChatId && this.ended.has(this.liveChatId)) this.liveChatId = null;
+        const found = preferred && !this.ended.has(preferred) ? preferred : await activeLiveChatId(account);
+        if (!current()) return;
+        this.liveChatId = found && !this.ended.has(found) ? found : null;
         if (!this.liveChatId) {
           this.sink.status({ state: "waiting" });
           this.schedule(IDLE_CHECK_MS);
@@ -78,7 +86,7 @@ export class YouTubeChat implements ChatSource {
         this.pageToken = undefined;
       }
       const page = await listChatMessages(account, this.liveChatId, this.pageToken);
-      if (this.stopped) return;
+      if (!current()) return;
       this.pageToken = page.nextPageToken;
       this.sink.status({ state: "connected" });
       this.dispatch(page.items, account.id);
@@ -90,6 +98,8 @@ export class YouTubeChat implements ChatSource {
       }
       this.schedule(Math.max(MIN_POLL_MS, page.pollingIntervalMillis ?? MIN_POLL_MS));
     } catch (error) {
+      // A request from a chat that was replaced meanwhile says nothing about the current one.
+      if (!current()) return;
       const code = error instanceof Error ? error.message : "";
       if (code === "youtube-chat-ended") {
         if (this.liveChatId) this.ended.add(this.liveChatId);
@@ -102,6 +112,8 @@ export class YouTubeChat implements ChatSource {
       const errorKey =
         code === "youtube-quota-exceeded" ? "quota" : code === "youtube-chat-disabled" ? "disabled" : code === "account-signed-out" ? "signedOut" : "unavailable";
       this.sink.status({ state: "error", errorKey });
+      // The next attempt starts from the newest messages, in case the saved page position is what failed.
+      this.pageToken = undefined;
       this.schedule(ERROR_RETRY_MS);
     }
   }

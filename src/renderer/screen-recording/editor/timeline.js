@@ -270,9 +270,12 @@ export function createTimeline(root, options) {
       const up = () => {
         track.removeEventListener('pointermove', move);
         track.removeEventListener('pointerup', up);
+        track.removeEventListener('pointercancel', up);
       };
       track.addEventListener('pointermove', move);
       track.addEventListener('pointerup', up);
+      // A canceled gesture (for example a system interruption) ends the seek too.
+      track.addEventListener('pointercancel', up);
     });
   }
 

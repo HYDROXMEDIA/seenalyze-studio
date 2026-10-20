@@ -8,6 +8,7 @@
 
 import { app } from 'electron';
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { constants as fsConstants, promises as fs } from 'node:fs';
 import { createServer } from 'node:net';
 import { dirname, join, resolve } from 'node:path';
@@ -21,6 +22,8 @@ export type Caption = { start: number; end: number; text: string };
 const WHISPERKIT_MODEL_NAME = 'large-v3_turbo';
 const WHISPERKIT_VERSION = '0.18.0';
 const WHISPERKIT_SOURCE_URL = `https://github.com/argmaxinc/WhisperKit/archive/refs/tags/v${WHISPERKIT_VERSION}.tar.gz`;
+// The source is built and run on this computer, so it is used only when it matches the reviewed release exactly.
+const WHISPERKIT_SOURCE_SHA256 = 'ea090c33b67a11eb781b2048be1043edd6ded18784a5d251591c78642ee650df';
 const IDLE_STOP_MS = 5 * 60 * 1000;
 // Building the recognizer and downloading its model happen once and can be slow.
 const SETUP_TIMEOUT_MS = 60 * 60 * 1000;
@@ -46,13 +49,15 @@ async function isExecutable(filePath: string): Promise<boolean> {
 
 function which(command: string): Promise<string | null> {
   return new Promise((resolveWhich) => {
+    // A command that is not installed is an expected answer here, not an error.
     execFile('/usr/bin/which', [command], (error, stdout) => resolveWhich(error ? null : stdout.trim() || null));
   });
 }
 
-function run(command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv, log: (line: string) => void, label: string): Promise<string> {
+// `signal` stops the child (for example a long build) when captions are canceled or the app quits.
+function run(command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv, log: (line: string) => void, label: string, signal: AbortSignal): Promise<string> {
   return new Promise((resolveRun, reject) => {
-    const child = spawn(command, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(command, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'], signal });
     let output = '';
     child.stdout?.on('data', (chunk: Buffer) => { output += chunk.toString(); });
     child.stderr?.on('data', (chunk: Buffer) => {
@@ -97,6 +102,8 @@ export class SpeechService {
   private installing: Promise<string> | null = null;
   private idleTimer: NodeJS.Timeout | null = null;
   private readonly jobs = new Map<string, AbortController>();
+  // Stops the one-time setup (downloads and builds) when the caption job that waits for it is canceled.
+  private setup: AbortController | null = null;
   private shuttingDown = false;
   /** Set once the recognizer crashed because this processor lacks an instruction set it needs. */
   private unsupportedCpu = false;
@@ -111,7 +118,7 @@ export class SpeechService {
   async transcribeMedia(path: string, id: string, onProgress: (progress: number) => void): Promise<{ captions: Caption[] }> {
     if (this.jobs.size > 0) throw new Error('A transcription is already running.');
     const file = await fs.stat(path);
-    if (!file.isFile() || file.size > MAX_MEDIA_BYTES) throw new Error('This media file is too large.');
+    if (!file.isFile() || file.size > MAX_MEDIA_BYTES) throw new Error('caption-too-long');
     const controller = new AbortController();
     this.jobs.set(id, controller);
     let directory: string | null = null;
@@ -132,7 +139,7 @@ export class SpeechService {
       }
       return { captions };
     } catch (error) {
-      if (controller.signal.aborted) throw new Error('Canceled', { cause: error });
+      if (controller.signal.aborted) throw new Error('caption-canceled', { cause: error });
       // A stable code the editor shows as its own message.
       if (this.unsupportedCpu) throw new Error('caption-cpu-unsupported', { cause: error });
       throw error;
@@ -144,12 +151,17 @@ export class SpeechService {
   }
 
   cancel(id: string): void {
-    this.jobs.get(id)?.abort();
+    const job = this.jobs.get(id);
+    if (job === undefined) return;
+    job.abort();
+    // Only one caption job runs at a time, so its setup has no other user.
+    this.setup?.abort();
   }
 
   async shutdown(): Promise<void> {
     this.shuttingDown = true;
     for (const job of this.jobs.values()) job.abort();
+    this.setup?.abort();
     await this.stopServer();
   }
 
@@ -182,7 +194,12 @@ export class SpeechService {
     return new Promise((resolvePrepare, reject) => {
       execFile(executable, args, { timeout: 10 * 60 * 1000, maxBuffer: 8 * 1024 * 1024, signal, windowsHide: true }, (error, stdout) => {
         if (error) {
-          reject(new Error('The recording could not be prepared for captions.'));
+          if (signal.aborted) {
+            reject(error);
+            return;
+          }
+          this.log(`Caption audio could not be prepared: ${error.message}`);
+          reject(new Error('caption-prepare-failed', { cause: error }));
           return;
         }
         try {
@@ -193,7 +210,7 @@ export class SpeechService {
             && typeof chunk.path === 'string' && dirname(resolve(chunk.path)) === resolve(directory)
             && Number.isFinite(chunk.start) && Number.isFinite(chunk.end) && chunk.start >= 0 && chunk.end > chunk.start && chunk.end <= MAX_SECONDS
             && (index === 0 || chunk.start >= chunks[index - 1].end - 0.01));
-          if (!valid) throw new Error('The recording is too long for captions.');
+          if (!valid) throw new Error('caption-too-long');
           resolvePrepare(chunks);
         } catch (parseError) {
           reject(parseError instanceof Error ? parseError : new Error(String(parseError)));
@@ -222,16 +239,20 @@ export class SpeechService {
   private ensureServer(): Promise<Server> {
     if (this.server !== null && this.server.child.exitCode === null) return this.server.ready.then(() => this.server as Server);
     if (this.starting !== null) return this.starting;
-    const starting = this.startServer().finally(() => {
+    const setup = new AbortController();
+    this.setup = setup;
+    const starting = this.startServer(setup.signal).finally(() => {
       if (this.starting === starting) this.starting = null;
+      if (this.setup === setup) this.setup = null;
     });
     this.starting = starting;
     return starting;
   }
 
-  private async startServer(): Promise<Server> {
-    if (this.shuttingDown) throw new Error('Canceled');
-    const executable = await this.resolveRuntime();
+  private async startServer(signal: AbortSignal): Promise<Server> {
+    if (this.shuttingDown) throw new Error('caption-canceled');
+    const executable = await this.resolveRuntime(signal);
+    signal.throwIfAborted();
     if (IS_WINDOWS) await checkWindowsSpeechRuntime(executable);
     const port = await freePort();
     const args = IS_WINDOWS
@@ -244,8 +265,13 @@ export class SpeechService {
       if (line && !IS_WINDOWS) this.log(`Caption recognizer: ${line.slice(0, 240)}`);
     });
     const root = `http://127.0.0.1:${port}`;
-    const server: Server = { child, root, ready: this.waitReady(child, root) };
+    const server: Server = { child, root, ready: this.waitReady(child, root, signal) };
     this.server = server;
+    // A recognizer that cannot be started at all reports here; without a listener it would crash the app.
+    child.once('error', (error) => {
+      if (this.server === server) this.server = null;
+      this.log(`Caption recognizer could not start: ${error.message}`);
+    });
     child.once('exit', (code, signal) => {
       if (this.server === server) this.server = null;
       if (this.shuttingDown || code === 0) return;
@@ -262,35 +288,38 @@ export class SpeechService {
       await stopChild(child);
       throw error;
     }
+    // Started after its caption job ended (for example a long first setup): it must still stop when idle.
+    if (this.jobs.size === 0) this.scheduleIdleStop();
     return server;
   }
 
   // The first start downloads the model, so readiness can take many minutes.
-  private async waitReady(child: ChildProcess, root: string): Promise<void> {
+  private async waitReady(child: ChildProcess, root: string, signal: AbortSignal): Promise<void> {
     for (let attempt = 0; attempt < READY_ATTEMPTS; attempt += 1) {
-      if (child.exitCode !== null || child.signalCode !== null || this.shuttingDown) throw new Error('The caption recognizer stopped.');
+      signal.throwIfAborted();
+      if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null || this.shuttingDown) throw new Error('The caption recognizer stopped.');
       try {
         const response = await fetch(`${root}/${IS_WINDOWS ? 'health' : ''}`, { signal: AbortSignal.timeout(2000) });
         if (IS_WINDOWS && (!response.ok || (await response.json() as { status?: string }).status !== 'ok')) throw new Error('loading');
         this.log('Caption recognizer ready');
         return;
       } catch {
+        // Not answering yet is expected while the model loads; the loop limit reports a real failure.
         await delay(1000);
       }
     }
     throw new Error('The caption recognizer did not start.');
   }
 
-  private resolveRuntime(): Promise<string> {
+  private resolveRuntime(signal: AbortSignal): Promise<string> {
     if (this.installing !== null) return this.installing;
     const installing = (async () => {
-      if (IS_WINDOWS) return (await resolveWindowsSpeech()) ?? (await installWindowsSpeech());
-      if (process.platform !== 'darwin') throw new Error('Captions are unavailable on this system.');
+      if (IS_WINDOWS) return (await resolveWindowsSpeech()) ?? (await installWindowsSpeech(signal));
+      if (process.platform !== 'darwin') throw new Error('caption-unsupported');
       const managed = managedWhisperCliPath();
       if (await isExecutable(managed)) return managed;
-      const installed = await which('whisperkit-cli');
-      if (installed !== null) return installed;
-      await this.installWhisperKit();
+      // Only the copy this app built from the verified source is used, never an unknown one on PATH.
+      await this.installWhisperKit(signal);
       return managed;
     })().finally(() => {
       if (this.installing === installing) this.installing = null;
@@ -300,23 +329,35 @@ export class SpeechService {
   }
 
   // Builds whisperkit-cli from the pinned source release with the Apple developer tools.
-  private async installWhisperKit(): Promise<void> {
+  private async installWhisperKit(signal: AbortSignal): Promise<void> {
     const swift = await which('swift');
-    if (swift === null) throw new Error('Install the Apple Command Line Tools to generate captions.');
+    if (swift === null) throw new Error('caption-tools-missing');
     const buildRoot = join(app.getPath('userData'), 'bootstrap', `whisperkit-${WHISPERKIT_VERSION}`);
     const archive = join(buildRoot, 'whisperkit.tar.gz');
     const sourceRoot = join(buildRoot, `WhisperKit-${WHISPERKIT_VERSION}`);
     await fs.rm(buildRoot, { recursive: true, force: true });
     await fs.mkdir(buildRoot, { recursive: true });
     this.log(`Downloading WhisperKit v${WHISPERKIT_VERSION} source`);
-    const response = await fetch(WHISPERKIT_SOURCE_URL, { signal: AbortSignal.timeout(10 * 60 * 1000) });
-    if (!response.ok) throw new Error(`WhisperKit download failed: ${response.status}`);
-    await fs.writeFile(archive, Buffer.from(await response.arrayBuffer()));
+    let source: Buffer;
+    try {
+      const response = await fetch(WHISPERKIT_SOURCE_URL, { signal: AbortSignal.any([signal, AbortSignal.timeout(10 * 60 * 1000)]) });
+      if (!response.ok) throw new Error(`status ${response.status}`);
+      source = Buffer.from(await response.arrayBuffer());
+    } catch (error) {
+      if (signal.aborted) throw error;
+      this.log(`WhisperKit download failed: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error('caption-download-failed', { cause: error });
+    }
+    if (createHash('sha256').update(source).digest('hex') !== WHISPERKIT_SOURCE_SHA256) {
+      this.log('WhisperKit source did not match the expected checksum; it was not used');
+      throw new Error('caption-download-failed');
+    }
+    await fs.writeFile(archive, source);
     const env = { ...process.env, BUILD_ALL: '1', NO_COLOR: '1' };
-    await run('/usr/bin/tar', ['-xzf', archive], buildRoot, env, this.log, 'tar');
+    await run('/usr/bin/tar', ['-xzf', archive], buildRoot, env, this.log, 'tar', signal);
     this.log('Building WhisperKit');
-    await run(swift, ['build', '-c', 'release', '--product', 'whisperkit-cli'], sourceRoot, env, this.log, 'swift build');
-    const binPath = (await run(swift, ['build', '-c', 'release', '--show-bin-path'], sourceRoot, env, this.log, 'swift build')).trim();
+    await run(swift, ['build', '-c', 'release', '--product', 'whisperkit-cli'], sourceRoot, env, this.log, 'swift build', signal);
+    const binPath = (await run(swift, ['build', '-c', 'release', '--show-bin-path'], sourceRoot, env, this.log, 'swift build', signal)).trim();
     const built = join(binPath, 'whisperkit-cli');
     if (!(await isExecutable(built))) throw new Error('WhisperKit could not be built.');
     // Copy next to the final path, then rename, so an interrupted install never leaves half a binary.
@@ -328,9 +369,10 @@ export class SpeechService {
       await fs.chmod(partial, 0o755);
       await fs.rename(partial, target);
     } finally {
-      await fs.rm(partial, { force: true }).catch(() => undefined);
+      // Already gone after a successful rename; anything else is only logged, the install itself succeeded or threw.
+      await fs.rm(partial, { force: true }).catch((error: unknown) => this.log(`Partial caption tool could not be removed: ${error instanceof Error ? error.message : String(error)}`));
     }
-    await fs.rm(buildRoot, { recursive: true, force: true }).catch(() => undefined);
+    await fs.rm(buildRoot, { recursive: true, force: true }).catch((error: unknown) => this.log(`Caption build files could not be removed: ${error instanceof Error ? error.message : String(error)}`));
     this.log('WhisperKit installed');
   }
 }

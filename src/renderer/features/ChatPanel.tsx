@@ -3,7 +3,9 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "rea
 import { useTranslations } from "use-intl";
 import type { ChatBadge, ChatMessage, ChatSourceStatus } from "../../shared/types";
 import { PlatformIcon } from "@/components/PlatformIcon";
+import { Button } from "@/components/ui/button";
 import { studio } from "@/lib/studio";
+import { useDarkMode } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useChat } from "@/store/chat";
 import { useStudio } from "@/store/studio";
@@ -19,7 +21,7 @@ const BADGE_ICONS: Record<ChatBadge, { icon: LucideIcon; className: string }> = 
   verified: { icon: BadgeCheckIcon, className: "text-muted-foreground" },
 };
 
-/** Distinct, readable name colors for authors without their own color. */
+/** Distinct name colors for authors without their own color. */
 const FALLBACK_COLORS = ["#60a5fa", "#f472b6", "#34d399", "#fbbf24", "#a78bfa", "#fb7185", "#22d3ee", "#a3e635"];
 
 function fallbackColor(authorId: string): string {
@@ -28,11 +30,39 @@ function fallbackColor(authorId: string): string {
   return FALLBACK_COLORS[hash % FALLBACK_COLORS.length];
 }
 
+function luminance(rgb: number[]): number {
+  const [r, g, b] = rgb.map((value) => {
+    const c = value / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/**
+ * Name colors come from viewers (Twitch) or from the list above; either can be unreadable on the panel. The color
+ * is moved toward black (light mode) or white (dark mode) until it reaches readable contrast (4.5:1).
+ */
+function readableColor(color: string, dark: boolean): string {
+  const match = /^#([0-9a-f]{6})$/iu.exec(color);
+  if (!match) return color;
+  const base = [0, 2, 4].map((at) => parseInt(match[1].slice(at, at + 2), 16));
+  const background = dark ? 0.012 : 1;
+  for (let step = 0; step <= 10; step += 1) {
+    const mix = step / 10;
+    const rgb = base.map((value) => Math.round(dark ? value + (255 - value) * mix : value * (1 - mix)));
+    const l = luminance(rgb);
+    const contrast = dark ? (l + 0.05) / (background + 0.05) : (background + 0.05) / (l + 0.05);
+    if (contrast >= 4.5) return `rgb(${rgb.join(", ")})`;
+  }
+  return dark ? "#ffffff" : "#000000";
+}
+
 const NEAR_BOTTOM_PX = 48;
 
 export function ChatPanel() {
   const t = useTranslations("chat");
   const accounts = useStudio((state) => state.snapshot?.accounts ?? []);
+  const openSettings = useStudio((state) => state.openSettings);
   const messages = useChat((state) => state.messages);
   const sources = useChat((state) => state.sources);
   const load = useChat((state) => state.load);
@@ -100,10 +130,27 @@ export function ChatPanel() {
         <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
           <PlugIcon aria-hidden className="size-12 text-muted-foreground" strokeWidth={1.5} />
           <p className="text-sm text-muted-foreground">{t("noAccounts")}</p>
+          <Button size="sm" variant="outline" onClick={() => openSettings("accounts")}>
+            {t("connect")}
+          </Button>
         </div>
       ) : (
         <>
-          <div className="flex shrink-0 gap-1 border-b p-1.5" role="tablist" aria-label={t("title")}>
+          <div
+            className="flex shrink-0 gap-1 border-b p-1.5"
+            role="tablist"
+            aria-label={t("title")}
+            onKeyDown={(event) => {
+              // Arrow keys move between tabs, as in any tab list.
+              if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+              const ids = ["all", ...accounts.map((account) => account.id)];
+              const index = ids.indexOf(activeTab);
+              const next = (index + (event.key === "ArrowRight" ? 1 : ids.length - 1)) % ids.length;
+              event.preventDefault();
+              selectTab(ids[next]);
+              event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+            }}
+          >
             <TabButton active={activeTab === "all"} onClick={() => selectTab("all")} label={t("all")}>
               <span className="flex -space-x-1">
                 {[...new Set(accounts.map((account) => account.platform))].map((platform) => (
@@ -123,9 +170,14 @@ export function ChatPanel() {
               {problems.map((source) => (
                 <li key={source.accountId} className="flex items-center gap-2 py-0.5">
                   <PlatformIcon platform={source.platform} className="size-3.5" />
-                  <span className="truncate">
+                  <span className="min-w-0 flex-1 truncate">
                     {source.state === "error" && source.errorKey ? t(`errors.${source.errorKey}`) : t(`states.${source.state}`)}
                   </span>
+                  {source.state === "error" && source.errorKey === "signedOut" && (
+                    <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => openSettings("accounts")}>
+                      {t("reconnect")}
+                    </Button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -188,6 +240,7 @@ function TabButton({
       type="button"
       role="tab"
       aria-selected={active}
+      tabIndex={active ? 0 : -1}
       onClick={onClick}
       className={cn(
         "relative flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
@@ -211,7 +264,8 @@ function TabButton({
 
 const ChatRow = memo(function ChatRow({ message }: { message: ChatMessage }) {
   const t = useTranslations("chat");
-  const color = message.authorColor ?? fallbackColor(message.authorId);
+  const dark = useDarkMode();
+  const color = readableColor(message.authorColor ?? fallbackColor(message.authorId), dark);
   const highlight = message.highlight;
 
   return (

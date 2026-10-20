@@ -312,13 +312,21 @@ const handlers = {
 
   shutdown(): void {
     for (const timer of timers) clearInterval(timer);
-    try {
-      outputs?.stopAll(true);
-      replay?.stop(true);
-      virtualCamera?.stop();
-      displays?.destroyAll();
-    } catch (error) {
-      console.error("[engine-worker] stopping outputs failed", error);
+    // Each step runs even if an earlier one fails, so nothing is left running. The recording is asked to
+    // finish first, so its file is closed properly before the engine goes away.
+    const steps: [string, () => void][] = [
+      ["recording", () => outputs?.stopRecording()],
+      ["streams", () => outputs?.stopAll(true)],
+      ["instant replay", () => replay?.stop(true)],
+      ["virtual camera", () => virtualCamera?.stop()],
+      ["previews", () => displays?.destroyAll()],
+    ];
+    for (const [name, step] of steps) {
+      try {
+        step();
+      } catch (error) {
+        console.error(`[engine-worker] stopping ${name} failed`, error);
+      }
     }
     // Scenes, sources and meters are freed by the engine teardown itself.
     engine?.shutdown();

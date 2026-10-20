@@ -31,7 +31,8 @@ const installedMarker = (variant: Variant) => join(root(variant), 'verified-runt
 export const windowsModelPath = () => join(app.getPath('userData'), 'models', MODEL_NAME);
 
 export class WindowsRuntimeUnavailable extends Error {
-  constructor() { super('Local speech setup tools are required.'); }
+  // A stable code the editor shows as its own message.
+  constructor() { super('caption-runtime-missing'); }
 }
 
 async function runtimeInstalled(variant: Variant): Promise<string | null> {
@@ -87,31 +88,35 @@ export async function resolveWindowsSpeech(): Promise<string | null> {
 }
 
 // Stream large downloads to disk and verify them before making them usable.
-async function downloadVerified(url: string, destination: string, expectedHash: string): Promise<void> {
+async function downloadVerified(url: string, destination: string, expectedHash: string, signal: AbortSignal): Promise<void> {
   await fs.mkdir(dirname(destination), { recursive: true });
   const partial = `${destination}.partial`;
   try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(30 * 60 * 1000) });
-    if (!response.ok || response.body === null) throw new Error('Speech download failed. Try setup again.');
+    const response = await fetch(url, { signal: AbortSignal.any([signal, AbortSignal.timeout(30 * 60 * 1000)]) }).catch((error: unknown) => {
+      if (signal.aborted) throw error;
+      console.warn('[speech] download failed', error);
+      throw new Error('caption-download-failed', { cause: error });
+    });
+    if (!response.ok || response.body === null) throw new Error('caption-download-failed');
     const hash = createHash('sha256');
     await pipeline(Readable.fromWeb(response.body as never), new Transform({
       transform(chunk, _encoding, callback) { hash.update(chunk); callback(null, chunk); }
-    }), createWriteStream(partial));
-    if (hash.digest('hex') !== expectedHash) throw new Error('Speech download verification failed. Try setup again.');
+    }), createWriteStream(partial), { signal });
+    if (hash.digest('hex') !== expectedHash) throw new Error('caption-download-failed');
     await fs.rename(partial, destination);
   } finally {
     await fs.rm(partial, { force: true }).catch((error: unknown) => console.warn('[speech] partial download could not be removed', error));
   }
 }
 
-async function installRuntime(variant: Variant): Promise<string> {
+async function installRuntime(variant: Variant, signal: AbortSignal): Promise<string> {
   const directory = root(variant);
   const { archive: archiveName, hash } = VARIANTS[variant];
   if (await runtimeInstalled(variant) === null) {
     await fs.rm(directory, { recursive: true, force: true });
     await fs.mkdir(directory, { recursive: true });
     const archive = join(directory, 'runtime.zip');
-    await downloadVerified(`https://github.com/ggml-org/whisper.cpp/releases/download/${VERSION}/${archiveName}`, archive, hash);
+    await downloadVerified(`https://github.com/ggml-org/whisper.cpp/releases/download/${VERSION}/${archiveName}`, archive, hash, signal);
     try {
       await new Promise<void>((resolve, reject) => {
         // Paths are passed as process arguments, never interpolated into PowerShell code.
@@ -127,22 +132,23 @@ async function installRuntime(variant: Variant): Promise<string> {
   return installedServer;
 }
 
-export async function installWindowsSpeech(): Promise<string> {
-  if (process.arch !== 'x64') throw new Error('The Windows preview requires a 64-bit Intel or AMD PC.');
+export async function installWindowsSpeech(signal: AbortSignal): Promise<string> {
+  if (process.arch !== 'x64') throw new Error('caption-unsupported');
   // Runtimes from earlier versions of the app are replaced by the faster builds.
   await fs.rm(join(app.getPath('userData'), 'tools', 'windows-speech', VERSION), { recursive: true, force: true }).catch((error: unknown) => console.warn('[speech] earlier runtime could not be removed', error));
   let installed = false;
   if (await hasNvidiaGpu()) {
-    installed = await installRuntime('cuda').then(() => true, async (error: unknown) => {
+    installed = await installRuntime('cuda', signal).then(() => true, async (error: unknown) => {
+      if (signal.aborted) throw error;
       // A GPU build that cannot start (for example an old driver) is removed in favor of the processor build.
       console.warn('[speech] graphics-card runtime could not start; using the processor runtime', error);
       await fs.rm(root('cuda'), { recursive: true, force: true }).catch((cleanup: unknown) => console.warn('[speech] graphics-card runtime could not be removed', cleanup));
       return false;
     });
   }
-  if (!installed) await installRuntime('cpu');
+  if (!installed) await installRuntime('cpu', signal);
   if ((await fs.stat(windowsModelPath()).catch(() => null))?.size !== 574041195) {
-    await downloadVerified(`https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${MODEL_NAME}`, windowsModelPath(), MODEL_HASH);
+    await downloadVerified(`https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${MODEL_NAME}`, windowsModelPath(), MODEL_HASH, signal);
   }
   const server = await resolveWindowsSpeech();
   if (server === null) throw new Error('Local speech setup is incomplete. Try setup again.');

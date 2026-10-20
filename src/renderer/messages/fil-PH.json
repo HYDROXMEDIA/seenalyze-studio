@@ -11,7 +11,8 @@
     "remove": "Alisin",
     "rename": "Palitan ang pangalan",
     "save": "I-save",
-    "previewFailed": "Hindi ma-update ang preview. Subukang muli."
+    "previewFailed": "Hindi ma-update ang preview. Subukang muli.",
+    "retry": "Subukan ulit"
   },
   "header": {
     "appName": "SEENALYZE STUDIO",
@@ -408,7 +409,9 @@
   "twitchCode": {
     "title": "Ikonekta ang Twitch",
     "description": "Buksan ang Twitch at ilagay ang code na ito para ikonekta ang iyong channel.",
-    "open": "Buksan ang Twitch"
+    "open": "Buksan ang Twitch",
+    "failed": "Nag-expire ang code na ito o hindi natapos ang pag-sign in. Kumuha ng bagong code para subukan ulit.",
+    "newCode": "Kumuha ng bagong code"
   },
   "streamInfo": {
     "title": "Pamagat ng stream",
@@ -423,7 +426,8 @@
     },
     "broadcast": "Broadcast",
     "newBroadcast": "Bagong broadcast",
-    "scheduledBroadcast": "{title} · {start, date, short} {start, time, short}"
+    "scheduledBroadcast": "{title} · {start, date, short} {start, time, short}",
+    "loadFailed": "Hindi ma-load ang mga detalye ng iyong stream. Tingnan ang iyong koneksyon at subukan ulit."
   },
   "controls": {
     "title": "Mga kontrol",
@@ -455,7 +459,8 @@
       "unavailableDescription": "Hindi kayang idagdag ng bersyong ito ang kailangang system camera sa computer na ito.",
       "checkAgain": "Suriin ulit",
       "install": "I-install"
-    }
+    },
+    "noDestination": "Mag-on ng destination para mag-live."
   },
   "settings": {
     "title": "Mga Setting",
@@ -601,7 +606,10 @@
     "replayBufferHint": "Itinatabi ang mga huling sandali para ma-save bilang clip.",
     "replayLength": "Itabi ang huling",
     "replaySeconds": "{seconds} s",
-    "replayLengthRange": "Gumamit ng value mula {min} hanggang {max} segundo."
+    "replayLengthRange": "Gumamit ng value mula {min} hanggang {max} segundo.",
+    "seenalyzeCheckFailed": "Hindi ma-check ang account mo. Tingnan ang iyong koneksyon.",
+    "seenalyzeWaiting": "Tapusin ang pag-sign in sa iyong browser.",
+    "noEncoders": "Walang nakitang video encoder. I-restart ang app, o i-update ang iyong graphics drivers."
   },
   "quit": {
     "title": "Mag-quit habang live?",
@@ -613,7 +621,18 @@
     "sourcesUnavailable": "Hindi mabuksan ang ilang naka-save na source. Ikonekta muli ang iyong mga device o suriin ang mga pahintulot, pagkatapos ay i-restart. Nananatili ang mga setting nila.",
     "microphoneCheckFailed": "Hindi masuri ang iyong mga mikropono. Kung Bluetooth headset ang default mong mikropono, maaaring lumala ang tunog nito. Pumili ng ibang mikropono sa Audio panel para maiwasan ito.",
     "replaySaved": "Na-save ang clip sa {folder}",
-    "encoderFallback": "Hindi nakapagsimula ang encoder ng graphics card mo, kaya software encoder ang ginagamit. Mapapalitan mo ito sa Mga Setting."
+    "encoderFallback": "Hindi nakapagsimula ang encoder ng graphics card mo, kaya software encoder ang ginagamit. Mapapalitan mo ito sa Mga Setting.",
+    "saveFailed": "Hindi ma-save ang iyong mga pagbabago. Tingnan kung may bakanteng espasyo sa disk, at subukan ulit.",
+    "screenRecordingStartFailed": "Hindi masimulan ang screen recording. Subukan ulit, o pumili ng ibang screen o window.",
+    "screenRecordingStopped": "Biglang huminto ang screen recording at hindi ito na-save.",
+    "screenRecordingPartial": "Biglang huminto ang screen recording. Naitago ang na-record hanggang sa puntong iyon.",
+    "screenRecording": {
+      "savedToMovies": "Hindi available ang folder mo ng mga recording, kaya sa Movies ise-save ang recording na ito.",
+      "noCamera": "Hindi available ang camera, kaya walang camera video ang recording na ito.",
+      "noMicrophone": "Hindi available ang napiling mikropono, kaya walang tunog ng mikropono ang recording na ito."
+    },
+    "youtubeCleanupFailed": "Hindi maalis ang isang hindi nagamit na YouTube broadcast. Maaari mo itong burahin sa YouTube Studio.",
+    "dataReset": "Hindi mabasa ang ilang naka-save na setting kaya na-reset ang mga ito. Naitago ang lumang file bilang {file}."
   },
   "errors": {
     "output": {
@@ -718,7 +737,12 @@
       "import-not-found": "Wala na ang scene collection na iyan.",
       "import-too-large": "Masyadong malaki ang file na iyan para i-import.",
       "recording-encoder-failed": "Hindi nakapagsimula ang encoder ng recording sa computer na ito.",
-      "youtube-broadcast-missing": "Wala na ang YouTube broadcast na pinili mo. Pumili ng iba sa settings ng stream title."
+      "youtube-broadcast-missing": "Wala na ang YouTube broadcast na pinili mo. Pumili ng iba sa settings ng stream title.",
+      "recording-open-failed": "Hindi mabuksan ang recording na ito. Maaaring nailipat o nabura ito.",
+      "screen-recording-unavailable": "Hindi maihanda ang screen recording. I-restart ang app para subukan ulit.",
+      "overlay-server-unavailable": "Hindi maipakita ngayon ang mga chat at overlay source. I-restart ang app para subukan ulit.",
+      "recording-stop-failed": "Hindi awtomatikong maihinto ang recording. Ihinto ito mula sa mga control.",
+      "recording-start-failed": "Hindi masimulan ang recording. Subukan ulit."
     }
   },
   "permissions": {
@@ -780,7 +804,9 @@
       "member": "Miyembro",
       "subscriber": "Subscriber",
       "verified": "Verified"
-    }
+    },
+    "connect": "Mag-connect ng account",
+    "reconnect": "I-reconnect"
   },
   "overlays": {
     "title": "Mga overlay",
@@ -874,8 +900,13 @@
       "signInHint": "Mag-sign in gamit ang iyong SEENALYZE account para magdisenyo ng mga overlay sa paglalarawan sa mga ito.",
       "notAvailable": "Hindi pa available ang AI designer sa account na ito.",
       "done": "Handa na ang {name}",
-      "doneWithCredits": "Handa na ang {name} · {credits} credits ang nagamit"
-    }
+      "doneWithCredits": "Handa na ang {name} · {credits} credits ang nagamit",
+      "checkFailed": "Hindi ma-check ang account mo. Tingnan ang iyong koneksyon at subukan ulit.",
+      "openAccount": "Buksan ang SEENALYZE",
+      "checkAgain": "I-check ulit"
+    },
+    "loadFailed": "Hindi ma-load ang iyong mga overlay.",
+    "previewFailed": "Hindi ma-load ang preview na ito."
   },
   "screenRecording": {
     "capture": {
@@ -930,7 +961,8 @@
         "size": "{width} × {height}"
       },
       "errors": {
-        "captureFailed": "Hindi masimulan ang pag-record. Subukan muli."
+        "captureFailed": "Hindi masimulan ang pag-record. Subukan muli.",
+        "folderFailed": "Hindi mapili ang folder. Subukan ulit."
       },
       "systemAudio": "Audio ng system",
       "audioApp": "Audio mula sa",
@@ -1155,8 +1187,17 @@
         "end": "Dulo ng caption sa segundo",
         "invalidTiming": "Panatilihing nasa ayos at nasa loob ng video ang mga caption.",
         "preparing": "Inihahanda ang mga caption…",
-        "cpuUnsupported": "Hindi makakagawa ng captions sa processor ng computer na ito."
-      }
+        "cpuUnsupported": "Hindi makakagawa ng captions sa processor ng computer na ito.",
+        "toolsMissing": "Kailangan ng captions ang Apple Command Line Tools. I-install ang mga ito, at subukan ulit.",
+        "runtimeMissing": "Kailangan ng captions ang Microsoft Visual C++ Redistributable. I-install ito, at subukan ulit.",
+        "unsupported": "Hindi makakagawa ng captions sa computer na ito.",
+        "downloadFailed": "Hindi ma-download ang mga tool para sa captions. Tingnan ang iyong internet connection at subukan ulit.",
+        "tooLong": "Masyadong mahaba ang recording na ito para sa captions.",
+        "prepareFailed": "Hindi mabasa ang tunog ng recording para sa captions.",
+        "exported": "Na-save ang subtitles",
+        "exportFailed": "Hindi ma-save ang subtitles. Subukan ulit."
+      },
+      "playFailed": "Hindi ma-play ang video. Subukan ulit."
     },
     "main": {
       "dialogs": {
@@ -1174,7 +1215,8 @@
         "cancel": "Kanselahin",
         "discard": "Itapon",
         "discardRecording": "Itapon ang recording na ito?",
-        "discardRecordingDetail": "Buburahin ang recording, ang video ng camera, at ang mga edit."
+        "discardRecordingDetail": "Buburahin ang recording, ang video ng camera, at ang mga edit.",
+        "subtitles": "Subtitles"
       },
       "capture": {
         "noSession": "Walang recording na inihahanda",
@@ -1249,7 +1291,8 @@
       "cameraOnly": "Camera lang",
       "screenOnly": "Screen lang",
       "none": "Panatilihin ang mga scene ko"
-    }
+    },
+    "donePartial": "Tapos na ang setup, pero may ilang hakbang na hindi gumana. Tingnan ang iyong mga scene at destination."
   },
   "hotkeys": {
     "streamGroup": "Stream at pag-record",
@@ -1393,7 +1436,8 @@
       "skippedFilters": "Mga filter na walang katumbas dito, hindi isinama: {count}.",
       "setupFound": "May nakitang mga scene mula sa OBS Studio o Streamlabs.",
       "setupAction": "I-import"
-    }
+    },
+    "profileUnsaved": "I-save o i-undo ang mga pagbabago para lumipat ng profile."
   },
   "tooltips": {
     "projectors": "Magbukas ng projector",

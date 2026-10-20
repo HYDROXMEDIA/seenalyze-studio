@@ -4,7 +4,7 @@
 import { EventEmitter } from "node:events";
 import path from "node:path";
 import { app, utilityProcess, type UtilityProcess } from "electron";
-import { appendLog } from "../log";
+import { appendLog, redact } from "../log";
 import { stopOrphanedHosts } from "./orphans";
 import type { EngineEvent, EngineHandlers, EngineInit, WorkerMessage, WorkerRequest } from "./worker";
 
@@ -41,9 +41,22 @@ export class EngineClient extends EventEmitter {
     });
     this.child = child;
     // Forward the worker's output; engine logs are only useful during development.
+    // Whole lines only, so a secret split across two chunks is still recognized and redacted.
+    let pending = "";
     child.stderr?.on("data", (chunk: Buffer) => {
-      process.stderr.write(chunk);
-      appendLog("engine", chunk.toString("utf8"));
+      pending += chunk.toString("utf8");
+      const end = pending.lastIndexOf("\n");
+      if (end === -1 && pending.length < 64 * 1024) return;
+      const lines = end === -1 ? pending : pending.slice(0, end);
+      pending = end === -1 ? "" : pending.slice(end + 1);
+      process.stderr.write(`${redact(lines)}\n`);
+      appendLog("engine", lines);
+    });
+    child.stderr?.on("end", () => {
+      if (!pending) return;
+      process.stderr.write(`${redact(pending)}\n`);
+      appendLog("engine", pending);
+      pending = "";
     });
     if (!app.isPackaged) child.stdout?.on("data", (chunk: Buffer) => process.stdout.write(chunk));
     child.on("message", (message: WorkerMessage) => this.onMessage(message));
@@ -78,7 +91,11 @@ export class EngineClient extends EventEmitter {
 
   /** Graceful teardown with a hard deadline; the worker is killed if it does not finish. */
   async shutdown(): Promise<void> {
-    if (!this.child) return;
+    if (!this.child) {
+      // A crashed worker can leave its engine host running (holding devices); stop it before quitting.
+      stopOrphanedHosts();
+      return;
+    }
     this.exiting = true;
     try {
       await this.callWithTimeout(SHUTDOWN_TIMEOUT_MS, "shutdown");
@@ -121,6 +138,10 @@ export class EngineClient extends EventEmitter {
     }
     if (!this.exiting) {
       console.error(`[engine] worker exited unexpectedly (code ${code})`);
+      // The engine host the dead worker started can stay alive with the camera, microphone and
+      // connections open; its owner is gone now, so it is stopped here rather than at the next start.
+      const stopped = stopOrphanedHosts();
+      if (stopped > 0) console.warn(`[engine] stopped ${stopped} engine process(es) left by the crashed worker`);
       this.emit("crash");
     }
   }

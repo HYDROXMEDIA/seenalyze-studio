@@ -24,8 +24,9 @@ import { SettingsPage } from "@/features/SettingsPage";
 import { SetupWizard } from "@/features/setup/SetupWizard";
 import { OverlaysPage } from "@/features/overlays/OverlaysPage";
 import { SourcesDock } from "@/features/SourcesDock";
-import { studio } from "@/lib/studio";
+import { errorCode, studio } from "@/lib/studio";
 import { useArrowNudge } from "@/lib/use-arrow-nudge";
+import { useDarkMode } from "@/lib/theme";
 import { useCanvasUndo } from "@/lib/use-canvas-undo";
 import { useChat } from "@/store/chat";
 import { useStudio } from "@/store/studio";
@@ -46,12 +47,23 @@ export function App() {
 
   useEffect(() => {
     let cancelled = false;
-    studio
-      .getSnapshot()
-      .then((initial) => {
-        if (!cancelled) setSnapshot(initial);
-      })
-      .catch(console.error);
+    let retryTimer: number | undefined;
+    // The first state can fail while the app is still starting; a few spaced retries keep the
+    // loading screen from waiting forever, and a lasting failure is shown.
+    const load = (attempt: number) => {
+      studio
+        .getSnapshot()
+        .then((initial) => {
+          if (!cancelled) setSnapshot(initial);
+        })
+        .catch((error: unknown) => {
+          console.error("[app] could not load the studio state", error);
+          if (cancelled || useStudio.getState().snapshot) return;
+          if (attempt < 3) retryTimer = window.setTimeout(() => load(attempt + 1), 1000 * 2 ** attempt);
+          else toast.error(t("errors.codes.generic"));
+        });
+    };
+    load(0);
     const unsubscribers = [
       studio.onSnapshot(setSnapshot),
       studio.onStats(setStats),
@@ -67,11 +79,12 @@ export function App() {
     ];
     return () => {
       cancelled = true;
+      window.clearTimeout(retryTimer);
       for (const unsubscribe of unsubscribers) unsubscribe();
     };
   }, [setSnapshot, setStats, setLevels, applyChat, t]);
 
-  const dark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+  const dark = useDarkMode();
 
   return (
     <div className="flex h-full flex-col">
@@ -91,8 +104,15 @@ export function App() {
             disabled={restarting}
             onClick={async () => {
               setRestarting(true);
-              await studio.restartEngine().catch(console.error);
-              setRestarting(false);
+              try {
+                await studio.restartEngine();
+              } catch (error) {
+                console.error("[app] engine restart failed", error);
+                const code = errorCode(error);
+                toast.error(t.has(`errors.codes.${code}`) ? t(`errors.codes.${code}`) : t("errors.codes.generic"));
+              } finally {
+                setRestarting(false);
+              }
             }}
           >
             {t("engine.restart")}
@@ -127,7 +147,16 @@ export function App() {
             </DialogHeader>
             <DialogFooter>
               <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-              <AlertDialogAction onClick={() => void studio.quitApp()}>{t("quit.confirm")}</AlertDialogAction>
+              <AlertDialogAction
+                onClick={() =>
+                  void studio.quitApp().catch((error: unknown) => {
+                    console.error("[app] quit failed", error);
+                    toast.error(t("errors.codes.generic"));
+                  })
+                }
+              >
+                {t("quit.confirm")}
+              </AlertDialogAction>
             </DialogFooter>
           </AlertDialogContent>
         )}

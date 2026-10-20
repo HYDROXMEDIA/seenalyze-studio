@@ -82,7 +82,8 @@ export class NativeCapture {
     this.child = child;
     child.stdout?.setEncoding('utf8');
     child.stdout?.on('data', (chunk: string) => this.read(chunk));
-    child.stdin?.on('error', () => undefined);
+    // Writing to a helper that already exited fails here; its exit is reported through 'close' below.
+    child.stdin?.on('error', (error) => console.warn(`[screen-recording] recorder input closed: ${error.message}`));
     child.on('error', (error) => this.end(error.message));
     // 'close' comes after all output was read, so a last "finished" is never missed.
     child.on('close', () => this.end(this.finished ? null : this.lastError ?? 'The recorder stopped unexpectedly'));
@@ -121,6 +122,12 @@ export class NativeCapture {
     try {
       message = JSON.parse(line) as Record<string, unknown>;
     } catch {
+      // Only complete JSON lines are messages; a cut-off line (see read()) is skipped on purpose.
+      console.warn(`[screen-recording] unreadable recorder message skipped (${line.length} characters)`);
+      return;
+    }
+    if (message.type === 'warning' && typeof message.message === 'string') {
+      console.warn(`[screen-recording] recorder: ${message.message.slice(0, 240)}`);
       return;
     }
     const { t, x, y } = message;

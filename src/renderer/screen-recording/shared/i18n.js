@@ -1,5 +1,5 @@
 // Translation and appearance helpers for the screen-recording windows. Their
-// text lives with the rest of the app in messages/en.json under
+// text lives with the rest of the app in messages/<locale>.json under
 // `screenRecording`, and is formatted by the same library as the studio UI.
 //
 // Static markup:
@@ -7,16 +7,36 @@
 //   <button data-i18n-attr="aria-label:editor.play;title:editor.play"> -> attributes
 
 import { createTranslator } from 'use-intl/core';
-import en from '../../messages/en.json';
+import { directionFor, loadMessages } from '../../i18n';
 
-const LOCALE = 'en';
-const translate = createTranslator({
-  locale: LOCALE,
-  messages: en,
-  namespace: 'screenRecording',
-  onError: (error) => console.error(error)
-});
-const numberFormat = new Intl.NumberFormat(LOCALE);
+// The studio stores the chosen interface language on this device; these windows use the same one.
+const LANGUAGE_KEY = 'seenalyze-studio-language';
+
+function chosenLanguage() {
+  try {
+    return window.localStorage.getItem(LANGUAGE_KEY) ?? navigator.language;
+  } catch (error) {
+    console.warn('Interface language unavailable; using the system language', error);
+    return navigator.language;
+  }
+}
+
+let LOCALE = 'en';
+let translate = null;
+let numberFormat = null;
+
+function useLanguage(language) {
+  const { locale, messages } = loadMessages(language);
+  LOCALE = locale;
+  translate = createTranslator({
+    locale,
+    messages,
+    namespace: 'screenRecording',
+    onError: (error) => console.error(error)
+  });
+  numberFormat = new Intl.NumberFormat(locale);
+}
+useLanguage(chosenLanguage());
 
 /** @param {string} key @param {Record<string, string | number>} [values] */
 export function t(key, values) {
@@ -50,16 +70,28 @@ export function applyTranslations(root = document) {
 
 export function initI18n() {
   document.documentElement.lang = LOCALE;
+  document.documentElement.dir = directionFor(LOCALE);
   applyTranslations(document);
 }
 
+const localeListeners = new Set();
+
+// A language picked in the studio while this window is open applies right away.
+window.addEventListener('storage', (event) => {
+  if (event.key !== LANGUAGE_KEY) return;
+  useLanguage(chosenLanguage());
+  initI18n();
+  for (const listener of localeListeners) listener(LOCALE);
+});
+
 /**
- * The app has one language for now; kept so pages can re-render on a change.
- * @param {(locale: string) => void} _callback
+ * Calls `callback` after the interface language changed and the page's static text was updated.
+ * @param {(locale: string) => void} callback
  * @returns {() => void}
  */
-export function onLocaleChange(_callback) {
-  return () => undefined;
+export function onLocaleChange(callback) {
+  localeListeners.add(callback);
+  return () => localeListeners.delete(callback);
 }
 
 /** The appearance chosen in the studio (stored on this device), as 'dark' or 'light'. */

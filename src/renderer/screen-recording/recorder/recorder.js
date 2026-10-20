@@ -83,7 +83,8 @@ function cleanup() {
   window.clearInterval(clockTimer);
   for (const track of stream?.getTracks() ?? []) track.stop();
   for (const source of audioStreams) source.getTracks().forEach((track) => track.stop());
-  void audioContext?.close().catch(() => undefined);
+  // Closing an already closed sound mixer fails harmlessly while the recorder shuts down.
+  void audioContext?.close().catch((error) => console.warn('Sound mixer did not close', error));
 }
 
 async function sourceStream(config, size) {

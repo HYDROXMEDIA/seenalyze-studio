@@ -79,7 +79,11 @@ export class FacecamWindow {
     });
     this.window = window;
     this.camera = camera;
-    void loadPage(window, 'facecam');
+    loadPage(window, 'facecam').catch((error: unknown) => {
+      // Shown on demand; the recording itself continues without it.
+      console.error(`[screen-recording] Camera bubble could not be loaded: ${error instanceof Error ? error.message : String(error)}`);
+      if (!window.isDestroyed()) window.destroy();
+    });
   }
 
   // Exact screen placement, including positions beyond the capture boundary.

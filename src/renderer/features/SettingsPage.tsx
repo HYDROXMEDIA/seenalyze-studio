@@ -21,7 +21,6 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useTranslations } from "use-intl";
-import type { SeenalyzeAccount } from "../../shared/overlays";
 import { RECORDING_FORMATS, SCALE_FILTERS, type DeviceCodePrompt, type RecordingFormat, type ScaleFilter, type VideoSettings } from "../../shared/types";
 import { PlatformIcon } from "@/components/PlatformIcon";
 import { Button } from "@/components/ui/button";
@@ -43,12 +42,13 @@ import {
   SelectValue,
 } from "@/components/ui/overlays";
 import { Tooltip } from "@/components/ui/tooltip";
-import { errorCode, studio } from "@/lib/studio";
+import { studio } from "@/lib/studio";
 import { COLOR_PRESETS, CUSTOM_THEME_ID, THEME_ROLES, seedCustomRoles, type ColorPreset, type ColorThemeChoice, type ThemeRole, type ThemeVariant } from "@/lib/color-theme";
-import { readColorTheme, readTheme, saveColorTheme, saveTheme, type ThemePreference } from "@/lib/theme";
+import { readColorTheme, readTheme, saveColorTheme, saveTheme, useDarkMode, type ThemePreference } from "@/lib/theme";
 import { saveLanguage, useLanguage } from "@/lib/language";
 import { LOCALE_NAMES, UI_LOCALES, isUiLocale } from "@/i18n";
 import { useAction } from "@/lib/use-action";
+import { useSeenalyzeAccount } from "@/lib/use-seenalyze-account";
 import { cn } from "@/lib/utils";
 import { useStudio } from "@/store/studio";
 import { isActive } from "./DestinationsDock";
@@ -109,7 +109,18 @@ export function SettingsPage() {
   const snapshot = useStudio((state) => state.snapshot);
   const setView = useStudio((state) => state.setView);
   const showSetup = useSetupWizard((state) => state.show);
+  const requestedSection = useStudio((state) => state.settingsSection);
   const [section, setSection] = useState<Section>("general");
+  // A button elsewhere asked for a section (for example "connect an account"); show it once, then forget it.
+  const [handledSection, setHandledSection] = useState<string | null>(null);
+  if (requestedSection !== handledSection) {
+    setHandledSection(requestedSection);
+    const match = SECTIONS.find(([id]) => id === requestedSection);
+    if (match) setSection(match[0]);
+  }
+  useEffect(() => {
+    if (requestedSection !== null) useStudio.setState({ settingsSection: null });
+  }, [requestedSection]);
   const [video, setVideo] = useState<VideoSettings | null>(snapshot?.video ?? null);
   const [encoder, setEncoder] = useState(snapshot?.selectedEncoder ?? "");
   const [pending, setPending] = useState(false);
@@ -310,7 +321,7 @@ export function SettingsPage() {
                       </SelectContent>
                     </Select>
                   </Field>
-                  <p className="text-xs text-muted-foreground">{t("encoderHint")}</p>
+                  <p className="text-xs text-muted-foreground">{snapshot.encoders.length === 0 ? t("noEncoders") : t("encoderHint")}</p>
                 </SettingsCard>
                 <AudioFormatCard disabled={locked || snapshot.virtualCamera.active} />
               </>
@@ -364,7 +375,10 @@ export function SettingsPage() {
               <SettingsCard title={t("accounts")}>
                 <SeenalyzeAccountRow />
                 {snapshot.accounts.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">{t("noAccounts")}</p>
+                  <div className="grid gap-2">
+                    <p className="text-sm text-muted-foreground">{t("noAccounts")}</p>
+                    <ConnectAccountButtons onTwitchPrompt={setTwitchPrompt} />
+                  </div>
                 ) : (
                   <ul className="grid gap-2">
                     {snapshot.accounts.map((account) => (
@@ -489,8 +503,8 @@ function AppearanceCard() {
   const [theme, setTheme] = useState<ThemePreference>(readTheme);
   const [colorTheme, setColorTheme] = useState<ColorThemeChoice>(readColorTheme);
   const [editing, setEditing] = useState<ThemeVariant>(() => (document.documentElement.classList.contains("dark") ? "dark" : "light"));
-  // Swatches show the colors for the appearance in use; the class is already updated when this re-renders.
-  const activeVariant: ThemeVariant = document.documentElement.classList.contains("dark") ? "dark" : "light";
+  // Swatches show the colors for the appearance in use, also after the OS switches it.
+  const activeVariant: ThemeVariant = useDarkMode() ? "dark" : "light";
   const custom = colorTheme.id === CUSTOM_THEME_ID ? colorTheme.custom : null;
 
   const choose = (next: ColorThemeChoice) => {
@@ -762,28 +776,44 @@ function LanguageSelect() {
   );
 }
 
+/** Connects a YouTube or Twitch account from where no account exists yet. */
+function ConnectAccountButtons({ onTwitchPrompt }: { onTwitchPrompt: (prompt: DeviceCodePrompt) => void }) {
+  const td = useTranslations("destinations");
+  const run = useAction();
+  const [connecting, setConnecting] = useState<"youtube" | "twitch" | null>(null);
+  const connect = async (platform: "youtube" | "twitch") => {
+    if (connecting) return;
+    setConnecting(platform);
+    try {
+      if (platform === "twitch") {
+        const prompt = await run(() => studio.connectTwitch());
+        if (prompt) onTwitchPrompt(prompt);
+        return;
+      }
+      toast.info(td("browserSignIn"));
+      await run(() => studio.connectYouTube());
+    } finally {
+      setConnecting(null);
+    }
+  };
+  return (
+    <div className="flex flex-wrap gap-2">
+      {(["youtube", "twitch"] as const).map((platform) => (
+        <Button key={platform} variant="outline" size="sm" disabled={connecting !== null} onClick={() => void connect(platform)}>
+          {connecting === platform ? <Loader2Icon aria-hidden className="animate-spin" /> : <PlatformIcon platform={platform} />}
+          {td("connectAccount", { platform: td(`platforms.${platform}`) })}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
 /** The SEENALYZE account used for the AI overlay designer and credits. */
 function SeenalyzeAccountRow() {
   const t = useTranslations("settings");
-  const te = useTranslations("errors.codes");
-  const [account, setAccount] = useState<SeenalyzeAccount | null | undefined>(undefined);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    studio
-      .getSeenalyzeAccount()
-      .then((result) => {
-        if (!cancelled) setAccount(result);
-      })
-      .catch((error: unknown) => {
-        console.error(error);
-        if (!cancelled) setAccount(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const tc = useTranslations("common");
+  const { state, retry, signIn, cancelSignIn, signingIn, signOut } = useSeenalyzeAccount();
+  const account = state.status === "ready" ? state.account : null;
 
   // A language saved on the account is the source of truth while signed in.
   const accountLanguage = account?.language;
@@ -791,36 +821,41 @@ function SeenalyzeAccountRow() {
     if (isUiLocale(accountLanguage)) saveLanguage(accountLanguage);
   }, [accountLanguage]);
 
-  const act = async (call: () => Promise<SeenalyzeAccount | null>) => {
-    setBusy(true);
-    try {
-      setAccount(await call());
-    } catch (error) {
-      const code = errorCode(error);
-      toast.error(te.has(code) ? te(code) : te("generic"));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const detail =
+    state.status === "loading"
+      ? ""
+      : state.status === "failed"
+        ? t("seenalyzeCheckFailed")
+        : account
+          ? (account.email ?? account.displayName ?? "")
+          : signingIn
+            ? t("seenalyzeWaiting")
+            : t("seenalyzeSignedOut");
 
   return (
     <div className="flex items-center gap-3 rounded-lg border px-3 py-2">
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium">{t("seenalyzeAccount")}</span>
-        <span className="block truncate text-xs text-muted-foreground">
-          {account === undefined ? "" : account ? (account.email ?? account.displayName ?? "") : t("seenalyzeSignedOut")}
-        </span>
+        <span className="block truncate text-xs text-muted-foreground">{detail}</span>
       </span>
-      {account === undefined ? (
-        <Loader2Icon className="size-4 animate-spin text-muted-foreground" />
+      {state.status === "loading" ? (
+        <Loader2Icon className="size-4 animate-spin text-muted-foreground" aria-label={tc("loading")} />
+      ) : state.status === "failed" ? (
+        <Button variant="outline" size="sm" onClick={retry}>
+          {tc("retry")}
+        </Button>
       ) : account ? (
-        <Button variant="ghost" size="sm" disabled={busy} onClick={() => void act(async () => (await studio.signOutSeenalyze(), null))}>
+        <Button variant="ghost" size="sm" onClick={() => void signOut()}>
           <LogOutIcon />
           {t("signOut")}
         </Button>
+      ) : signingIn ? (
+        <Button variant="ghost" size="sm" onClick={cancelSignIn}>
+          {tc("cancel")}
+        </Button>
       ) : (
-        <Button variant="outline" size="sm" disabled={busy} onClick={() => void act(() => studio.signInSeenalyze())}>
-          {busy ? <Loader2Icon className="animate-spin" /> : <LogInIcon />}
+        <Button variant="outline" size="sm" onClick={() => void signIn()}>
+          <LogInIcon />
           {t("signIn")}
         </Button>
       )}

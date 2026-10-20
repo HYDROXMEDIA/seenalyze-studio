@@ -11,6 +11,13 @@ export function dataDir(...segments: string[]): string {
   return dir;
 }
 
+const movedAside: string[] = [];
+
+/** Backups of unreadable files moved aside since the last call, so the user can be told where they are. */
+export function takeMovedAsideFiles(): string[] {
+  return movedAside.splice(0);
+}
+
 export function readJson<T>(file: string, fallback: T): T {
   const full = path.join(dataDir(), file);
   if (!existsSync(full)) return fallback;
@@ -21,6 +28,7 @@ export function readJson<T>(file: string, fallback: T): T {
     const backup = `${full}.corrupt-${Date.now()}`;
     renameSync(full, backup);
     console.error(`[store] ${file} was unreadable and was moved aside`, error);
+    movedAside.push(backup);
     return fallback;
   }
 }

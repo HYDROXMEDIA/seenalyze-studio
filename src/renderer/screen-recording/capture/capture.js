@@ -417,7 +417,10 @@ async function perform(request) {
   request = { ...request, ...options, micId, micLabel: micId === 'default' ? '' : microphone };
   request = { ...request, systemAudio: document.getElementById('system-audio').checked, systemAudioPid: Number(document.getElementById('system-audio-app').value) || null };
   body.dataset.phase = 'capturing';
-  const result = await api.perform(request).catch(() => ({ ok: false, error: t('capture.errors.captureFailed') }));
+  const result = await api.perform(request).catch((error) => {
+    console.error('Recording could not start', error);
+    return { ok: false, error: t('capture.errors.captureFailed') };
+  });
   if (!result.ok && body.dataset.phase === 'capturing') {
     busy = false;
     body.dataset.phase = 'select';
@@ -670,7 +673,11 @@ function renderFolderName() {
 if (typeof init.recordingFolder === 'string' && init.recordingFolder) setFolderName(init.recordingFolder);
 else renderFolderName();
 folderButton.addEventListener('click', async () => {
-  const chosen = await api.chooseFolder().catch(() => null);
+  const chosen = await api.chooseFolder().catch((error) => {
+    console.error('Recording folder could not be chosen', error);
+    showHint(t('capture.errors.folderFailed'));
+    return null;
+  });
   if (typeof chosen === 'string' && chosen) {
     setFolderName(chosen);
     saveSettings({ folderName: chosen });

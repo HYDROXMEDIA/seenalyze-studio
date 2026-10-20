@@ -8,7 +8,7 @@ const BASE_CSS = "html,body{margin:0;padding:0;background:transparent;overflow:h
 
 /** Content policy for overlay documents: no external code, no external requests except images. */
 export const OVERLAY_CSP =
-  "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src https: data:; media-src https: data:; font-src data:; connect-src 'self'";
+  "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src https: data:; media-src https: data:; font-src data:; connect-src 'self'; form-action 'none'; base-uri 'none'";
 
 /** `eventsPath` is the live feed URL; null for previews that only show demo data. */
 export function buildOverlayDocument(

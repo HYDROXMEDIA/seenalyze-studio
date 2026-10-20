@@ -232,8 +232,11 @@ export class SceneGraph {
 
   /** Engine transition types that are installed (for the picker). */
   transitionTypes(): string[] {
-    return this.osn.TransitionFactory.types();
+    // Installed types cannot change while the engine runs; listing them is a slow engine call.
+    this.installedTransitions ??= this.osn.TransitionFactory.types();
+    return [...this.installedTransitions];
   }
+  private installedTransitions: string[] | null = null;
 
   /** Sets or clears (null) the transition used when switching into `scene`. */
   setSceneTransition(sceneName: string, choice: TransitionChoice | null): void {
@@ -441,8 +444,11 @@ export class SceneGraph {
   // ----- sources ------------------------------------------------------------
 
   availableKinds(): SourceKind[] {
-    return availableSourceKinds(this.osn.InputFactory.types());
+    // Installed source types cannot change while the engine runs; listing them is a slow engine call.
+    this.installedKinds ??= availableSourceKinds(this.osn.InputFactory.types());
+    return [...this.installedKinds];
   }
+  private installedKinds: SourceKind[] | null = null;
 
   sourceChoices(sceneName: string): SourceChoiceDTO[] {
     this.requireScene(sceneName);
@@ -995,9 +1001,10 @@ export class SceneGraph {
         this.inputs.set(saved.name, { input, kind: saved.kind });
         if (saved.effects?.length) this.restoreEffects(saved.name, input, saved.effects);
         this.audioHooks.apply(input, saved.audio);
-      } catch {
+      } catch (error) {
         // Device loss or denied access must not prevent the studio from opening.
-        // Keep its settings and items for restoration on the next launch.
+        // Keep its settings and items for restoration on the next launch; the user is told by a notice.
+        console.warn(`[scenes] source ${saved.kind} could not be opened; kept for the next launch`, error);
         this.unavailable.set(saved.name, saved);
       }
     }

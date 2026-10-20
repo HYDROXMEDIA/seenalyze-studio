@@ -16,9 +16,9 @@ import { FacecamWindow } from './facecam';
 import { handleMediaScheme } from './media-protocol';
 import { helperPath, isPageUrl } from './pages';
 import { pruneRecordingData } from './recording-data';
-import { RecordingController } from './recording';
+import { RecordingController, type RecordingFailure, type RecordingNotice } from './recording';
 import { SpeechService } from './speech';
-import { t } from './i18n';
+import { setLanguage, t } from './i18n';
 
 export { registerMediaScheme } from './media-protocol';
 
@@ -31,6 +31,9 @@ export type ScreenRecorderDependencies = {
   // Screen access, requested the same way as for capture sources.
   ensureScreenAccess: () => Promise<boolean>;
   onStateChange: (state: ScreenRecordingState) => void;
+  // Shows a translated error in the studio.
+  onError: (kind: RecordingFailure) => void;
+  onNotice: (kind: RecordingNotice) => void;
 };
 
 type Preferences = RecordingDevices & { openEditorAfterRecording: boolean };
@@ -66,6 +69,8 @@ export class ScreenRecorder {
 
   private readonly recordings = new RecordingController({
     log,
+    onFailed: (kind) => this.deps.onError(kind),
+    onNotice: (kind) => this.deps.onNotice(kind),
     onSaved: async (filePath) => {
       if (!this.shuttingDown && this.preferences.openEditorAfterRecording) await this.editors.open(filePath);
     },
@@ -118,6 +123,7 @@ export class ScreenRecorder {
       void this.savePreferences();
     },
     recordingFolderName: () => basename(this.deps.recordingFolder()),
+    onPickerFailed: () => this.deps.onError('start'),
     chooseRecordingFolder: async (parent) => {
       const result = await dialog.showOpenDialog(parent, {
         title: t('dialogs.recordingFolder'),
@@ -192,6 +198,11 @@ export class ScreenRecorder {
     this.theme = theme;
   }
 
+  /** Native dialogs follow the interface language; the recording pages read it themselves. */
+  setLanguage(language: string): void {
+    setLanguage(language);
+  }
+
   /** Lets the user pick a video and opens it in the editor. */
   async openEditor(parent: BrowserWindow): Promise<boolean> {
     const result = await dialog.showOpenDialog(parent, {
@@ -202,7 +213,8 @@ export class ScreenRecorder {
     });
     const path = result.filePaths[0];
     if (result.canceled || path === undefined) return false;
-    return this.editors.open(path);
+    if (!(await this.editors.open(path))) throw new Error('recording-open-failed');
+    return true;
   }
 
   /**

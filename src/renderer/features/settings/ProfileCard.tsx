@@ -82,7 +82,7 @@ export function ProfileCard({ locked, dirty }: { locked: boolean; dirty: boolean
           </Tooltip>
         </ActionMenu>
       </div>
-      <p className="text-xs text-muted-foreground">{locked ? t("profileLocked") : t("profileHint")}</p>
+      <p className="text-xs text-muted-foreground">{locked ? t("profileLocked") : dirty ? t("profileUnsaved") : t("profileHint")}</p>
 
       <NameDialog
         open={naming !== null}
@@ -91,9 +91,9 @@ export function ProfileCard({ locked, dirty }: { locked: boolean; dirty: boolean
         onOpenChange={(open) => !open && setNaming(null)}
         onSubmit={(name) => {
           if (!naming) return Promise.resolve();
-          if (naming.kind === "create") return run(() => studio.createProfile(name));
-          if (naming.kind === "duplicate") return run(() => studio.duplicateProfile(naming.entry.id, name));
-          return run(() => studio.renameProfile(naming.entry.id, name));
+          if (naming.kind === "create") return studio.createProfile(name);
+          if (naming.kind === "duplicate") return studio.duplicateProfile(naming.entry.id, name);
+          return studio.renameProfile(naming.entry.id, name);
         }}
       />
       <AlertDialog open={removing !== null} onOpenChange={(open) => !open && setRemoving(null)}>

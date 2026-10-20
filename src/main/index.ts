@@ -1,4 +1,5 @@
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { app, BrowserWindow, ipcMain, nativeTheme, screen, session, shell } from "electron";
 import { IPC, STUDIO_ERROR_PREFIX, STUDIO_METHODS, type StudioMethod } from "../shared/ipc";
 import { setVendorRoot } from "./engine/osn";
@@ -73,9 +74,22 @@ function createWindow(): BrowserWindow {
   return window;
 }
 
+const RENDERER_PAGE = pathToFileURL(path.join(__dirname, "../renderer/index.html")).href;
+
+// Only the app's own page counts: any other file (for example one dropped on the window) must never
+// get the studio API.
 function isAppUrl(url: string): boolean {
-  if (DEV_URL) return url.startsWith(DEV_URL);
-  return url.startsWith("file://");
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    // Not a URL at all (for example an empty frame URL), so it is not the app page.
+    return false;
+  }
+  if (DEV_URL) return parsed.origin === new URL(DEV_URL).origin;
+  parsed.hash = "";
+  parsed.search = "";
+  return parsed.href === RENDERER_PAGE;
 }
 
 function registerIpc(): void {

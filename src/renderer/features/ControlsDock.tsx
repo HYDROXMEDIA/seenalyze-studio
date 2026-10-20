@@ -75,6 +75,9 @@ export function ControlsDock() {
               <span className="truncate">{enabledIds.length > 1 ? t("goLiveMany", { count: enabledIds.length }) : t("goLive")}</span>
             </Button>
           )}
+          {!live && enabledIds.length === 0 && (
+            <p className="text-center text-xs text-muted-foreground @xs:col-span-2">{t("noDestination")}</p>
+          )}
           {live && Number.isFinite(liveSince) && (
             <p className="text-center text-xs text-muted-foreground tabular-nums @xs:col-span-2">{t("liveFor", { time: formatDuration(now - liveSince) })}</p>
           )}

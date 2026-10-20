@@ -34,10 +34,18 @@ export function cameraPath(videoPath: string): string {
   return videoPath.replace(/\.[^./]+$/, '') + '.camera.mp4';
 }
 
+export type RecordingFailure = 'start' | 'stopped' | 'partial';
+// A recording that started, but differently than chosen; the user is told so it is no surprise later.
+export type RecordingNotice = 'savedToMovies' | 'noCamera' | 'noMicrophone';
+
 export type RecordingDependencies = {
   log: (line: string) => void;
   onSaved: (filePath: string) => Promise<void>;
   onStateChange: (recording: boolean) => void;
+  // A recording could not start, or stopped unexpectedly and was not saved; the user must be told.
+  // 'partial': it stopped unexpectedly, but what was recorded so far was kept and opened.
+  onFailed: (kind: RecordingFailure) => void;
+  onNotice: (kind: RecordingNotice) => void;
   onPauseChange: (paused: boolean) => void;
   // Folder new recordings are saved in.
   outputDirectory: () => string;
@@ -72,6 +80,8 @@ const RESOLUTION_HEIGHT: Record<RecordingResolution, number> = { native: Infinit
 // How long the native recorder may take to deliver its first frame.
 const NATIVE_START_TIMEOUT_MS = 10000;
 const SHUTDOWN_TIMEOUT_MS = 8000;
+// How long the built-in recorder may take to hand over its last data after stop.
+const STOP_TIMEOUT_MS = 15000;
 
 function completion(): { completion: Promise<void>; complete: () => void } {
   let complete!: () => void;
@@ -150,7 +160,10 @@ export class RecordingController {
       if (this.shuttingDown || version !== this.startVersion) return false;
       this.deps.log('Native screen recorder unavailable; using the built-in recorder');
     }
-    return this.startBrowser(request);
+    const started = await this.startBrowser(request);
+    // A start the user cancelled, or one stopped by quitting, is not a failure.
+    if (!started && !this.shuttingDown && version === this.startVersion) this.deps.onFailed('start');
+    return started;
   }
 
   // Let the final video chunks and interaction data finish before app quit.
@@ -166,6 +179,7 @@ export class RecordingController {
     let timer: NodeJS.Timeout | undefined;
     const drain = (async () => {
       this.stop();
+      // A failed start was already reported by start(); shutdown only waits for it to settle.
       await this.starting?.catch(() => undefined);
       this.stop();
       await Promise.all([this.session?.completion, this.native?.completion]);
@@ -187,6 +201,7 @@ export class RecordingController {
       const session = this.session;
       if (session !== null) {
         session.finished = true;
+        // Quitting: a pending write's failure no longer changes anything, the stream is closed next.
         void session.writing.catch(() => undefined);
         session.stream?.destroy();
         session.interactions.stop();
@@ -200,8 +215,9 @@ export class RecordingController {
     try {
       await fs.mkdir(directory, { recursive: true });
       await fs.access(directory, fsConstants.W_OK);
-    } catch {
-      this.deps.log('Recording folder unavailable; saving to Movies');
+    } catch (error) {
+      this.deps.log(`Recording folder unavailable; saving to Movies: ${error instanceof Error ? error.message : String(error)}`);
+      this.deps.onNotice('savedToMovies');
       directory = app.getPath('videos');
       await fs.mkdir(directory, { recursive: true });
     }
@@ -217,13 +233,19 @@ export class RecordingController {
     const filePath = await this.outputPath('mp4');
     if (this.shuttingDown) return false;
     let camera = request.camera ?? null;
-    if (camera !== null && !(await systemPreferences.askForMediaAccess('camera').catch(() => false))) {
+    const cameraAllowed = camera === null || await systemPreferences.askForMediaAccess('camera').catch((error: unknown) => {
+      this.deps.log(`Camera access could not be checked: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    });
+    if (!cameraAllowed) {
       this.deps.log('Camera access is off; recording without the camera');
+      this.deps.onNotice('noCamera');
       this.deps.facecam.close();
       camera = null;
     }
     if (this.shuttingDown) return false;
-    const mic = await recordingMicrophone(request.micId === null ? null : request.micLabel || 'default');
+    const mic = await recordingMicrophone(request.micId === null ? null : request.micLabel || 'default', this.deps.log);
+    if (request.micId !== null && mic === null) this.deps.onNotice('noMicrophone');
     if (this.shuttingDown) return false;
     if (version !== this.startVersion) return false;
     const interactions = new InteractionRecorder(request.rect, this.deps.log, () => this.deps.facecam.hint(request.rect));
@@ -259,6 +281,7 @@ export class RecordingController {
         onCameraReady: (ok) => {
           if (!ok) {
             this.deps.log('Camera unavailable; recording without it');
+            this.deps.onNotice('noCamera');
             session.cameraFailed = true;
             // A late message must not close the bubble of a newer recording.
             if (this.native === session && !session.ended) this.deps.facecam.close();
@@ -304,8 +327,8 @@ export class RecordingController {
     session.interactions.stop();
     if (!session.started) {
       this.deps.log(`Native screen recorder could not start: ${error ?? 'unknown reason'}`);
-      await fs.rm(session.filePath, { force: true }).catch(() => undefined);
-      await fs.rm(cameraPath(session.filePath), { force: true }).catch(() => undefined);
+      await this.removeFile(session.filePath);
+      await this.removeFile(cameraPath(session.filePath));
       notStarted();
       this.endNativeSession(session);
       return;
@@ -314,12 +337,13 @@ export class RecordingController {
     if (error !== null) {
       // Only a failed recording is removed; nothing after a finished one deletes it.
       this.deps.log(`Screen recording failed: ${error}`);
-      await fs.rm(session.filePath, { force: true }).catch(() => undefined);
-      await fs.rm(cameraPath(session.filePath), { force: true }).catch(() => undefined);
+      if (!this.shuttingDown) this.deps.onFailed('stopped');
+      await this.removeFile(session.filePath);
+      await this.removeFile(cameraPath(session.filePath));
       this.endNativeSession(session);
       return;
     }
-    if (session.cameraFailed) await fs.rm(cameraPath(session.filePath), { force: true }).catch(() => undefined);
+    if (session.cameraFailed) await this.removeFile(cameraPath(session.filePath));
     await session.interactions.save(session.filePath).catch((saveError: unknown) => {
       this.deps.log(`Cursor path could not be saved: ${saveError instanceof Error ? saveError.message : String(saveError)}`);
     });
@@ -398,7 +422,13 @@ export class RecordingController {
     window.on('closed', () => {
       if (this.session === session && !session.finished) void this.fail(session, 'Recording window closed');
     });
-    void loadPage(window, 'recorder');
+    // A crashed recorder page can never finish on its own; without this the recording could not be stopped.
+    window.webContents.on('render-process-gone', (_event, details) => {
+      if (this.session === session && !session.finished) void this.fail(session, `Recorder page stopped (${details.reason})`);
+    });
+    loadPage(window, 'recorder').catch((error: unknown) => {
+      if (this.session === session && !session.finished) void this.fail(session, `Recorder page could not be loaded: ${error instanceof Error ? error.message : String(error)}`);
+    });
     this.deps.onStateChange(true);
     this.deps.log(`Screen recording started (${request.mode}, ${request.format}, ${request.resolution}, ${request.fps} fps)`);
     return true;
@@ -439,6 +469,10 @@ export class RecordingController {
     const session = this.session;
     if (session === null || session.finished || session.window.isDestroyed()) return;
     session.window.webContents.send('recorder:request-stop');
+    // A hung recorder page never answers; give up on it rather than leaving the recording stuck.
+    setTimeout(() => {
+      if (this.session === session && !session.finished) void this.fail(session, 'Recorder page did not stop');
+    }, STOP_TIMEOUT_MS);
   }
 
   private sessionFor(event: IpcMainEvent | IpcMainInvokeEvent): RecordingSession | null {
@@ -453,9 +487,38 @@ export class RecordingController {
     session.interactions.stop();
     this.deps.log(`Screen recording failed: ${reason}`);
     session.stream?.destroy();
+    // A write that failed is the reason we are here; it was already reported through `reason`.
     await session.writing.catch(() => undefined);
-    if (session.filePath !== null) await fs.rm(session.filePath, { force: true }).catch(() => undefined);
+    // What the built-in recorder wrote so far plays on its own, so it is kept and opened instead of deleted.
+    const size = session.filePath === null ? 0 : (await fs.stat(session.filePath).catch(() => null))?.size ?? 0;
+    if (session.filePath !== null && size > 0) {
+      if (!this.shuttingDown) this.deps.onFailed('partial');
+      const filePath = session.filePath;
+      await session.interactions.save(filePath).catch((error: unknown) => {
+        this.deps.log(`Cursor path could not be saved: ${error instanceof Error ? error.message : String(error)}`);
+      });
+      this.end(session);
+      if (!this.shuttingDown) {
+        await this.deps.onSaved(filePath).catch((error: unknown) => {
+          this.deps.log(`Partial recording could not be opened: ${error instanceof Error ? error.message : String(error)}`);
+        });
+      }
+      return;
+    }
+    if (!this.shuttingDown) this.deps.onFailed('stopped');
+    if (session.filePath !== null) {
+      await fs.rm(session.filePath, { force: true }).catch((error: unknown) => {
+        this.deps.log(`Empty recording file could not be removed: ${error instanceof Error ? error.message : String(error)}`);
+      });
+    }
     this.end(session);
+  }
+
+  // Removes a recording file that must not be kept; a failure to remove it is logged, never thrown.
+  private async removeFile(path: string): Promise<void> {
+    await fs.rm(path, { force: true }).catch((error: unknown) => {
+      this.deps.log(`Recording file could not be removed: ${error instanceof Error ? error.message : String(error)}`);
+    });
   }
 
   private end(session: RecordingSession): void {
@@ -474,7 +537,7 @@ export class RecordingController {
     // A safe microphone for the recorder window (never a headset in call mode).
     ipcMain.handle('audio:recording-microphone', (event, name: unknown) => {
       if (this.sessionFor(event) === null || (name !== null && (typeof name !== 'string' || name.length > 512))) return null;
-      return recordingMicrophone(name as string | null);
+      return recordingMicrophone(name as string | null, this.deps.log);
     });
 
     // What the recorder window captures, in the display's pixels.

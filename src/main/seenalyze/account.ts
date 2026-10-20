@@ -56,6 +56,15 @@ export class SeenalyzeAccountService {
     return this.signedIn ? this.profile : null;
   }
 
+  /** Stops waiting for the browser; the pending sign-in ends with `sign-in-cancelled`. */
+  cancelSignIn(): void {
+    const pending = this.pending;
+    if (!pending) return;
+    this.pending = null;
+    clearTimeout(pending.timer);
+    pending.reject(new Error("sign-in-cancelled"));
+  }
+
   /** Opens the dashboard consent page and waits for the app link callback. */
   async signIn(): Promise<SeenalyzeAccount> {
     this.pending?.reject(new Error("sign-in-cancelled"));
@@ -108,10 +117,15 @@ export class SeenalyzeAccountService {
     if (url.protocol !== `${STUDIO_SCHEME}:` || url.host !== "oauth" || url.pathname !== "/callback") return false;
     const pending = this.pending;
     if (!pending) return true;
+    // A link for another attempt (or from any web page) must not cancel the sign-in in progress.
+    if (url.searchParams.get("state") !== pending.state) {
+      console.warn("[seenalyze] ignored app link for another sign-in attempt");
+      return true;
+    }
     this.pending = null;
     clearTimeout(pending.timer);
     const code = url.searchParams.get("code");
-    if (url.searchParams.get("state") !== pending.state || !code) pending.reject(new Error("sign-in-cancelled"));
+    if (!code) pending.reject(new Error("sign-in-cancelled"));
     else pending.resolve(code);
     return true;
   }

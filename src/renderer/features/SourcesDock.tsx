@@ -303,7 +303,7 @@ export function SourcesDock() {
         title={tc("rename")}
         initial={renaming ?? ""}
         onOpenChange={(open) => !open && setRenaming(null)}
-        onSubmit={(name) => (renaming ? run(() => studio.renameSource(renaming, name)) : Promise.resolve())}
+        onSubmit={(name) => (renaming ? studio.renameSource(renaming, name) : Promise.resolve())}
       />
       <AlertDialog open={removing !== null} onOpenChange={(open) => !open && setRemoving(null)}>
         {removing !== null && (

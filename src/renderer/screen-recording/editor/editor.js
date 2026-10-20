@@ -174,7 +174,8 @@ function syncCamera(source, playing) {
   cameraVideo.playbackRate = video.playbackRate;
   const seek = Math.abs(cameraVideo.currentTime - target) > (playing ? CAMERA_DRIFT : 1 / 240);
   if (seek) cameraVideo.currentTime = target;
-  if (playing && cameraVideo.paused) void cameraVideo.play().catch(() => undefined);
+  // The main video keeps playing; a camera picture that cannot follow is logged and retried on the next sync.
+  if (playing && cameraVideo.paused) void cameraVideo.play().catch((error) => console.warn('Camera video could not play', error));
   if (!playing && !cameraVideo.paused) cameraVideo.pause();
   return seek;
 }
@@ -211,7 +212,8 @@ for (const [id, sprite] of Object.entries(interactions?.cursors ?? {})) {
   image.src = `data:image/png;base64,${sprite.png}`;
   cursorImages.set(id, image);
 }
-await Promise.all([...cursorImages.values()].map((image) => image.decode().catch(() => undefined)));
+// A pointer image that cannot be decoded falls back to the standard pointer when drawn.
+await Promise.all([...cursorImages.values()].map((image) => image.decode().catch((error) => console.warn('Pointer image could not be decoded', error))));
 
 async function loadBackground(url) {
   const image = new Image();
@@ -222,7 +224,8 @@ async function loadBackground(url) {
   backgroundUrl = url;
 }
 if (init.backgroundUrl) {
-  await loadBackground(init.backgroundUrl).catch(() => undefined);
+  // A missing or broken image falls back to the default background below.
+  await loadBackground(init.backgroundUrl).catch((error) => console.warn('Background image could not be loaded', error));
 }
 if (project.look.background === 'image' && backgroundImage === null) project.look.background = DEFAULT_BACKGROUND;
 
@@ -245,10 +248,15 @@ function saveProject() {
   window.clearTimeout(saveTimer);
   savePending = true;
   saveTimer = window.setTimeout(() => {
-    savePending = false;
-    void api.saveProject(projectData()).then((saved) => {
+    // Stays pending until a save succeeds, so closing the window still retries the last change.
+    const data = projectData();
+    void api.saveProject(data).then((saved) => {
+      if (saved && projectData() === data) savePending = false;
       if (!saved) showToast(t('editor.saveFailed'));
-    }, () => showToast(t('editor.saveFailed')));
+    }, (error) => {
+      console.error('Recording edits could not be saved', error);
+      showToast(t('editor.saveFailed'));
+    });
   }, 400);
 }
 
@@ -492,14 +500,16 @@ async function togglePlay() {
   try {
     if (playhead >= derived.total - 1 / 60) playhead = 0;
     heardUntil = playhead;
-    await effectSounds().context.resume().catch(() => undefined);
+    // Without sound effects the video still plays; the reason is logged.
+    await effectSounds().context.resume().catch((error) => console.warn('Sound effects unavailable', error));
     const { time: source, index } = sourceAt(project.clips, derived.offsets, playhead);
     playingClip = index;
     video.playbackRate = project.clips[index].speed;
     video.currentTime = source;
     await video.play();
   } catch (error) {
-    console.error(error);
+    console.error('Playback could not start', error);
+    showToast(t('editor.playFailed'));
   } finally {
     starting = false;
   }
@@ -1284,6 +1294,15 @@ $('discard').addEventListener('click', async () => {
 });
 
 let captionJob = null;
+const CAPTION_ERROR_KEYS = {
+  'caption-cpu-unsupported': 'editor.captions.cpuUnsupported',
+  'caption-tools-missing': 'editor.captions.toolsMissing',
+  'caption-runtime-missing': 'editor.captions.runtimeMissing',
+  'caption-unsupported': 'editor.captions.unsupported',
+  'caption-download-failed': 'editor.captions.downloadFailed',
+  'caption-too-long': 'editor.captions.tooLong',
+  'caption-prepare-failed': 'editor.captions.prepareFailed'
+};
 const captionRows = $('caption-rows');
 function renderCaptions() {
   $('captions-enabled').checked = project.captionsEnabled;
@@ -1301,9 +1320,13 @@ $('generate-captions').addEventListener('click', async () => {
   if (captionJob) return; captionJob = crypto.randomUUID(); $('generate-captions').disabled = true; $('cancel-captions').hidden = false;
   try { const result = await api.transcribe(captionJob); if (result?.captions) { commit(draft => { draft.captions = normalizeCaptions(result.captions, duration); draft.captionsEnabled = true; }); renderCaptions(); } }
   catch (error) {
-    console.error('Captions could not be generated', error);
     // Errors from the main process arrive as text that includes their code.
-    showToast(t(String(error?.message ?? '').includes('caption-cpu-unsupported') ? 'editor.captions.cpuUnsupported' : 'editor.captions.failed'));
+    const code = /caption-[a-z-]+/.exec(String(error?.message ?? ''))?.[0];
+    // Canceling is the user's own choice, not a failure.
+    if (code !== 'caption-canceled') {
+      console.error('Captions could not be generated', error);
+      showToast(t(CAPTION_ERROR_KEYS[code] ?? 'editor.captions.failed'));
+    }
   }
   finally { captionJob = null; $('generate-captions').disabled = false; $('cancel-captions').hidden = true; }
 });
@@ -1315,7 +1338,14 @@ $('cancel-captions').addEventListener('click', () => {
   });
 });
 $('captions-enabled').addEventListener('change', event => commit(draft => { draft.captionsEnabled = event.target.checked; }));
-for (const format of ['srt', 'vtt']) $('export-'+format).addEventListener('click', () => api.exportSubtitles(subtitleText(project.captions, project.clips, format), format));
+for (const format of ['srt', 'vtt']) $('export-'+format).addEventListener('click', async () => {
+  try {
+    if (await api.exportSubtitles(subtitleText(project.captions, project.clips, format), format)) showToast(t('editor.captions.exported'));
+  } catch (error) {
+    console.error('Subtitles could not be exported', error);
+    showToast(t('editor.captions.exportFailed'));
+  }
+});
 // A negative value means the recognizer is still being prepared.
 api.onTranscriptionProgress(progress => { $('caption-progress').textContent = progress < 0 ? t('editor.captions.preparing') : t('editor.export.percent', { percent: Math.round(progress * 100) }); });
 const presets = $('style-presets'); let savedPresets = [];
@@ -1342,7 +1372,18 @@ $('save-preset').addEventListener('click', async () => {
   $('preset-name').value = '';
   await loadPresets();
 });
-presets.addEventListener('change', async () => { const preset = savedPresets.find(x => x.id === presets.value); if (!preset) return; commit(draft => { draft.look = normalizeLook(preset.look); }); if (preset.exportChoice) applyExportChoice(preset.exportChoice); if (preset.look.backgroundImage) { const url = await api.backgroundUrl(preset.look.backgroundImage); if (url) { const image = new Image(); image.crossOrigin = 'anonymous'; image.src = url; await image.decode(); backgroundImage = image; showAt(playhead); } } });
+presets.addEventListener('change', async () => { const preset = savedPresets.find(x => x.id === presets.value); if (!preset) return; commit(draft => { draft.look = normalizeLook(preset.look); }); if (preset.exportChoice) applyExportChoice(preset.exportChoice); if (preset.look.backgroundImage) {
+    try {
+      const url = await api.backgroundUrl(preset.look.backgroundImage);
+      if (!url) throw new Error('Background image unavailable');
+      await loadBackground(url);
+    } catch (error) {
+      console.error('Preset background could not be loaded', error);
+      showToast(t('editor.background.invalidImage'));
+      commit(draft => { draft.look.background = DEFAULT_BACKGROUND; });
+    }
+    showAt(playhead);
+  } });
 // Removing a preset cannot be undone, so it is confirmed first.
 $('delete-preset').addEventListener('click', () => {
   const chosen = savedPresets.find((preset) => preset.id === presets.value);

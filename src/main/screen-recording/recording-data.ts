@@ -50,13 +50,24 @@ export async function removeRecordingData(videoPath: string): Promise<void> {
 
 // Every saved edit, for finding which background images are still used.
 export async function editorProjectPaths(): Promise<string[]> {
-  const names = await fs.readdir(rootDirectory()).catch(() => [] as string[]);
+  const names = await recordingDataNames();
   return names.map((name) => join(rootDirectory(), name, PROJECT_FILE));
 }
 
 // Removes the data of recordings whose video no longer exists. Returns how many were removed.
+// Folders of saved recording data. Only a missing root means "none": any other read error is thrown, because
+// callers decide what to delete from this list and an empty one would make everything look unused.
+async function recordingDataNames(): Promise<string[]> {
+  try {
+    return await fs.readdir(rootDirectory());
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw error;
+  }
+}
+
 export async function pruneRecordingData(): Promise<number> {
-  const names = await fs.readdir(rootDirectory()).catch(() => [] as string[]);
+  const names = await recordingDataNames();
   let removed = 0;
   for (const name of names) {
     const directory = join(rootDirectory(), name);
@@ -71,7 +82,10 @@ export async function pruneRecordingData(): Promise<number> {
     // a disconnected drive keeps its recordings' data.
     const [videoStat, folderStat] = await Promise.all([fs.stat(video).catch(() => null), fs.stat(dirname(video)).catch(() => null)]);
     if (videoStat === null && folderStat !== null) {
-      await fs.rm(directory, { recursive: true, force: true }).then(() => { removed += 1; }, () => undefined);
+      await fs.rm(directory, { recursive: true, force: true }).then(
+        () => { removed += 1; },
+        (error: unknown) => console.warn(`[screen-recording] Old recording data could not be removed: ${error instanceof Error ? error.message : String(error)}`)
+      );
     }
   }
   return removed;

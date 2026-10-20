@@ -8,6 +8,9 @@ export type View = "studio" | "settings" | "overlays";
 interface StudioStore {
   view: View;
   setView: (view: View) => void;
+  /** Settings section to show when the settings page opens next (for example from a "connect" button). */
+  settingsSection: string | null;
+  openSettings: (section?: string) => void;
   snapshot: StudioSnapshot | null;
   stats: EngineStats | null;
   levels: Record<string, number[]>;
@@ -38,6 +41,8 @@ const OCCLUSION_COUNTER = { modal: "overlays", popper: "poppers", tooltip: "tool
 export const useStudio = create<StudioStore>((set, get) => ({
   view: "studio",
   setView: (view) => set({ view }),
+  settingsSection: null,
+  openSettings: (section) => set({ view: "settings", settingsSection: section ?? null }),
   snapshot: null,
   stats: null,
   levels: {},

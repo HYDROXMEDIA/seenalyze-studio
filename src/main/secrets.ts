@@ -30,7 +30,8 @@ export function secureStorageAvailable(): boolean {
 
 export function setSecret(name: string, value: string): void {
   if (!secureStorageAvailable()) throw new Error("secure-storage-unavailable");
-  const file = load();
+  // A copy, so a failed write leaves the remembered secrets as they are on disk.
+  const file = { ...load() };
   file[name] = safeStorage.encryptString(value).toString("base64");
   save(file);
 }
@@ -55,7 +56,7 @@ export function hasSecret(name: string): boolean {
 }
 
 export function deleteSecret(name: string): void {
-  const file = load();
+  const file = { ...load() };
   if (!(name in file)) return;
   delete file[name];
   save(file);

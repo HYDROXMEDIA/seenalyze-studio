@@ -11,7 +11,8 @@
     "remove": "Entfernen",
     "rename": "Umbenennen",
     "save": "Speichern",
-    "previewFailed": "Die Vorschau konnte nicht aktualisiert werden. Versuche es erneut."
+    "previewFailed": "Die Vorschau konnte nicht aktualisiert werden. Versuche es erneut.",
+    "retry": "Erneut versuchen"
   },
   "header": {
     "appName": "SEENALYZE STUDIO",
@@ -408,7 +409,9 @@
   "twitchCode": {
     "title": "Twitch verbinden",
     "description": "Öffnen Sie Twitch und geben Sie diesen Code ein, um Ihren Kanal zu verbinden.",
-    "open": "Twitch öffnen"
+    "open": "Twitch öffnen",
+    "failed": "Dieser Code ist abgelaufen oder die Anmeldung wurde nicht abgeschlossen. Hol dir einen neuen Code und versuche es erneut.",
+    "newCode": "Neuen Code holen"
   },
   "streamInfo": {
     "title": "Streamtitel",
@@ -423,7 +426,8 @@
     },
     "broadcast": "Übertragung",
     "newBroadcast": "Neue Übertragung",
-    "scheduledBroadcast": "{title} · {start, date, short} {start, time, short}"
+    "scheduledBroadcast": "{title} · {start, date, short} {start, time, short}",
+    "loadFailed": "Deine Streamdetails konnten nicht geladen werden. Prüfe deine Verbindung und versuche es erneut."
   },
   "controls": {
     "title": "Steuerung",
@@ -455,7 +459,8 @@
       "unavailableDescription": "Diese Version kann die benötigte Systemkamera auf diesem Computer nicht hinzufügen.",
       "checkAgain": "Erneut prüfen",
       "install": "Installieren"
-    }
+    },
+    "noDestination": "Aktiviere ein Ziel, um live zu gehen."
   },
   "settings": {
     "title": "Einstellungen",
@@ -601,7 +606,10 @@
     "replayBufferHint": "Hält die letzten Momente bereit, um sie als Clip zu speichern.",
     "replayLength": "Die letzten",
     "replaySeconds": "{seconds} s",
-    "replayLengthRange": "Gib einen Wert von {min} bis {max} Sekunden ein."
+    "replayLengthRange": "Gib einen Wert von {min} bis {max} Sekunden ein.",
+    "seenalyzeCheckFailed": "Dein Konto konnte nicht geprüft werden. Prüfe deine Verbindung.",
+    "seenalyzeWaiting": "Schließe die Anmeldung in deinem Browser ab.",
+    "noEncoders": "Es wurde kein Video-Encoder gefunden. Starte die App neu oder aktualisiere deine Grafiktreiber."
   },
   "quit": {
     "title": "Während des Livestreams beenden?",
@@ -613,7 +621,18 @@
     "sourcesUnavailable": "Einige gespeicherte Quellen konnten nicht geöffnet werden. Verbinden Sie Ihre Geräte erneut oder prüfen Sie die Berechtigungen und starten Sie dann neu. Ihre Einstellungen bleiben erhalten.",
     "microphoneCheckFailed": "Die Mikrofone konnten nicht geprüft werden. Wenn Ihr Standardmikrofon ein Bluetooth-Headset ist, kann sich sein Klang verschlechtern. Wählen Sie im Audio-Bereich ein anderes Mikrofon, um das zu vermeiden.",
     "replaySaved": "Clip gespeichert in {folder}",
-    "encoderFallback": "Der Encoder der Grafikkarte konnte nicht starten, daher wird stattdessen der Software-Encoder verwendet. Sie können das in den Einstellungen ändern."
+    "encoderFallback": "Der Encoder der Grafikkarte konnte nicht starten, daher wird stattdessen der Software-Encoder verwendet. Sie können das in den Einstellungen ändern.",
+    "saveFailed": "Deine Änderungen konnten nicht gespeichert werden. Prüfe, ob auf dem Datenträger Platz frei ist, und versuche es erneut.",
+    "screenRecordingStartFailed": "Die Bildschirmaufnahme konnte nicht gestartet werden. Versuche es erneut oder wähle einen anderen Bildschirm oder ein anderes Fenster.",
+    "screenRecordingStopped": "Die Bildschirmaufnahme wurde unerwartet beendet und konnte nicht gespeichert werden.",
+    "screenRecordingPartial": "Die Bildschirmaufnahme wurde unerwartet beendet. Das bisher Aufgenommene wurde behalten.",
+    "screenRecording": {
+      "savedToMovies": "Dein Aufnahmeordner ist nicht verfügbar, daher wird diese Aufnahme unter „Filme“ gespeichert.",
+      "noCamera": "Die Kamera ist nicht verfügbar, daher hat diese Aufnahme kein Kamerabild.",
+      "noMicrophone": "Das gewählte Mikrofon ist nicht verfügbar, daher hat diese Aufnahme keinen Mikrofonton."
+    },
+    "youtubeCleanupFailed": "Eine ungenutzte YouTube-Übertragung konnte nicht entfernt werden. Du kannst sie in YouTube Studio löschen.",
+    "dataReset": "Einige gespeicherte Einstellungen konnten nicht gelesen werden und wurden zurückgesetzt. Die alte Datei wurde als {file} behalten."
   },
   "errors": {
     "output": {
@@ -718,7 +737,12 @@
       "import-not-found": "Diese Szenensammlung existiert nicht mehr.",
       "import-too-large": "Diese Datei ist zu groß zum Importieren.",
       "recording-encoder-failed": "Der Aufnahme-Encoder konnte auf diesem Computer nicht starten.",
-      "youtube-broadcast-missing": "Die ausgewählte YouTube-Übertragung existiert nicht mehr. Wähle in den Titeleinstellungen eine andere aus."
+      "youtube-broadcast-missing": "Die ausgewählte YouTube-Übertragung existiert nicht mehr. Wähle in den Titeleinstellungen eine andere aus.",
+      "recording-open-failed": "Diese Aufnahme konnte nicht geöffnet werden. Sie wurde vielleicht verschoben oder gelöscht.",
+      "screen-recording-unavailable": "Die Bildschirmaufnahme konnte nicht eingerichtet werden. Starte die App neu, um es erneut zu versuchen.",
+      "overlay-server-unavailable": "Chat- und Overlay-Quellen können gerade nicht angezeigt werden. Starte die App neu, um es erneut zu versuchen.",
+      "recording-stop-failed": "Die Aufnahme konnte nicht automatisch beendet werden. Beende sie über die Steuerung.",
+      "recording-start-failed": "Die Aufnahme konnte nicht gestartet werden. Versuche es erneut."
     }
   },
   "permissions": {
@@ -780,7 +804,9 @@
       "member": "Mitglied",
       "subscriber": "Abonnent",
       "verified": "Verifiziert"
-    }
+    },
+    "connect": "Konto verbinden",
+    "reconnect": "Neu verbinden"
   },
   "overlays": {
     "title": "Overlays",
@@ -874,8 +900,13 @@
       "signInHint": "Melden Sie sich mit Ihrem SEENALYZE-Konto an, um Overlays per Beschreibung zu gestalten.",
       "notAvailable": "Der KI-Designer ist für dieses Konto noch nicht verfügbar.",
       "done": "{name} ist fertig",
-      "doneWithCredits": "{name} ist fertig · {credits} Credits verbraucht"
-    }
+      "doneWithCredits": "{name} ist fertig · {credits} Credits verbraucht",
+      "checkFailed": "Dein Konto konnte nicht geprüft werden. Prüfe deine Verbindung und versuche es erneut.",
+      "openAccount": "SEENALYZE öffnen",
+      "checkAgain": "Erneut prüfen"
+    },
+    "loadFailed": "Deine Overlays konnten nicht geladen werden.",
+    "previewFailed": "Diese Vorschau konnte nicht geladen werden."
   },
   "screenRecording": {
     "capture": {
@@ -930,7 +961,8 @@
         "size": "{width} × {height}"
       },
       "errors": {
-        "captureFailed": "Die Aufnahme konnte nicht gestartet werden. Versuchen Sie es erneut."
+        "captureFailed": "Die Aufnahme konnte nicht gestartet werden. Versuchen Sie es erneut.",
+        "folderFailed": "Der Ordner konnte nicht ausgewählt werden. Versuche es erneut."
       },
       "systemAudio": "Systemaudio",
       "audioApp": "Audio von",
@@ -1155,8 +1187,17 @@
         "end": "Untertitelende in Sekunden",
         "invalidTiming": "Untertitel müssen in der richtigen Reihenfolge und innerhalb des Videos liegen.",
         "preparing": "Untertitel werden vorbereitet…",
-        "cpuUnsupported": "Auf dem Prozessor dieses Computers können keine Untertitel erstellt werden."
-      }
+        "cpuUnsupported": "Auf dem Prozessor dieses Computers können keine Untertitel erstellt werden.",
+        "toolsMissing": "Für Untertitel werden die Apple Command Line Tools benötigt. Installiere sie und versuche es erneut.",
+        "runtimeMissing": "Für Untertitel wird Microsoft Visual C++ Redistributable benötigt. Installiere es und versuche es erneut.",
+        "unsupported": "Auf diesem Computer können keine Untertitel erstellt werden.",
+        "downloadFailed": "Die Untertitel-Werkzeuge konnten nicht geladen werden. Prüfe deine Internetverbindung und versuche es erneut.",
+        "tooLong": "Diese Aufnahme ist für Untertitel zu lang.",
+        "prepareFailed": "Der Ton der Aufnahme konnte für Untertitel nicht gelesen werden.",
+        "exported": "Untertitel gespeichert",
+        "exportFailed": "Untertitel konnten nicht gespeichert werden. Versuche es erneut."
+      },
+      "playFailed": "Das Video konnte nicht abgespielt werden. Versuche es erneut."
     },
     "main": {
       "dialogs": {
@@ -1174,7 +1215,8 @@
         "cancel": "Abbrechen",
         "discard": "Verwerfen",
         "discardRecording": "Diese Aufnahme verwerfen?",
-        "discardRecordingDetail": "Die Aufnahme, das Kameravideo und alle Bearbeitungen werden gelöscht."
+        "discardRecordingDetail": "Die Aufnahme, das Kameravideo und alle Bearbeitungen werden gelöscht.",
+        "subtitles": "Untertitel"
       },
       "capture": {
         "noSession": "Es wird keine Aufnahme vorbereitet",
@@ -1249,7 +1291,8 @@
       "cameraOnly": "Nur Kamera",
       "screenOnly": "Nur Bildschirm",
       "none": "Meine Szenen behalten"
-    }
+    },
+    "donePartial": "Die Einrichtung ist fertig, aber einige Schritte haben nicht funktioniert. Prüfe deine Szenen und Ziele."
   },
   "hotkeys": {
     "streamGroup": "Stream und Aufnahme",
@@ -1393,7 +1436,8 @@
       "skippedFilters": "Filter ohne Entsprechung, ausgelassen: {count}.",
       "setupFound": "Szenen aus OBS Studio oder Streamlabs gefunden.",
       "setupAction": "Importieren"
-    }
+    },
+    "profileUnsaved": "Speichere oder verwirf deine Änderungen, um das Profil zu wechseln."
   },
   "tooltips": {
     "projectors": "Projektor öffnen",

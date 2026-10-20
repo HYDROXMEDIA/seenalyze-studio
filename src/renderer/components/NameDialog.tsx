@@ -3,6 +3,7 @@ import { useTranslations } from "use-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/overlays";
+import { useAction } from "@/lib/use-action";
 
 /** Small dialog that asks for a single name (new scene, rename, …). */
 export function NameDialog({
@@ -16,6 +17,7 @@ export function NameDialog({
   title: string;
   initial: string;
   onOpenChange: (open: boolean) => void;
+  /** Throws on failure: the error is shown and the dialog stays open with the typed name. */
   onSubmit: (name: string) => Promise<unknown>;
 }) {
   return (
@@ -37,6 +39,7 @@ function NameForm({
   onSubmit: (name: string) => Promise<unknown>;
 }) {
   const tc = useTranslations("common");
+  const run = useAction();
   const [value, setValue] = useState(initial);
   const [pending, setPending] = useState(false);
   const clean = value.trim();
@@ -49,9 +52,13 @@ function NameForm({
           event.preventDefault();
           if (!clean || pending) return;
           setPending(true);
-          await onSubmit(clean);
+          const saved = await run(async () => {
+            await onSubmit(clean);
+            return true;
+          });
           setPending(false);
-          onDone();
+          // Kept open after a failure so the typed name is not lost.
+          if (saved) onDone();
         }}
       >
         <DialogHeader>

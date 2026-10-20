@@ -83,9 +83,9 @@ export function CollectionsMenu() {
         onOpenChange={(open) => !open && setNaming(null)}
         onSubmit={(name) => {
           if (!naming) return Promise.resolve();
-          if (naming.kind === "create") return run(() => studio.createCollection(name));
-          if (naming.kind === "duplicate") return run(() => studio.duplicateCollection(naming.entry.id, name));
-          return run(() => studio.renameCollection(naming.entry.id, name));
+          if (naming.kind === "create") return studio.createCollection(name);
+          if (naming.kind === "duplicate") return studio.duplicateCollection(naming.entry.id, name);
+          return studio.renameCollection(naming.entry.id, name);
         }}
       />
       <AlertDialog open={removing !== null} onOpenChange={(open) => !open && setRemoving(null)}>

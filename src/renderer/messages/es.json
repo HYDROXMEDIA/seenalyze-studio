@@ -11,7 +11,8 @@
     "remove": "Quitar",
     "rename": "Renombrar",
     "save": "Guardar",
-    "previewFailed": "No se pudo actualizar la vista previa. Inténtalo de nuevo."
+    "previewFailed": "No se pudo actualizar la vista previa. Inténtalo de nuevo.",
+    "retry": "Reintentar"
   },
   "header": {
     "appName": "SEENALYZE STUDIO",
@@ -408,7 +409,9 @@
   "twitchCode": {
     "title": "Conectar Twitch",
     "description": "Abre Twitch e introduce este código para conectar tu canal.",
-    "open": "Abrir Twitch"
+    "open": "Abrir Twitch",
+    "failed": "Este código caducó o no se completó el inicio de sesión. Obtén un código nuevo para intentarlo de nuevo.",
+    "newCode": "Obtener un código nuevo"
   },
   "streamInfo": {
     "title": "Título de la emisión",
@@ -423,7 +426,8 @@
     },
     "broadcast": "Emisión",
     "newBroadcast": "Nueva emisión",
-    "scheduledBroadcast": "{title} · {start, date, short} {start, time, short}"
+    "scheduledBroadcast": "{title} · {start, date, short} {start, time, short}",
+    "loadFailed": "No se pudieron cargar los datos de la transmisión. Comprueba tu conexión e inténtalo de nuevo."
   },
   "controls": {
     "title": "Controles",
@@ -455,7 +459,8 @@
       "unavailableDescription": "Esta versión no puede añadir la cámara del sistema que necesita en este ordenador.",
       "checkAgain": "Comprobar de nuevo",
       "install": "Instalar"
-    }
+    },
+    "noDestination": "Activa un destino para emitir en directo."
   },
   "settings": {
     "title": "Configuración",
@@ -601,7 +606,10 @@
     "replayBufferHint": "Guarda los últimos momentos listos para guardarlos como clip.",
     "replayLength": "Conservar los últimos",
     "replaySeconds": "{seconds} s",
-    "replayLengthRange": "Usa un valor entre {min} y {max} segundos."
+    "replayLengthRange": "Usa un valor entre {min} y {max} segundos.",
+    "seenalyzeCheckFailed": "No se pudo comprobar tu cuenta. Comprueba tu conexión.",
+    "seenalyzeWaiting": "Termina de iniciar sesión en el navegador.",
+    "noEncoders": "No se encontró ningún codificador de vídeo. Reinicia la app o actualiza los controladores gráficos."
   },
   "quit": {
     "title": "¿Salir durante el directo?",
@@ -613,7 +621,18 @@
     "sourcesUnavailable": "No se pudieron abrir algunas fuentes guardadas. Vuelve a conectar tus dispositivos o revisa los permisos y reinicia. Sus ajustes se conservan.",
     "microphoneCheckFailed": "No se pudieron comprobar tus micrófonos. Si tu micrófono predeterminado son unos auriculares Bluetooth, su sonido puede empeorar. Elige otro micrófono en el panel Audio para evitarlo.",
     "replaySaved": "Clip guardado en {folder}",
-    "encoderFallback": "El codificador de la tarjeta gráfica no pudo iniciarse, así que se usa el codificador por software. Puedes cambiarlo en Configuración."
+    "encoderFallback": "El codificador de la tarjeta gráfica no pudo iniciarse, así que se usa el codificador por software. Puedes cambiarlo en Configuración.",
+    "saveFailed": "No se pudieron guardar los cambios. Comprueba que haya espacio libre en el disco e inténtalo de nuevo.",
+    "screenRecordingStartFailed": "No se pudo iniciar la grabación de pantalla. Inténtalo de nuevo o elige otra pantalla o ventana.",
+    "screenRecordingStopped": "La grabación de pantalla se detuvo inesperadamente y no se pudo guardar.",
+    "screenRecordingPartial": "La grabación de pantalla se detuvo inesperadamente. Se conservó lo grabado hasta ese momento.",
+    "screenRecording": {
+      "savedToMovies": "Tu carpeta de grabaciones no está disponible, así que esta grabación se guarda en Películas.",
+      "noCamera": "La cámara no está disponible, así que esta grabación no tiene vídeo de la cámara.",
+      "noMicrophone": "El micrófono elegido no está disponible, así que esta grabación no tiene sonido del micrófono."
+    },
+    "youtubeCleanupFailed": "No se pudo quitar una emisión de YouTube sin usar. Puedes eliminarla en YouTube Studio.",
+    "dataReset": "Algunos ajustes guardados no se pudieron leer y se restablecieron. El archivo anterior se conservó como {file}."
   },
   "errors": {
     "output": {
@@ -718,7 +737,12 @@
       "import-not-found": "Esa colección de escenas ya no existe.",
       "import-too-large": "Ese archivo es demasiado grande para importarlo.",
       "recording-encoder-failed": "El codificador de la grabación no pudo iniciarse en este ordenador.",
-      "youtube-broadcast-missing": "La emisión de YouTube que elegiste ya no existe. Elige otra en los ajustes del título."
+      "youtube-broadcast-missing": "La emisión de YouTube que elegiste ya no existe. Elige otra en los ajustes del título.",
+      "recording-open-failed": "No se pudo abrir esta grabación. Puede que se haya movido o eliminado.",
+      "screen-recording-unavailable": "No se pudo preparar la grabación de pantalla. Reinicia la app para intentarlo de nuevo.",
+      "overlay-server-unavailable": "Ahora no se pueden mostrar las fuentes de chat y superposiciones. Reinicia la app para intentarlo de nuevo.",
+      "recording-stop-failed": "La grabación no se pudo detener automáticamente. Detenla desde los controles.",
+      "recording-start-failed": "No se pudo iniciar la grabación. Inténtalo de nuevo."
     }
   },
   "permissions": {
@@ -780,7 +804,9 @@
       "member": "Miembro",
       "subscriber": "Suscriptor",
       "verified": "Verificado"
-    }
+    },
+    "connect": "Conectar una cuenta",
+    "reconnect": "Volver a conectar"
   },
   "overlays": {
     "title": "Overlays",
@@ -874,8 +900,13 @@
       "signInHint": "Inicia sesión con tu cuenta de SEENALYZE para diseñar overlays describiéndolos.",
       "notAvailable": "El diseñador con IA aún no está disponible para esta cuenta.",
       "done": "{name} está listo",
-      "doneWithCredits": "{name} está listo · {credits} créditos usados"
-    }
+      "doneWithCredits": "{name} está listo · {credits} créditos usados",
+      "checkFailed": "No se pudo comprobar tu cuenta. Comprueba tu conexión e inténtalo de nuevo.",
+      "openAccount": "Abrir SEENALYZE",
+      "checkAgain": "Comprobar de nuevo"
+    },
+    "loadFailed": "No se pudieron cargar tus superposiciones.",
+    "previewFailed": "No se pudo cargar esta vista previa."
   },
   "screenRecording": {
     "capture": {
@@ -930,7 +961,8 @@
         "size": "{width} × {height}"
       },
       "errors": {
-        "captureFailed": "No se pudo iniciar la grabación. Inténtalo de nuevo."
+        "captureFailed": "No se pudo iniciar la grabación. Inténtalo de nuevo.",
+        "folderFailed": "No se pudo elegir la carpeta. Inténtalo de nuevo."
       },
       "systemAudio": "Audio del sistema",
       "audioApp": "Audio de",
@@ -1155,8 +1187,17 @@
         "end": "Fin del subtítulo en segundos",
         "invalidTiming": "Mantén los subtítulos en orden y dentro del vídeo.",
         "preparing": "Preparando subtítulos…",
-        "cpuUnsupported": "No se pueden crear subtítulos con el procesador de este ordenador."
-      }
+        "cpuUnsupported": "No se pueden crear subtítulos con el procesador de este ordenador.",
+        "toolsMissing": "Los subtítulos necesitan Apple Command Line Tools. Instálalas e inténtalo de nuevo.",
+        "runtimeMissing": "Los subtítulos necesitan Microsoft Visual C++ Redistributable. Instálalo e inténtalo de nuevo.",
+        "unsupported": "No se pueden crear subtítulos en este ordenador.",
+        "downloadFailed": "No se pudieron descargar las herramientas de subtítulos. Comprueba tu conexión a internet e inténtalo de nuevo.",
+        "tooLong": "Esta grabación es demasiado larga para crear subtítulos.",
+        "prepareFailed": "No se pudo leer el sonido de la grabación para los subtítulos.",
+        "exported": "Subtítulos guardados",
+        "exportFailed": "No se pudieron guardar los subtítulos. Inténtalo de nuevo."
+      },
+      "playFailed": "No se pudo reproducir el vídeo. Inténtalo de nuevo."
     },
     "main": {
       "dialogs": {
@@ -1174,7 +1215,8 @@
         "cancel": "Cancelar",
         "discard": "Descartar",
         "discardRecording": "¿Descartar esta grabación?",
-        "discardRecordingDetail": "Se eliminarán la grabación, el vídeo de la cámara y las ediciones."
+        "discardRecordingDetail": "Se eliminarán la grabación, el vídeo de la cámara y las ediciones.",
+        "subtitles": "Subtítulos"
       },
       "capture": {
         "noSession": "No se está preparando ninguna grabación",
@@ -1249,7 +1291,8 @@
       "cameraOnly": "Solo cámara",
       "screenOnly": "Solo pantalla",
       "none": "Mantener mis escenas"
-    }
+    },
+    "donePartial": "La configuración terminó, pero algunos pasos fallaron. Revisa tus escenas y destinos."
   },
   "hotkeys": {
     "streamGroup": "Transmisión y grabación",
@@ -1393,7 +1436,8 @@
       "skippedFilters": "Filtros sin equivalente, omitidos: {count}.",
       "setupFound": "Se encontraron escenas de OBS Studio o Streamlabs.",
       "setupAction": "Importar"
-    }
+    },
+    "profileUnsaved": "Guarda o deshaz tus cambios para cambiar de perfil."
   },
   "tooltips": {
     "projectors": "Abrir un proyector",

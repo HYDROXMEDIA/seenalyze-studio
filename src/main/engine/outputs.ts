@@ -6,6 +6,7 @@ import { EventEmitter } from "node:events";
 import { DEFAULT_ADVANCED_STREAM, type AdvancedStreamSettings, type DestinationConfig, type DestinationProfile, type DestinationStatus, type OutputState, type RecordingFormat, type RecordingStatus } from "../../shared/types";
 import { encoderPresetSettings } from "../../shared/encoder-presets";
 import { planEncoders, sharedAudioBitrateKbps } from "../../shared/planner";
+import { PLATFORM_SPECS } from "../../shared/platforms";
 import type { EngineSession } from "./engine";
 import type { EOutputSignal, IAdvancedRecording, IAdvancedStreaming, IVideoEncoder } from "./osn";
 
@@ -27,10 +28,22 @@ interface ActiveOutput {
   stream: IAdvancedStreaming;
   group: EncoderGroupState;
   status: DestinationStatus;
+  /** Forces the stop when the destination does not confirm it in time. */
+  stopTimer?: NodeJS.Timeout;
 }
 
+/** How long a destination may take to confirm a stop (it may be stuck connecting) before it is forced. */
+const STOP_DEADLINE_MS = 15_000;
+
 const AUDIO_TRACK = 1;
+/** Audio bitrate of tracks only recordings use. */
 const DEFAULT_RECORDING_AUDIO_KBPS = 320;
+/**
+ * Track 1 is shared with every stream, and once a recording or instant replay holds it, it cannot change until
+ * they stop. Set up for them, it uses the highest bitrate every platform accepts, so a stream started later never
+ * sends more than its platform's limit.
+ */
+const SHARED_TRACK_AUDIO_KBPS = Math.min(...Object.values(PLATFORM_SPECS).map((spec) => spec.maxAudioBitrateKbps));
 /** Pseudo user that keeps a shared stream encoder alive for the recording. */
 const RECORDING_USER = "\u0000recording";
 
@@ -160,7 +173,20 @@ export class OutputManager extends EventEmitter {
       } catch (error) {
         console.error(`[outputs] stop failed for ${id}; forcing`, error);
         this.teardown(output);
+        continue;
       }
+      if (output.stopTimer) continue;
+      output.stopTimer = setTimeout(() => {
+        output.stopTimer = undefined;
+        if (this.outputs.get(id) !== output) return;
+        console.warn(`[outputs] ${id} did not confirm the stop; forcing it`);
+        try {
+          output.stream.stop(true);
+        } catch (error) {
+          console.error(`[outputs] forced stop failed for ${id}`, error);
+        }
+        this.teardown(output);
+      }, STOP_DEADLINE_MS);
     }
   }
 
@@ -189,7 +215,7 @@ export class OutputManager extends EventEmitter {
   startRecording(folder: string, encoderId: string, options: RecordingOptions): void {
     if (this.recording) return;
     // A recording started before any stream still needs its audio track, or it stops at once.
-    this.configureAudioTrack(DEFAULT_RECORDING_AUDIO_KBPS);
+    this.configureAudioTrack(SHARED_TRACK_AUDIO_KBPS);
     const { osn } = this.engine;
     // A shared encoder stays alive until the recording ends: the recording
     // counts as one more user of its group.
@@ -208,17 +234,31 @@ export class OutputManager extends EventEmitter {
       console.error(`[outputs] recording encoder ${encoderId} could not be created`, error);
       throw new Error("recording-encoder-failed", { cause: error });
     }
-    const output = osn.AdvancedRecordingFactory.create();
-    output.path = folder;
-    output.format = options.format as IAdvancedRecording["format"];
-    output.fileFormat = "%CCYY-%MM-%DD %hh-%mm-%ss";
-    output.overwrite = false;
-    output.noSpace = false;
-    output.video = this.engine.video;
-    output.videoEncoder = encoder;
-    output.mixer = this.recordingMixer(options.tracks);
-    output.useStreamEncoders = false;
-    output.signalHandler = (signal) => this.onRecordingSignal(signal);
+    let output: IAdvancedRecording | null = null;
+    try {
+      output = osn.AdvancedRecordingFactory.create();
+      output.path = folder;
+      output.format = options.format as IAdvancedRecording["format"];
+      output.fileFormat = "%CCYY-%MM-%DD %hh-%mm-%ss";
+      output.overwrite = false;
+      output.noSpace = false;
+      output.video = this.engine.video;
+      output.videoEncoder = encoder;
+      output.mixer = this.recordingMixer(options.tracks);
+      output.useStreamEncoders = false;
+      output.signalHandler = (signal) => this.onRecordingSignal(signal);
+    } catch (error) {
+      // Nothing started: give back the encoder (or the shared group's slot) so it is not held forever.
+      console.error("[outputs] recording could not be set up", error);
+      try {
+        if (output) osn.AdvancedRecordingFactory.destroy(output);
+        if (group) this.releaseUser(group, RECORDING_USER);
+        else encoder.release();
+      } catch (cleanupError) {
+        console.error("[outputs] recording setup could not be cleaned up", cleanupError);
+      }
+      throw new Error("recording-start-failed", { cause: error });
+    }
     this.recording = { output, encoder, group };
     this.recordingStatus = { active: true, startedAt: Date.now() };
     this.emit("recording", this.recordingState());
@@ -238,7 +278,7 @@ export class OutputManager extends EventEmitter {
 
   /** Instant replay uses the shared audio track; configures it if nothing uses it yet. */
   holdAudioTrack(): void {
-    this.configureAudioTrack(DEFAULT_RECORDING_AUDIO_KBPS);
+    this.configureAudioTrack(SHARED_TRACK_AUDIO_KBPS);
     this.audioTrackHolds += 1;
   }
 
@@ -397,6 +437,8 @@ export class OutputManager extends EventEmitter {
 
   private teardown(output: ActiveOutput, errorKey?: string): void {
     if (!this.outputs.has(output.destinationId)) return;
+    clearTimeout(output.stopTimer);
+    output.stopTimer = undefined;
     this.outputs.delete(output.destinationId);
     try {
       this.engine.osn.AdvancedStreamingFactory.destroy(output.stream);

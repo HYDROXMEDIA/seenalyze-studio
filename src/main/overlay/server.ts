@@ -100,14 +100,25 @@ export class OverlayServer {
       server.once("error", reject);
       server.listen(port, "127.0.0.1", () => {
         server.off("error", reject);
+        // Later failures (for example a broken connection) must not become an uncaught exception.
+        server.on("error", (error) => console.error("[overlay] server error", error));
         this.server = server;
-        resolve((server.address() as AddressInfo).port);
+        // Known before the first request arrives, so the Host check never sees a stale port.
+        this.port = (server.address() as AddressInfo).port;
+        resolve(this.port);
       });
     });
   }
 
   private route(request: IncomingMessage, response: ServerResponse): void {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    // Only pages addressed to this machine by name are served, so a web page that re-points its own
+    // domain at 127.0.0.1 (DNS rebinding) cannot read the chat feed.
+    const host = (request.headers.host ?? "").toLowerCase();
+    if (host !== `127.0.0.1:${this.port}` && host !== `localhost:${this.port}`) {
+      response.writeHead(403).end();
+      return;
+    }
     if (request.method !== "GET") {
       response.writeHead(405).end();
       return;

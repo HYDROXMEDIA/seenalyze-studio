@@ -42,6 +42,8 @@ export type CaptureDependencies = {
   setRecordingDevices: (devices: RecordingDevices) => void;
   recordingFolderName: () => string;
   chooseRecordingFolder: (parent: BrowserWindow) => Promise<string | null>;
+  // The picker could not be shown; the user must be told instead of it silently not appearing.
+  onPickerFailed: () => void;
 };
 
 type CaptureSession = {
@@ -87,6 +89,8 @@ function listWindows(): Promise<OnScreenWindow[]> {
   return new Promise((resolve) => {
     execFile(command, args, { timeout: 10000, maxBuffer: 4 * 1024 * 1024, windowsHide: true }, (error, stdout) => {
       if (error) {
+        // Window mode then offers no windows; areas and screens still work.
+        console.warn(`[screen-recording] window list unavailable: ${error.message}`);
         resolve([]);
         return;
       }
@@ -102,7 +106,8 @@ function listWindows(): Promise<OnScreenWindow[]> {
             app: typeof entry.app === 'string' ? entry.app : '',
             title: typeof entry.title === 'string' ? entry.title : ''
           })));
-      } catch {
+      } catch (parseError) {
+        console.warn(`[screen-recording] window list could not be read: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
         resolve([]);
       }
     });
@@ -210,13 +215,18 @@ export class CaptureController {
             window.webContents.focus();
           }
         });
-        void loadPage(window, 'capture', { display: String(display.id) }).catch(() => {
-          if (this.session === session) this.cancel('Picker could not be loaded');
+        loadPage(window, 'capture', { display: String(display.id) }).catch((error: unknown) => {
+          if (this.session !== session) return;
+          this.cancel(`Picker could not be loaded: ${error instanceof Error ? error.message : String(error)}`);
+          this.deps.onPickerFailed();
         });
       }
       this.deps.log(`Recording picker opened on ${session.windows.size} display(s)`);
-    } catch {
-      if (version === this.startVersion) this.cancel('Picker unavailable');
+    } catch (error) {
+      if (version === this.startVersion) {
+        this.cancel(`Picker unavailable: ${error instanceof Error ? error.message : String(error)}`);
+        this.deps.onPickerFailed();
+      }
     } finally {
       if (version === this.startVersion) this.starting = false;
     }
@@ -353,7 +363,9 @@ export class CaptureController {
       const displayId = this.displayIdFor(event);
       if (session === null || displayId === null || session.thumbnailsStarted) return;
       session.thumbnailsStarted = true;
-      void this.sendThumbnails(session, event.sender).catch(() => {
+      void this.sendThumbnails(session, event.sender).catch((error: unknown) => {
+        // The picker keeps working with names only.
+        this.deps.log(`Window thumbnails unavailable: ${error instanceof Error ? error.message : String(error)}`);
         if (this.session === session && !event.sender.isDestroyed()) event.sender.send('capture:thumbnails-done');
       });
     });

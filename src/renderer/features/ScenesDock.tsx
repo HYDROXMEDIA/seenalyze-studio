@@ -139,14 +139,14 @@ export function ScenesDock() {
         title={t("add")}
         initial={t("defaultName")}
         onOpenChange={setCreating}
-        onSubmit={(name) => run(() => studio.createScene(name))}
+        onSubmit={(name) => studio.createScene(name)}
       />
       <NameDialog
         open={renaming !== null}
         title={tc("rename")}
         initial={renaming ?? ""}
         onOpenChange={(open) => !open && setRenaming(null)}
-        onSubmit={(name) => (renaming ? run(() => studio.renameScene(renaming, name)) : Promise.resolve())}
+        onSubmit={(name) => (renaming ? studio.renameScene(renaming, name) : Promise.resolve())}
       />
       <AlertDialog open={removing !== null} onOpenChange={(open) => !open && setRemoving(null)}>
         {removing !== null && (

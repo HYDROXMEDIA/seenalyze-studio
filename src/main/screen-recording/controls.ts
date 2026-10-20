@@ -64,7 +64,11 @@ export class ControlsWindow {
       if (this.window === window) this.window = null;
     });
     this.window = window;
-    void loadPage(window, 'controls');
+    loadPage(window, 'controls').catch((error: unknown) => {
+      // Shown on demand; the recording itself continues without it.
+      console.error(`[screen-recording] Recording controls could not be loaded: ${error instanceof Error ? error.message : String(error)}`);
+      if (!window.isDestroyed()) window.destroy();
+    });
   }
 
   update(state: ControlsState): void {

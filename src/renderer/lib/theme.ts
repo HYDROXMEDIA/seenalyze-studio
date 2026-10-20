@@ -1,5 +1,6 @@
 // Theme preference is a per-device convenience, so it lives in localStorage.
 
+import { useSyncExternalStore } from "react";
 import { PALETTE_VARIABLES, DEFAULT_COLOR_THEME, parseColorThemeChoice, resolveThemeRoles, themeCssVariables, type ColorThemeChoice } from "./color-theme";
 import { studio } from "./studio";
 
@@ -62,4 +63,24 @@ export function saveColorTheme(choice: ColorThemeChoice): void {
     console.warn("[theme] color theme storage unavailable", error);
   }
   applyPalette(choice, document.documentElement.classList.contains("dark"));
+}
+
+// "System" follows the OS appearance while the app runs, not only at start.
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  if (readTheme() === "system") applyTheme("system");
+});
+
+function subscribeToDarkMode(onChange: () => void): () => void {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+  return () => observer.disconnect();
+}
+
+/** Whether the dark appearance is in use; re-renders when it changes (a setting or the OS). */
+export function useDarkMode(): boolean {
+  return useSyncExternalStore(
+    subscribeToDarkMode,
+    () => document.documentElement.classList.contains("dark"),
+    () => true,
+  );
 }

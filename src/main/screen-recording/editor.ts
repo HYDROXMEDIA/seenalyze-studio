@@ -93,9 +93,15 @@ function frame(type: 'C' | 'V' | 'A' | 'E', payload: Buffer): Buffer {
   return Buffer.concat([header, payload]);
 }
 
+// Removes a stored background image unless a preset or any recording's saved edits still use it.
+// Two recordings can share one image (for example from the same preset), so every project is checked.
 async function removeBackground(id: string): Promise<void> {
   const presets = await readJson(join(app.getPath('userData'), 'recording-presets.json'));
   if (Array.isArray(presets) && presets.some(preset => projectImageId(preset) === id)) return;
+  for (const path of await editorProjectPaths()) {
+    // An unreadable project throws here, so the image is kept rather than risk breaking that recording.
+    if (projectImageId((await readRecoverableJson(path)).value) === id) return;
+  }
   await fs.rm(join(backgroundDirectory(), id), { force: true });
 }
 
@@ -126,7 +132,10 @@ export class EditorWindows {
   // Opens (or brings forward) the editor for a recording. Two quick opens of
   // the same file share one window.
   async open(requestedPath: string): Promise<boolean> {
-    const videoPath = await fs.realpath(requestedPath).catch(() => null);
+    const videoPath = await fs.realpath(requestedPath).catch((error: unknown) => {
+      this.deps.log(`Recording could not be found for the editor: ${errorText(error)}`);
+      return null;
+    });
     if (videoPath === null) return false;
     const existing = this.entries.get(videoPath);
     if (existing !== undefined && !existing.window.isDestroyed()) {
@@ -141,7 +150,10 @@ export class EditorWindows {
   }
 
   private async create(videoPath: string): Promise<boolean> {
-    const stat = await fs.stat(videoPath).catch(() => null);
+    const stat = await fs.stat(videoPath).catch((error: unknown) => {
+      this.deps.log(`Recording could not be opened in the editor: ${errorText(error)}`);
+      return null;
+    });
     if (stat === null || !stat.isFile()) return false;
     await prepareRecordingData(videoPath).catch((error: unknown) => {
       this.deps.log(`Recording data could not be prepared: ${error instanceof Error ? error.message : String(error)}`);
@@ -189,7 +201,18 @@ export class EditorWindows {
       if (this.entries.get(videoPath) === entry) this.entries.delete(videoPath);
     });
     window.once('ready-to-show', () => this.present(window));
-    void loadPage(window, 'editor');
+    // A crashed editor page reloads from the last saved edits; a running export cannot continue without it.
+    window.webContents.on('render-process-gone', (_event, details) => {
+      this.deps.log(`Recording editor page stopped (${details.reason}); reloading`);
+      void this.cancelJob(entry).finally(() => {
+        if (!window.isDestroyed()) window.webContents.reload();
+      });
+    });
+    loadPage(window, 'editor').catch((error: unknown) => {
+      // The window is hidden until its page shows, so a page that cannot load must not stay behind invisibly.
+      this.deps.log(`Recording editor could not be loaded: ${errorText(error)}`);
+      if (!window.isDestroyed()) window.destroy();
+    });
     this.deps.log('Recording editor opened');
     return true;
   }
@@ -374,8 +397,8 @@ export class EditorWindows {
     ipcMain.handle('editor:transcription-cancel', (event, id) => { const entry = this.entryFor(event); if (entry?.transcriptionId === id) this.deps.cancelTranscription(id); });
     ipcMain.handle('editor:subtitles-export', async (event, text, format) => {
       const entry = this.entryFor(event); if (!entry || typeof text !== 'string' || text.length > 8_000_000 || !['srt', 'vtt'].includes(format)) return false;
-      const result = await dialog.showSaveDialog(entry.window, { defaultPath: `${basename(entry.videoPath, extname(entry.videoPath))}.${format}`, filters: [{ name: 'Subtitles', extensions: [format] }] });
-      if (result.canceled || !result.filePath) return false; await writeAtomic(result.filePath, text); return true;
+      const result = await dialog.showSaveDialog(entry.window, { defaultPath: `${basename(entry.videoPath, extname(entry.videoPath))}.${format}`, filters: [{ name: t('dialogs.subtitles'), extensions: [format] }] });
+      if (result.canceled || !result.filePath) return false; await writeAtomic(result.filePath, text, false, () => true, 0o644); return true;
     });
     ipcMain.handle('editor:discard' , async (event) => {
       const entry = this.entryFor(event);
@@ -393,8 +416,10 @@ export class EditorWindows {
         });
         if (choice.response !== 0 || entry.window.isDestroyed()) return { ok: false, canceled: true };
         await entry.pendingSave;
-        await shell.trashItem(entry.videoPath);
+        // The camera track goes first and a video already in the Trash counts as done, so a retry after a
+        // partial failure can finish instead of failing on the missing video every time.
         if (await fs.stat(cameraPath(entry.videoPath)).catch(() => null)) await shell.trashItem(cameraPath(entry.videoPath));
+        if (await fs.stat(entry.videoPath).catch(() => null)) await shell.trashItem(entry.videoPath);
         await removeRecordingData(entry.videoPath);
         forgetMedia(entry.videoPath);
         forgetMedia(cameraPath(entry.videoPath));
@@ -525,7 +550,10 @@ export class EditorWindows {
       const entry = this.entryFor(event);
       if (entry === null || (source !== 'video' && source !== 'camera') || typeof offset !== 'number' || typeof length !== 'number' || !Number.isSafeInteger(offset)
         || !Number.isSafeInteger(length) || offset < 0 || length < 0 || length > MAX_READ_BYTES) return null;
-      const handle = await fs.open(source === 'camera' ? cameraPath(entry.videoPath) : entry.videoPath, 'r').catch(() => null);
+      const handle = await fs.open(source === 'camera' ? cameraPath(entry.videoPath) : entry.videoPath, 'r').catch((error: unknown) => {
+        this.deps.log(`Recording could not be read for export: ${errorText(error)}`);
+        return null;
+      });
       if (handle === null) return null;
       try {
         const buffer = Buffer.alloc(length);
@@ -540,7 +568,11 @@ export class EditorWindows {
       const entry = this.entryFor(event);
       const muxer = this.deps.muxerPath();
       const builtIn = muxer === null && process.platform !== 'darwin';
-      if (entry === null || entry.job !== null || entry.beginning || (muxer === null && !builtIn) || options === null || typeof options !== 'object') return { ok: false };
+      if (entry === null || entry.job !== null || entry.beginning || options === null || typeof options !== 'object') return { ok: false };
+      if (muxer === null && !builtIn) {
+        this.deps.log('Editor export unavailable: the export helper is missing');
+        return { ok: false };
+      }
       const { width, height, fps, audio } = options as { width?: unknown; height?: unknown; fps?: unknown; audio?: unknown };
       const size = (value: unknown) => typeof value === 'number' && Number.isInteger(value) && value >= 2 && value <= MAX_EXPORT_SIDE && value % 2 === 0;
       if (!size(width) || !size(height) || (fps !== 30 && fps !== 60)) return { ok: false };
@@ -591,7 +623,12 @@ export class EditorWindows {
 
       const args = ['--output', temporary, '--width', String(width), '--height', String(height), '--fps', String(fps)];
       if (sound !== null) args.push('--sample-rate', String(sound.sampleRate), '--channels', String(sound.channels));
-      const child = spawn(muxer as string, args, { stdio: ['pipe', 'pipe', 'ignore'] });
+      const child = spawn(muxer as string, args, { stdio: ['pipe', 'pipe', 'pipe'] });
+      // The helper's own explanation of a failure ends up in the log.
+      child.stderr?.on('data', (chunk: Buffer) => {
+        const line = chunk.toString().trim();
+        if (line) this.deps.log(`Export helper: ${line.slice(0, 240)}`);
+      });
       let output = '';
       child.stdout?.setEncoding('utf8');
       child.stdout?.on('data', (chunk: string) => {
@@ -608,7 +645,10 @@ export class EditorWindows {
         js: null,
         failed: false,
         finished: new Promise<boolean>((resolve) => {
-          child.on('error', () => resolve(false));
+          child.on('error', (error) => {
+            this.deps.log(`Export helper could not run: ${errorText(error)}`);
+            resolve(false);
+          });
           // 'close' comes after all output was read, so "finished" is never missed.
           child.on('close', (code) => resolve(code === 0 && output.includes('"finished"')));
         })
@@ -674,13 +714,16 @@ export class EditorWindows {
       let ok = await job.finished;
       if (entry.job === job) entry.job = null;
       if (ok) {
-        // Edits and pointer data of a video this replaces belong to that old video.
-        await removeRecordingData(job.target).catch((error: unknown) => this.deps.log(`Old recording data could not be removed: ${errorText(error)}`));
-        await fs.rm(cameraPath(job.target), { force: true }).catch((error: unknown) => this.deps.log(`Old camera track could not be removed: ${errorText(error)}`));
         ok = await fs.rename(job.filePath, job.target).then(() => true, (error: unknown) => {
           this.deps.log(`Exported video could not be moved into place: ${error instanceof Error ? error.message : String(error)}`);
           return false;
         });
+      }
+      if (ok) {
+        // Edits and pointer data of a video this replaced belong to that old video. Removed only once the
+        // new file is in place, so a failed export leaves the old video and its data untouched.
+        await removeRecordingData(job.target).catch((error: unknown) => this.deps.log(`Old recording data could not be removed: ${errorText(error)}`));
+        await fs.rm(cameraPath(job.target), { force: true }).catch((error: unknown) => this.deps.log(`Old camera track could not be removed: ${errorText(error)}`));
       }
       if (!ok) {
         this.deps.log('Editor export could not be finished');

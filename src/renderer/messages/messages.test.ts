@@ -54,6 +54,7 @@ describe("en messages", () => {
       ...["fit", "stretch", "scale"].map((key) => `transformEditor.sizingOptions.${key}`),
       ...["left", "top", "right", "bottom"].map((key) => `transformEditor.cropEdges.${key}`),
       ...["noPicture", "waitingSources", "noSound", "missingSources"].map((key) => `streamCheck.${key}`),
+      ...["savedToMovies", "noCamera", "noMicrophone"].map((key) => `notices.screenRecording.${key}`),
     ];
     const missing = dynamic.filter((key) => !has(en as Tree, key));
     expect(missing).toEqual([]);

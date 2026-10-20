@@ -18,7 +18,7 @@ class Window extends EventEmitter {
   webContents = { send: (command) => {
     this.commands.push(command);
     if (command === 'recorder:request-stop') this.onStop?.();
-  } };
+  }, on: () => undefined };
   constructor() { super(); state.windows.push(this); }
   isDestroyed() { return this.destroyed; }
   async loadFile() {}
@@ -77,7 +77,7 @@ function controller({ native = false, onSaved = async () => {} } = {}) {
   const recorder = new RecordingController({
     log() {},
     outputDirectory: () => temporary, nativeRecorderPath: () => native ? '/test/recorder' : null,
-    onStateChange: (recording) => changes.push(recording), onPauseChange() {},
+    onStateChange: (recording) => changes.push(recording), onPauseChange() {}, onFailed() {}, onNotice() {},
     facecam: { hint: () => null, open() {}, close: () => null },
     onSaved: async (path) => { saved.push(path); await onSaved(); }
   });

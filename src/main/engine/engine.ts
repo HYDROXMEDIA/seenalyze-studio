@@ -113,11 +113,17 @@ export class EngineSession {
     };
   }
 
+  // Installed encoders cannot change while the engine runs, so they are listed once per engine start.
+  private encoderOptions: EncoderOption[] | null = null;
+
   availableEncoders(): EncoderOption[] {
-    const installed = new Set(this.osn.VideoEncoderFactory.types());
-    return ENCODER_CANDIDATES.filter((candidate) => candidate.requires.some((id) => installed.has(id))).map(
-      ({ id, hardware }) => ({ id, hardware }),
-    );
+    if (this.encoderOptions === null) {
+      const installed = new Set(this.osn.VideoEncoderFactory.types());
+      this.encoderOptions = ENCODER_CANDIDATES.filter((candidate) => candidate.requires.some((id) => installed.has(id))).map(
+        ({ id, hardware }) => ({ id, hardware }),
+      );
+    }
+    return this.encoderOptions.map((option) => ({ ...option }));
   }
 
   stats(): EngineStats {

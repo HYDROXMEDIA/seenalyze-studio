@@ -67,8 +67,10 @@ export class TwitchEventSub {
           if (previous && previous !== socket) previous.close();
           const sessionId = message.payload?.session?.id;
           if (subscribe && sessionId) void this.subscribe(sessionId);
-          else this.onState("connected");
-          this.attempt = 0;
+          else {
+            this.onState("connected");
+            this.attempt = 0;
+          }
           break;
         }
         case "session_reconnect":
@@ -101,6 +103,8 @@ export class TwitchEventSub {
       await createEventSubSubscription(this.account, sessionId, "channel.follow", "2", { broadcaster_user_id: id, moderator_user_id: id });
       await createEventSubSubscription(this.account, sessionId, "channel.channel_points_custom_reward_redemption.add", "1", { broadcaster_user_id: id });
       this.onState("connected");
+      // Backoff resets only once fully subscribed, so repeated subscription failures keep backing off.
+      this.attempt = 0;
     } catch (error) {
       const code = error instanceof Error ? error.message : "";
       console.warn("[eventsub] subscription failed", code);

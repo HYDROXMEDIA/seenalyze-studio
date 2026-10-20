@@ -52,12 +52,12 @@ import { NativeDisplay } from "./native-display";
 import { Projectors, screenChoices, type ProjectorHost } from "./projectors";
 import { sanitizeProjectorTarget } from "../shared/projector";
 import { ScreenRecorder } from "./screen-recording";
-import { SeenalyzeAccountService } from "./seenalyze/account";
+import { SeenalyzeAccountService, seenalyzeOrigin } from "./seenalyze/account";
 import * as twitch from "./platforms/twitch";
 import { forgetToken, readToken } from "./platforms/tokens";
 import * as youtube from "./platforms/youtube";
 import { deleteSecret, getSecret, hasSecret, secretNames, setSecret } from "./secrets";
-import { debounced, readJson, writeJson } from "./store";
+import { debounced, readJson, takeMovedAsideFiles, writeJson } from "./store";
 import { CollectionFiles, migrateWorkspace, type WorkspaceFields } from "./collections";
 import { Workspace } from "./workspace";
 import { findImportCandidates, importRoots, readImportCandidate, readImportFile, type ConvertedCollection } from "./obs-import";
@@ -239,11 +239,34 @@ export class Studio {
       return state === "granted" || state === "unsupported";
     },
     onStateChange: () => this.pushSnapshot(),
+    onError: (kind) =>
+      this.notify({
+        kind: "error",
+        key:
+          kind === "start"
+            ? "notices.screenRecordingStartFailed"
+            : kind === "partial"
+              ? "notices.screenRecordingPartial"
+              : "notices.screenRecordingStopped",
+      }),
+    onNotice: (kind) => this.notify({ kind: "info", key: `notices.screenRecording.${kind}` }),
   });
   private shuttingDown = false;
+  // Told once per run of failed saves; the next successful save resets it.
+  private saveFailureShown = false;
   private readonly persist = debounced(() => {
     if (this.shuttingDown) return;
-    this.saveNow().catch((error: unknown) => console.error("[studio] could not save", error));
+    this.saveNow().then(
+      () => {
+        this.saveFailureShown = false;
+      },
+      (error: unknown) => {
+        console.error("[studio] could not save", error);
+        if (this.saveFailureShown) return;
+        this.saveFailureShown = true;
+        this.notify({ kind: "error", key: "notices.saveFailed" });
+      },
+    );
   }, 400);
   private readonly pushSnapshot = debounced(() => {
     this.projectors?.refresh();
@@ -326,6 +349,7 @@ export class Studio {
       await this.screenRecorder.start();
     } catch (error) {
       console.error("[studio] screen recording failed to start", error);
+      this.notify({ kind: "error", key: "errors.codes.screen-recording-unavailable" });
     }
     try {
       const port = this.overlay.running ? this.state.overlayPort : await this.overlay.start(this.state.overlayPort);
@@ -335,6 +359,7 @@ export class Studio {
       }
     } catch (error) {
       console.error("[studio] overlay server failed to start", error);
+      this.notify({ kind: "error", key: "errors.codes.overlay-server-unavailable" });
     }
     try {
       const defaultMicrophone = await resolveDefaultMicrophone(helperPath("audio-inputs"));
@@ -353,7 +378,11 @@ export class Studio {
       // Saved chat overlays follow the overlay server if its port changed.
       await this.engine.call("retargetChatOverlays", `http://127.0.0.1:${this.state.overlayPort}`);
       await this.refreshState();
-      this.engineAudioFormat = await this.engine.call("audioFormat").catch(() => null);
+      this.engineAudioFormat = await this.engine.call("audioFormat").catch((error: unknown) => {
+        // Only the audio settings dialog shows it; it reads as unknown there.
+        console.warn("[studio] audio format could not be read", error);
+        return null;
+      });
       this.ensureEncoder();
       await this.syncReplay();
       void this.probeVirtualCamera();
@@ -363,6 +392,8 @@ export class Studio {
       console.error("[studio] engine failed to start", error);
       this.engineErrorKey = errorKey(error) === "generic" ? "engine-init-failed" : errorKey(error);
     }
+    // Saved settings that could not be read were reset; the user learns where the old file was kept.
+    for (const backup of takeMovedAsideFiles()) this.notify({ kind: "error", key: "notices.dataReset", values: { file: path.basename(backup) } });
     this.pushSnapshot();
   }
 
@@ -620,7 +651,7 @@ export class Studio {
       return result.canceled ? null : (result.filePaths[0] ?? null);
     },
 
-    setVolume: async (source, deflection) => this.mutate(() => this.engine.call("setVolume", source, deflection)),
+    setVolume: async (source, deflection) => this.setVolume(String(source), Number(deflection)),
     setMuted: async (source, muted) => {
       // Unmuting a microphone opens its device, which needs OS access first.
       if (!muted && this.engineState?.audio.find((entry) => entry.name === source)?.microphone) {
@@ -866,12 +897,17 @@ export class Studio {
         .catch((error: unknown) => {
           if (controller.signal.aborted) return;
           console.error("[studio] Twitch sign-in failed", error);
-          this.notify({ kind: "error", key: `errors.codes.${errorKey(error)}` });
+          // `signIn` lets the open code dialog offer a new code instead of a stale one.
+          this.notify({ kind: "error", key: `errors.codes.${errorKey(error)}`, values: { signIn: "twitch" } });
         })
         .finally(() => {
           if (this.twitchSignIn === controller) this.twitchSignIn = null;
         });
       return prompt;
+    },
+    cancelTwitchSignIn: async () => {
+      this.twitchSignIn?.abort();
+      this.twitchSignIn = null;
     },
     connectYouTube: async () => {
       const account = await youtube.signInYouTube((ok) => callbackPage(ok));
@@ -1002,6 +1038,10 @@ export class Studio {
       if (theme !== "dark" && theme !== "light") throw new Error("invalid-request");
       this.screenRecorder.setTheme(theme);
     },
+    setInterfaceLanguage: async (locale) => {
+      if (typeof locale !== "string" || locale.length > 20) throw new Error("invalid-request");
+      this.screenRecorder.setLanguage(locale);
+    },
     quitApp: async () => this.quit(),
     requestPermission: async (kind) => {
       if (kind !== "camera" && kind !== "microphone" && kind !== "screen") throw new Error("invalid-request");
@@ -1060,8 +1100,11 @@ export class Studio {
         return await this.account.refreshProfile();
       } catch (error) {
         if (errorKey(error) === "seenalyze-signed-out") return null;
-        // Offline: fall back to the last known profile.
-        return this.account.cachedProfile();
+        // Offline: fall back to the last known profile. Without one the account cannot be shown, which is not
+        // the same as signed out, so the error goes to the page (it offers a retry).
+        const cached = this.account.cachedProfile();
+        if (cached) return cached;
+        throw error;
       }
     },
     signInSeenalyze: async () => {
@@ -1071,6 +1114,10 @@ export class Studio {
       return profile;
     },
     signOutSeenalyze: async () => this.account.signOut(),
+    cancelSeenalyzeSignIn: async () => this.account.cancelSignIn(),
+    openSeenalyzeDashboard: async () => {
+      await shell.openExternal(seenalyzeOrigin());
+    },
     setSeenalyzeLanguage: async (language) => {
       if (!this.account.signedIn) return;
       await this.account.saveLanguage(String(language));
@@ -1150,6 +1197,8 @@ export class Studio {
       this.preparations.delete(destination.id);
       if (cancelled) {
         this.onOutputStatus({ id: destination.id, state: "idle", kbps: 0, droppedFrames: 0, totalFrames: 0, encoderGroup: null });
+        // A YouTube broadcast made while this was being cancelled (for example by an engine crash) is removed too.
+        this.finishYouTubeBroadcast(destination.id);
         return;
       }
       if (result.status === "fulfilled") {
@@ -1164,6 +1213,12 @@ export class Studio {
       await this.engine.call("startOutputs", ready, encoderId, this.state.advanced);
     } catch (error) {
       console.error("[studio] outputs failed to start", error);
+      if (errorKey(error) === "engine-timeout") {
+        // The engine may still start them once it catches up; stop them so nothing streams while shown as failed.
+        await this.engine.call("stopOutputs", ready.map(({ config }) => config.id)).catch((stopError: unknown) => {
+          console.error("[studio] could not stop destinations after a start timeout", stopError);
+        });
+      }
       for (const { config } of ready) this.failDestination(config.id, `errors.codes.${errorKey(error)}`);
       return;
     }
@@ -1214,6 +1269,13 @@ export class Studio {
     if (status.state === "error" && status.errorKey === "errors.output.encoder" && previous?.state !== "live" && this.retryOnSoftwareEncoder(status.id)) {
       status = { ...status, state: "preparing", errorKey: undefined };
     }
+    // A new stream (nothing was live, and this is not a reconnect) starts the "this stream" overlay counters at zero.
+    const streamStarted =
+      status.state === "live" &&
+      previous?.state !== "live" &&
+      previous?.state !== "reconnecting" &&
+      ![...this.statuses.values()].some((entry) => entry.id !== status.id && (entry.state === "live" || entry.state === "reconnecting"));
+    if (streamStarted) this.overlayData.resetSession();
     this.statuses.set(status.id, status);
     const broadcast = this.youtubeBroadcasts.get(status.id);
     if (broadcast && status.state === "live") broadcast.wentLive = true;
@@ -1333,8 +1395,9 @@ export class Studio {
     }
     const finish = broadcast.wentLive ? youtube.completeYouTubeBroadcast : youtube.deleteYouTubeBroadcast;
     finish(account, broadcast.broadcastId).catch((error: unknown) => {
-      // enableAutoStop also ends a live broadcast once video stops arriving.
       console.error("[studio] YouTube broadcast cleanup failed", error);
+      // A live broadcast also ends by itself once video stops arriving; one that never went live stays on the channel.
+      if (!broadcast.wentLive) this.notify({ kind: "error", key: "notices.youtubeCleanupFailed" });
     });
   }
 
@@ -1366,7 +1429,8 @@ export class Studio {
         break;
       }
       case "levels":
-        this.send(IPC.audioLevels, event.levels);
+        // Meters update 15 times a second; nobody sees them while the window is hidden or minimized.
+        if (!this.window.isDestroyed() && this.window.isVisible() && !this.window.isMinimized()) this.send(IPC.audioLevels, event.levels);
         break;
       case "replay":
         if (this.engineState) this.engineState.replay = event.status;
@@ -1488,7 +1552,10 @@ export class Studio {
         this.syncEditor();
         if (created) this.editor?.raise();
       })
-      .catch((error: unknown) => console.error("[studio] preview update failed", error));
+      .catch((error: unknown) => {
+        console.error("[studio] preview update failed", error);
+        this.notify({ kind: "error", key: "errors.codes.preview-failed" });
+      });
   }
 
   /** A rect moved off-screen while floating UI covers the preview. */
@@ -1564,6 +1631,11 @@ export class Studio {
     if (mode === "manual" && !/^rtmps?:\/\/\S+$/iu.test(server)) throw new Error("invalid-server");
     const key = draft.streamKey?.trim();
     if (mode === "manual" && !key && !hasSecret(secretNames.streamKey(id))) throw new Error("stream-key-missing");
+    // A saved key is only ever sent to the server it was entered for: moving it to another host needs the key again.
+    const hostOf = (url: string) => url.replace(/^rtmps?:\/\//iu, "").split(/[/:]/u)[0]?.toLowerCase() ?? "";
+    if (mode === "manual" && !key && existing?.mode === "manual" && hostOf(existing.server) !== hostOf(server)) {
+      throw new Error("stream-key-missing");
+    }
     if (key) setSecret(secretNames.streamKey(id), key);
 
     const next: DestinationConfig = {
@@ -1793,8 +1865,16 @@ export class Studio {
     if (!this.engine.running || !this.engineState || this.shuttingDown) return;
     const prefs = this.state.preferences;
     const folder = this.recordingFolder();
+    const folderMissing = prefs.replayBufferEnabled && Boolean(this.state.encoder) && !existsSync(folder);
+    // Instant replay is on but cannot run without its folder: say so once, instead of quietly switching it off.
+    if (folderMissing && !this.replayFolderNoticeShown) {
+      this.replayFolderNoticeShown = true;
+      console.warn("[studio] instant replay is paused: the recording folder is missing");
+      this.notify({ kind: "error", key: "errors.codes.recording-folder-missing" });
+    }
+    if (!folderMissing) this.replayFolderNoticeShown = false;
     const options =
-      prefs.replayBufferEnabled && this.state.encoder && existsSync(folder)
+      prefs.replayBufferEnabled && this.state.encoder && !folderMissing
         ? { folder, format: prefs.recordingFormat, bitrateKbps: prefs.recordingBitrateKbps, seconds: prefs.replayBufferSeconds }
         : null;
     try {
@@ -1816,10 +1896,17 @@ export class Studio {
     }
   }
 
+  private replayFolderNoticeShown = false;
+
   private autoStopRecording(): void {
     if (!this.autoRecording || this.state.preferences.keepRecordingAfterStream || !this.engineState?.recording.active) return;
     this.autoRecording = false;
-    this.engine.call("stopRecording").catch((error: unknown) => console.error("[studio] automatic recording failed to stop", error));
+    this.engine.call("stopRecording").catch((error: unknown) => {
+      // Still recording: the user is told and can stop it from the controls; the next stream end tries again.
+      console.error("[studio] automatic recording failed to stop", error);
+      this.autoRecording = true;
+      this.notify({ kind: "error", key: "errors.codes.recording-stop-failed" });
+    });
   }
 
   private isStreaming(): boolean {
@@ -1899,6 +1986,24 @@ export class Studio {
    * closing a microphone's device, refreshing all state or saving, so it is
    * cheap enough for every key press and release.
    */
+  /**
+   * A volume slider sends many values per second, so only the fader changes: no full engine state refresh,
+   * which would queue slow engine work ahead of other actions. The change is saved with the next save.
+   */
+  private async setVolume(source: string, deflection: number): Promise<void> {
+    if (!Number.isFinite(deflection)) throw new Error("invalid-request");
+    await this.engine.call("setVolume", source, deflection);
+    const entry = this.engineState?.audio.find((item) => item.name === source);
+    if (entry) {
+      entry.deflection = Math.min(1, Math.max(0, deflection));
+      this.pushSnapshot();
+    } else {
+      // A source that only exists in a scene not shown yet has no mixer row; refresh once to be exact.
+      await this.refreshState();
+    }
+    this.persist();
+  }
+
   async setTalkMuted(source: string, muted: boolean): Promise<void> {
     const entry = this.engineState?.audio.find((item) => item.name === source);
     if (!entry) throw new Error("source-not-found");
@@ -1976,7 +2081,14 @@ export class Studio {
 
   private async saveNow(): Promise<void> {
     // Only replace the saved collection with one the engine actually produced.
-    if (this.engine.running && this.engineState) this.state.collection = await this.engine.call("saveCollection");
+    if (this.engine.running && this.engineState) {
+      try {
+        this.state.collection = await this.engine.call("saveCollection");
+      } catch (error) {
+        // Settings are still written; the scenes keep their last saved version.
+        console.error("[studio] could not read the scenes from the engine; keeping the last saved scenes", error);
+      }
+    }
     writeJson(STATE_FILE, this.state);
   }
 }

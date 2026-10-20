@@ -295,7 +295,7 @@ export function PropertyField({
           <Textarea id={id} disabled={disabled} value={entries.map((entry) => entry.value).join("\n")} placeholder={t("onePerLine")}
             onChange={(event) => onChange(property.name, event.target.value.split("\n").map((value) => ({ value })))} />
           <Button variant="outline" disabled={disabled} className="justify-self-start" onClick={async () => {
-            const picked = await studio.pickFile(property.pathFilter, false);
+            const picked = await run(() => studio.pickFile(property.pathFilter, false));
             if (picked) onChange(property.name, [...entries.filter((entry) => entry.value), { value: picked }], true);
           }}><FolderOpenIcon />{t("browse")}</Button>
         </div>

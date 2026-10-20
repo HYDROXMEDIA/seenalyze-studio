@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 const state = globalThis.__recordingFixesTest = { devices: [], handlers: new Map(), windows: [], response: 1, trashed: [], changed: 0 };
 class Window extends EventEmitter {
   destroyed = false;
-  webContents = {};
+  webContents = { on() {} };
   constructor() { super(); state.windows.push(this); }
   isDestroyed() { return this.destroyed; }
   async loadFile() {}

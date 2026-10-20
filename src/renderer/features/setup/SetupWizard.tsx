@@ -168,60 +168,78 @@ function Wizard({ snapshot, firstRun, onClose }: { snapshot: StudioSnapshot; fir
     }
   };
 
-  const addLayout = async (choice: StarterLayout, target: VideoSettings) => {
-    const scene = uniqueSceneName(t(`layouts.${choice}`), snapshot.scenes.map((entry) => entry.name));
-    const created = await run(async () => {
-      await studio.createScene(scene);
-      return true;
+  /** Runs one setup action; a failure is shown by `run` and counted, so the result can say setup was incomplete. */
+  const attempt = async (call: () => Promise<unknown>, failed: { count: number }): Promise<boolean> => {
+    const ok = await run(async () => {
+      await call();
+      return true as const;
     });
-    if (!created) return;
+    if (!ok) failed.count += 1;
+    return ok === true;
+  };
+
+  const addLayout = async (choice: StarterLayout, target: VideoSettings, failed: { count: number }) => {
+    const scene = uniqueSceneName(t(`layouts.${choice}`), snapshot.scenes.map((entry) => entry.name));
+    if (!(await attempt(() => studio.createScene(scene), failed))) return;
     for (const source of layoutSources(choice, target.baseWidth, target.baseHeight)) {
       const name = await run(() => studio.addSource(scene, source.kind, tRoot(`sources.kinds.${source.kind}`)));
-      if (!name || !source.transform) continue;
+      if (!name) {
+        failed.count += 1;
+        continue;
+      }
+      if (!source.transform) continue;
       const placement = source.transform;
-      const latest = await studio.getSnapshot();
+      const latest = await run(() => studio.getSnapshot());
+      if (!latest) {
+        failed.count += 1;
+        continue;
+      }
       const item = latest.scenes.find((entry) => entry.name === scene)?.items.find((entry) => entry.sourceName === name);
-      if (item) await run(() => studio.setItemTransform(scene, item.id, placement));
+      if (item) await attempt(() => studio.setItemTransform(scene, item.id, placement), failed);
     }
-    await run(() => studio.setActiveScene(scene));
+    await attempt(() => studio.setActiveScene(scene), failed);
   };
 
   const finish = async (skippedSteps: Set<Step>) => {
     setApplying(true);
+    const failed = { count: 0 };
     let target = videoFor(skippedSteps);
     try {
       if (!skippedSteps.has("video")) {
         if (JSON.stringify(video) !== JSON.stringify(snapshot.video)) {
-          const applied = await run(async () => {
-            await studio.setVideoSettings(video);
-            return true;
-          });
           // Destinations and the layout follow the video settings actually in use.
-          if (!applied) target = snapshot.video;
+          if (!(await attempt(() => studio.setVideoSettings(video), failed))) target = snapshot.video;
         }
-        if (encoder && encoder.id !== snapshot.selectedEncoder) await run(() => studio.setEncoder(encoder.id));
+        if (encoder && encoder.id !== snapshot.selectedEncoder) await attempt(() => studio.setEncoder(encoder.id), failed);
       }
       const targetBitrates = bitratesFor(target);
       if (streams(goal) && !skippedSteps.has("accounts")) {
         for (const platform of newDestinations) {
           const account = accountFor(platform);
           if (!account) continue;
-          await run(() =>
-            studio.saveDestination({
-              platform,
-              name: tRoot(`destinations.platforms.${platform}`),
-              enabled: true,
-              mode: "account",
-              server: "",
-              accountId: account.id,
-              profile: setupProfile(platform, target, targetBitrates[platform] ?? bitrateRange(platform, target.outputHeight, target.fps).recommended),
-            }),
+          await attempt(
+            () =>
+              studio.saveDestination({
+                platform,
+                name: tRoot(`destinations.platforms.${platform}`),
+                enabled: true,
+                mode: "account",
+                server: "",
+                accountId: account.id,
+                profile: setupProfile(platform, target, targetBitrates[platform] ?? bitrateRange(platform, target.outputHeight, target.fps).recommended),
+              }),
+            failed,
           );
         }
       }
-      if (!skippedSteps.has("layout") && layout !== "none" && layoutAvailable(layout, snapshot.availableSourceKinds)) await addLayout(layout, target);
-      toast.success(t("done"));
+      if (!skippedSteps.has("layout") && layout !== "none" && layoutAvailable(layout, snapshot.availableSourceKinds)) await addLayout(layout, target, failed);
+    } catch (error) {
+      console.error("[setup] could not finish", error);
+      failed.count += 1;
     } finally {
+      // Setup never claims success for steps that failed; what did work is kept.
+      if (failed.count > 0) toast.warning(t("donePartial"));
+      else toast.success(t("done"));
       setApplying(false);
       onClose();
     }
