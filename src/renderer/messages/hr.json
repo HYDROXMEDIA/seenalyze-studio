@@ -180,6 +180,7 @@
     "choose": "Odaberi…",
     "refresh": "Osvježi",
     "loadFailed": "Postavke se nisu mogle učitati. Osvježi i pokušaj ponovno.",
+    "invalidUrl": "Unesi web adresu koja počinje s http:// ili https://.",
     "noOptions": "Ništa nije pronađeno. Poveži uređaj ili otvori aplikaciju pa osvježi.",
     "onePerLine": "Jedna datoteka ili adresa po retku",
     "fontFamily": "Font",

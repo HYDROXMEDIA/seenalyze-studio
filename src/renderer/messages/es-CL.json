@@ -180,6 +180,7 @@
     "choose": "Elegir…",
     "refresh": "Actualizar",
     "loadFailed": "No se pudieron cargar las opciones. Actualiza para volver a intentarlo.",
+    "invalidUrl": "Ingresa una dirección web que empiece con http:// o https://.",
     "noOptions": "No se encontró nada. Conecta tu dispositivo o abre la aplicación y luego actualiza.",
     "onePerLine": "Un archivo o dirección por línea",
     "fontFamily": "Fuente",

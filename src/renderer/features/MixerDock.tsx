@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/overlay
 import { Tooltip } from "@/components/ui/tooltip";
 import { deflectionToDb, formatDb, MIN_DB, meterChannels, meterDeflection } from "@/lib/audio-meter";
 import { studio } from "@/lib/studio";
+import { clampVolume } from "@/lib/limits";
 import { useAction } from "@/lib/use-action";
 import { cn } from "@/lib/utils";
 import { useStudio } from "@/store/studio";
@@ -120,7 +121,10 @@ const MixerChannel = memo(function MixerChannel({
           value={[deflection]}
           aria-label={t("volume", { name })}
           aria-valuetext={formatDb(deflectionToDb(deflection))}
-          onValueChange={([value]) => void run(() => studio.setVolume(name, value))}
+          onValueChange={([value]) => {
+            const volume = clampVolume(value);
+            if (volume !== null) void run(() => studio.setVolume(name, volume));
+          }}
         />
         <span className={cn("w-14 shrink-0 truncate text-right text-xs tabular-nums", muted ? "text-red-500" : "text-muted-foreground")}>
           {muted ? t("muted") : formatDb(deflectionToDb(deflection))}

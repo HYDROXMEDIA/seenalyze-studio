@@ -180,6 +180,7 @@
     "choose": "Vybrat…",
     "refresh": "Obnovit",
     "loadFailed": "Nastavení se nepodařilo načíst. Zkuste to znovu obnovením.",
+    "invalidUrl": "Zadejte webovou adresu, která začíná http:// nebo https://.",
     "noOptions": "Nic nenalezeno. Připojte zařízení nebo otevřete aplikaci a pak obnovte.",
     "onePerLine": "Jeden soubor nebo adresa na řádek",
     "fontFamily": "Písmo",

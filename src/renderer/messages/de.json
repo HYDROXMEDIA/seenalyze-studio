@@ -180,6 +180,7 @@
     "choose": "Auswählen…",
     "refresh": "Aktualisieren",
     "loadFailed": "Die Einstellungen konnten nicht geladen werden. Aktualisieren Sie, um es erneut zu versuchen.",
+    "invalidUrl": "Geben Sie eine Webadresse ein, die mit http:// oder https:// beginnt.",
     "noOptions": "Nichts gefunden. Schließen Sie Ihr Gerät an oder öffnen Sie die App und aktualisieren Sie dann.",
     "onePerLine": "Eine Datei oder Adresse pro Zeile",
     "fontFamily": "Schriftart",

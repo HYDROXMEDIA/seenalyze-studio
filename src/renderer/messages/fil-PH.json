@@ -180,6 +180,7 @@
     "choose": "Pumili…",
     "refresh": "I-refresh",
     "loadFailed": "Hindi ma-load ang mga setting. I-refresh para subukan muli.",
+    "invalidUrl": "Maglagay ng web address na nagsisimula sa http:// o https://.",
     "noOptions": "Walang nakita. Ikonekta ang iyong device o buksan ang app, pagkatapos ay i-refresh.",
     "onePerLine": "Isang file o address bawat linya",
     "fontFamily": "Font",

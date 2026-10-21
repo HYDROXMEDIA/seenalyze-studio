@@ -180,6 +180,7 @@
     "choose": "Kiválasztás…",
     "refresh": "Frissítés",
     "loadFailed": "Nem sikerült betölteni a beállításokat. Frissíts az újrapróbálkozáshoz.",
+    "invalidUrl": "Adj meg egy http:// vagy https:// kezdetű webcímet.",
     "noOptions": "Nincs találat. Csatlakoztasd az eszközt vagy nyisd meg az alkalmazást, majd frissíts.",
     "onePerLine": "Soronként egy fájl vagy cím",
     "fontFamily": "Betűtípus",

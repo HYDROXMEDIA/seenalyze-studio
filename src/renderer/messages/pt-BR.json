@@ -180,6 +180,7 @@
     "choose": "Escolher…",
     "refresh": "Atualizar",
     "loadFailed": "Não foi possível carregar as configurações. Atualize para tentar novamente.",
+    "invalidUrl": "Digite um endereço da web que comece com http:// ou https://.",
     "noOptions": "Nada encontrado. Conecte o dispositivo ou abra o aplicativo e atualize.",
     "onePerLine": "Um arquivo ou endereço por linha",
     "fontFamily": "Fonte",

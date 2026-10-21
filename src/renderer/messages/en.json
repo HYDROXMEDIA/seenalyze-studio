@@ -180,6 +180,7 @@
     "choose": "Choose…",
     "refresh": "Refresh",
     "loadFailed": "Settings couldn't be loaded. Refresh to try again.",
+    "invalidUrl": "Enter a web address that starts with http:// or https://.",
     "noOptions": "Nothing found. Connect your device or open the app, then refresh.",
     "onePerLine": "One file or address per line",
     "fontFamily": "Font",

@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/overlays";
 import { studio } from "@/lib/studio";
+import { BROADCAST_PRIVACY, broadcastPrivacy } from "@/lib/limits";
 import { useAction } from "@/lib/use-action";
 import { cn } from "@/lib/utils";
 
@@ -192,12 +193,12 @@ function InfoForm({ destination, onClose }: { destination: DestinationConfig; on
 
         {destination.platform === "youtube" && !picked && (
           <Field label={t("privacy")} htmlFor="broadcast-privacy">
-            <Select value={info.privacy ?? "public"} onValueChange={(value) => setInfo({ ...info, privacy: value as BroadcastInfo["privacy"] })}>
+            <Select value={broadcastPrivacy(info.privacy)} onValueChange={(value) => setInfo({ ...info, privacy: broadcastPrivacy(value) })}>
               <SelectTrigger id="broadcast-privacy">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {(["public", "unlisted", "private"] as const).map((privacy) => (
+                {BROADCAST_PRIVACY.map((privacy) => (
                   <SelectItem key={privacy} value={privacy}>
                     {t(`privacyOptions.${privacy}`)}
                   </SelectItem>
@@ -216,7 +217,9 @@ function InfoForm({ destination, onClose }: { destination: DestinationConfig; on
           onClick={async () => {
             setPending(true);
             const ok = await run(async () => {
-              await studio.setBroadcastInfo(destination.id, { ...info, youtubeBroadcastId: picked });
+              // Sends the privacy the form shows; only YouTube has one.
+              const privacy = destination.platform === "youtube" ? broadcastPrivacy(info.privacy) : undefined;
+              await studio.setBroadcastInfo(destination.id, { ...info, privacy, youtubeBroadcastId: picked });
               return true;
             });
             setPending(false);
