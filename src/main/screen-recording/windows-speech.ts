@@ -51,7 +51,7 @@ export function checkWindowsSpeechRuntime(server: string): Promise<void> {
       if (!error) { resolve(); return; }
       // STATUS_DLL_NOT_FOUND may be reported as signed or unsigned on Windows.
       if (Number(error.code) === 3221225781 || Number(error.code) === -1073741515) reject(new WindowsRuntimeUnavailable());
-      else reject(new Error('Local speech runtime could not start. Retry setup.'));
+      else reject(new Error('caption-start-failed'));
     });
   });
 }

@@ -398,7 +398,10 @@ export class EditorWindows {
     ipcMain.handle('editor:subtitles-export', async (event, text, format) => {
       const entry = this.entryFor(event); if (!entry || typeof text !== 'string' || text.length > 8_000_000 || !['srt', 'vtt'].includes(format)) return false;
       const result = await dialog.showSaveDialog(entry.window, { defaultPath: `${basename(entry.videoPath, extname(entry.videoPath))}.${format}`, filters: [{ name: t('dialogs.subtitles'), extensions: [format] }] });
-      if (result.canceled || !result.filePath) return false; await writeAtomic(result.filePath, text, false, () => true, 0o644); return true;
+      if (result.canceled || !result.filePath) return false;
+      try { await writeAtomic(result.filePath, text, false, () => true, 0o644); }
+      catch (error) { this.deps.log(`Subtitles could not be exported: ${errorText(error)}`); throw error; }
+      return true;
     });
     ipcMain.handle('editor:discard' , async (event) => {
       const entry = this.entryFor(event);

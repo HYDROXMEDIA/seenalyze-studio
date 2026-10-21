@@ -44,6 +44,7 @@ async function audioTrack(config) {
       }));
     } catch (error) {
       console.warn('Microphone unavailable', error);
+      api.noMicrophone();
     }
   }
   if (sources.length === 0) return null;

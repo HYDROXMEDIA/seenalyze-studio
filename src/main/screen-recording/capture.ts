@@ -335,7 +335,11 @@ export class CaptureController {
 
     ipcMain.handle('capture:microphone-access', async (event) => {
       if (this.displayIdFor(event) === null) return false;
-      return process.platform !== 'darwin' || await systemPreferences.askForMediaAccess('microphone').catch(() => false);
+      return process.platform !== 'darwin' || await systemPreferences.askForMediaAccess('microphone').catch((error: unknown) => {
+        // Treated as no access, so the picker shows the microphone as unavailable; the cause is kept in the log.
+        this.deps.log(`Microphone access could not be requested: ${error instanceof Error ? error.message : String(error)}`);
+        return false;
+      });
     });
 
     ipcMain.handle('capture:choose-folder', async (event) => {

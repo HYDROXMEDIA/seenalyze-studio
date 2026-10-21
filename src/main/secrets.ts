@@ -39,6 +39,9 @@ export function setSecret(name: string, value: string): void {
 export function getSecret(name: string): string | null {
   const encrypted = load()[name];
   if (!encrypted) return null;
+  // Before the app is ready, or while a Linux keyring is still locked, nothing can be decrypted.
+  // The stored value is still good then, so it is kept and the caller reports the storage problem.
+  if (!safeStorage.isEncryptionAvailable()) throw new Error("secure-storage-locked");
   try {
     return safeStorage.decryptString(Buffer.from(encrypted, "base64"));
   } catch (error) {

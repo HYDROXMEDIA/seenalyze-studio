@@ -596,6 +596,7 @@ export class RecordingController {
       if (session === null || session.finished) return;
       session.finished = true;
       void (async () => {
+        let saved = false;
         try {
           await session.writing;
           if (session.ended) return;
@@ -608,10 +609,20 @@ export class RecordingController {
             });
             if (session.ended) return;
             this.deps.log('Screen recording saved');
+            saved = true;
             await this.deps.onSaved(session.filePath);
           }
         } catch (error) {
-          this.deps.log(`Screen recording could not be saved: ${error instanceof Error ? error.message : String(error)}`);
+          const reason = error instanceof Error ? error.message : String(error);
+          if (saved) {
+            // The file is in place; only opening it in the editor failed.
+            this.deps.log(`Saved recording could not be opened: ${reason}`);
+          } else {
+            // A write failure after the last chunk: report it like any other failed recording
+            // (keeps and opens what was written, or removes an empty file) instead of only logging it.
+            session.finished = false;
+            await this.fail(session, `could not be saved: ${reason}`);
+          }
         } finally {
           session.interactions.stop();
           this.end(session);
@@ -624,6 +635,12 @@ export class RecordingController {
       if (session === null || session.finished) return;
       session.interactions.begin();
       if (this.shuttingDown) this.stop();
+    });
+
+    // The built-in recorder could not open the chosen microphone; the user sees the same notice as on the native path.
+    ipcMain.on('recorder:no-microphone', (event) => {
+      const session = this.sessionFor(event);
+      if (session !== null && !session.finished) this.deps.onNotice('noMicrophone');
     });
 
     ipcMain.on('recorder:stop-clicked', (event) => {

@@ -84,3 +84,29 @@ describe("overlay server", () => {
     expect((await fetch(`${base}/secrets`)).status).toBe(404);
   });
 });
+
+describe("overlay request handling", () => {
+  test("a malformed request address is rejected instead of throwing", () => {
+    const overlay = new OverlayServer(feed());
+    let status = 0;
+    const response = {
+      writeHead(code: number) {
+        status = code;
+        return this;
+      },
+      end() {
+        return this;
+      },
+    };
+    const warn = console.warn;
+    // The rejection is logged on purpose; keep the test output clean.
+    console.warn = () => undefined;
+    try {
+      const route = overlay["route"].bind(overlay) as (request: unknown, response: unknown) => void;
+      expect(() => route({ url: "http://[bad", method: "GET", headers: { host: "127.0.0.1:0" } }, response)).not.toThrow();
+    } finally {
+      console.warn = warn;
+    }
+    expect(status).toBe(400);
+  });
+});

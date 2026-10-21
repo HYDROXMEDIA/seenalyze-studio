@@ -3,7 +3,7 @@ import { pathToFileURL } from "node:url";
 import { app, BrowserWindow, ipcMain, nativeTheme, screen, session, shell } from "electron";
 import { IPC, STUDIO_ERROR_PREFIX, STUDIO_METHODS, type StudioMethod } from "../shared/ipc";
 import { setVendorRoot } from "./engine/osn";
-import { appendLog, installAppLog } from "./log";
+import { appendLog, flushAppLog, installAppLog } from "./log";
 import { PREVIEW_EDITOR_HASH, PREVIEW_EDITOR_METHODS, PreviewEditorWindow } from "./preview-editor-window";
 import { PROJECTOR_HASH } from "./projectors";
 import { registerMediaScheme } from "./screen-recording";
@@ -232,7 +232,10 @@ app.on("before-quit", (event) => {
   current
     .shutdown()
     .catch((error: unknown) => console.error("[app] shutdown failed", error))
-    .finally(() => app.exit(0));
+    .finally(() => {
+      flushAppLog();
+      app.exit(0);
+    });
 });
 
 app.on("window-all-closed", () => {

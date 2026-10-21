@@ -227,13 +227,25 @@ export class ScreenRecorder {
 
   async shutdown(): Promise<void> {
     this.shuttingDown = true;
-    this.capture.cancel('Quitting');
-    await this.recordings.shutdown();
-    await Promise.race([this.editors.shutdown(), new Promise((resolve) => setTimeout(resolve, 3000))]);
-    this.editors.closeAll();
-    this.controls.hide();
-    this.facecam.close();
-    await this.speech.shutdown();
+    // Each step runs even when an earlier one fails, so a failed recording stop never leaves the
+    // caption recognizer or a helper window running after the app quits. The first failure is reported.
+    const failures: unknown[] = [];
+    const step = async (label: string, run: () => unknown): Promise<void> => {
+      try {
+        await run();
+      } catch (error) {
+        console.error(`[screen-recording] ${label} failed while quitting`, error);
+        failures.push(error);
+      }
+    };
+    await step('capture cancel', () => this.capture.cancel('Quitting'));
+    await step('recording stop', () => this.recordings.shutdown());
+    await step('editor save', () => Promise.race([this.editors.shutdown(), new Promise((resolve) => setTimeout(resolve, 3000))]));
+    await step('editor close', () => this.editors.closeAll());
+    await step('controls close', () => this.controls.hide());
+    await step('camera close', () => this.facecam.close());
+    await step('caption recognizer stop', () => this.speech.shutdown());
+    if (failures.length > 0) throw failures[0];
   }
 
   private controlsState(): { startedAt: number; pausedAt: number | null } {

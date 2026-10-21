@@ -71,13 +71,13 @@ function deferred() {
   const promise = new Promise((done) => { resolve = done; });
   return { promise, resolve };
 }
-function controller({ native = false, onSaved = async () => {} } = {}) {
+function controller({ native = false, onSaved = async () => {}, failures = [] } = {}) {
   const changes = [];
   const saved = [];
   const recorder = new RecordingController({
     log() {},
     outputDirectory: () => temporary, nativeRecorderPath: () => native ? '/test/recorder' : null,
-    onStateChange: (recording) => changes.push(recording), onPauseChange() {}, onFailed() {}, onNotice() {},
+    onStateChange: (recording) => changes.push(recording), onPauseChange() {}, onFailed: (kind) => failures.push(kind), onNotice() {},
     facecam: { hint: () => null, open() {}, close: () => null },
     onSaved: async (path) => { saved.push(path); await onSaved(); }
   });
@@ -182,4 +182,22 @@ test('a native helper that never starts is killed and startup settles on quit', 
   capture.handlers.onEnded('stopped');
   assert.deepEqual(changes, []);
   state.autoStart = true;
+});
+
+test('a write failure after the last chunk is reported instead of only logged', async () => {
+  const failures = [];
+  const { recorder, changes, saved } = controller({ failures });
+  assert.equal(await recorder.start(request), true);
+  const window = state.windows.at(-1);
+  assert.equal(await invoke(window, 'recorder:begin', 'webm'), true);
+  emit(window, 'recorder:started');
+  // The file can no longer be written (for example the disk went away) when the last chunk arrives.
+  recorder.session.stream.destroy();
+  emit(window, 'recorder:chunk', new Uint8Array([1, 2, 3]));
+  emit(window, 'recorder:done');
+  for (let attempt = 0; attempt < 50 && recorder.isRecording(); attempt++) await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.deepEqual(failures, ['stopped']);
+  assert.equal(saved.length, 0);
+  assert.equal(recorder.isRecording(), false);
+  assert.deepEqual(changes, [true, false]);
 });

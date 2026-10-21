@@ -57,6 +57,7 @@ import * as twitch from "./platforms/twitch";
 import { forgetToken, readToken } from "./platforms/tokens";
 import * as youtube from "./platforms/youtube";
 import { deleteSecret, getSecret, hasSecret, secretNames, setSecret } from "./secrets";
+import { SnapshotGate } from "./snapshot-gate";
 import { debounced, readJson, takeMovedAsideFiles, writeJson } from "./store";
 import { CollectionFiles, migrateWorkspace, type WorkspaceFields } from "./collections";
 import { Workspace } from "./workspace";
@@ -66,6 +67,7 @@ import { availablePresets, isStingerPath, parseTransition, sanitizeTransition, S
 import { virtualCameraAvailability, virtualCameraScene, type VirtualCameraProbe } from "../shared/virtual-camera";
 import { sanitizePlacement, sanitizeTransformPatch } from "../shared/transform-geometry";
 import { effectSuitsSource, isEffectKind, sanitizeEffectSnapshots } from "../shared/video-effects";
+import { requireBoolean, requireBroadcastInfo, requireDeflection, requireDestinationDraft, requireExternalUrl, requireIdList, requireIndex, requireItemId, requireName, requireObject, requireSourceKind, requireSourceSettings } from "./ipc-validate";
 
 type AccountRecord =
   | ({ platform: "twitch" } & twitch.TwitchAccount & { login?: string })
@@ -271,8 +273,10 @@ export class Studio {
   private readonly pushSnapshot = debounced(() => {
     this.projectors?.refresh();
     this.syncKeepAwake();
-    this.send(IPC.snapshot, this.snapshot());
+    const snapshot = this.snapshot();
+    if (this.snapshotGate.changed(snapshot)) this.send(IPC.snapshot, snapshot);
   }, 30);
+  private readonly snapshotGate = new SnapshotGate();
   private keepAwakeId: number | null = null;
   private readonly hotkeys = new HotkeyManager(
     { trigger: (action) => this.runHotkey(action), hold: (action, down) => this.holdHotkey(action, down) },
@@ -339,7 +343,10 @@ export class Studio {
     window.on("restore", () => this.applyDisplays());
     window.on("focus", () => this.hotkeys.recheckInputAccess());
     // The editor window shows its own snapshot once it has loaded.
-    editor?.window.webContents.on("did-finish-load", () => this.pushSnapshot());
+    editor?.window.webContents.on("did-finish-load", () => {
+      this.snapshotGate.reset();
+      this.pushSnapshot();
+    });
   }
 
   // ----- lifecycle ----------------------------------------------------------
@@ -431,8 +438,9 @@ export class Studio {
   readonly api: Pick<StudioApi, StudioMethod> = {
     getSnapshot: async () => this.snapshot(),
 
-    createScene: async (name) => this.mutate(() => this.engine.call("createScene", name)),
+    createScene: async (name) => this.mutate(() => this.engine.call("createScene", requireName(name))),
     removeScene: async (name) => {
+      requireName(name);
       await this.projectors?.closeShowing("scene", name);
       // The preview moves off the scene first, to the program or the next scene.
       if (this.state.studioMode && this.previewScene === name) {
@@ -444,6 +452,8 @@ export class Studio {
       if (this.state.virtualCamera.scene === name) await this.api.setVirtualCameraScene(null);
     },
     renameScene: async (name, nextName) => {
+      requireName(name);
+      requireName(nextName);
       // The preview keeps showing the same scene object; only its name changes.
       const previewing = this.previewScene === name;
       if (previewing) this.previewScene = String(nextName).trim();
@@ -457,7 +467,7 @@ export class Studio {
       if (this.state.virtualCamera.scene === name) await this.api.setVirtualCameraScene(nextName.trim());
     },
     // In studio mode a scene loads into the preview; Transition sends it to the program.
-    setActiveScene: async (name) => (this.state.studioMode ? this.setPreviewScene(String(name)) : this.mutate(() => this.engine.call("setActiveScene", name))),
+    setActiveScene: async (name) => (this.state.studioMode ? this.setPreviewScene(requireName(name)) : this.mutate(() => this.engine.call("setActiveScene", requireName(name)))),
     setStudioMode: async (enabled) => {
       const next = Boolean(enabled);
       if (next === this.state.studioMode) return;
@@ -500,7 +510,7 @@ export class Studio {
       const clean = choice === null ? null : parseTransition(choice);
       if (choice !== null && !clean) throw new Error("invalid-request");
       if (clean && !stingerFileOk(clean)) throw new Error("stinger-file-missing");
-      await this.mutate(() => this.engine.call("setSceneTransition", String(scene), clean));
+      await this.mutate(() => this.engine.call("setSceneTransition", requireName(scene), clean));
     },
     pickStingerFile: async () => {
       const result = await dialog.showOpenDialog(this.window, {
@@ -539,7 +549,7 @@ export class Studio {
     },
     setVirtualCameraScene: async (scene) => {
       const names = this.engineState?.scenes.map((entry) => entry.name) ?? [];
-      if (scene !== null && !names.includes(String(scene))) throw new Error("scene-not-found");
+      if (scene !== null && !names.includes(requireName(scene))) throw new Error("scene-not-found");
       const clean = virtualCameraScene(scene, names);
       this.state.virtualCamera = { scene: clean };
       this.persist();
@@ -548,19 +558,24 @@ export class Studio {
     },
 
     addSource: async (scene, kind, name) => {
+      requireName(scene);
+      requireSourceKind(kind);
+      requireName(name);
       await this.ensureCapturePermission(kind);
       const settings = kind === "chatOverlay" ? { url: this.overlay.chatUrl } : undefined;
       return this.mutate(() => this.engine.call("addSource", scene, kind, name, settings));
     },
-    listSourceChoices: async (scene) => this.engine.call("listSourceChoices", scene),
-    addExistingSource: async (scene, source) => this.mutate(() => this.engine.call("addExistingSource", scene, source)),
-    removeSceneItem: async (scene, itemId) => this.mutate(() => this.engine.call("removeSceneItem", scene, itemId)),
-    setItemVisible: async (scene, itemId, visible) => this.mutate(() => this.engine.call("setItemVisible", scene, itemId, visible)),
-    setItemLocked: async (scene, itemId, locked) => this.mutate(() => this.engine.call("setItemLocked", scene, itemId, locked)),
-    moveSceneItem: async (scene, itemId, direction) => this.mutate(() => this.engine.call("moveSceneItem", scene, itemId, direction)),
-    reorderSceneItem: async (scene, itemId, index) => this.mutate(() => this.engine.call("reorderSceneItem", String(scene), Number(itemId), Number(index))),
-    applyTransform: async (scene, itemId, preset) => this.canvasEdit(scene, itemId, () => this.engine.call("applyTransform", scene, itemId, preset)),
+    listSourceChoices: async (scene) => this.engine.call("listSourceChoices", requireName(scene)),
+    addExistingSource: async (scene, source) => this.mutate(() => this.engine.call("addExistingSource", requireName(scene), requireName(source))),
+    removeSceneItem: async (scene, itemId) => this.mutate(() => this.engine.call("removeSceneItem", requireName(scene), requireItemId(itemId))),
+    setItemVisible: async (scene, itemId, visible) => this.mutate(() => this.engine.call("setItemVisible", requireName(scene), requireItemId(itemId), requireBoolean(visible))),
+    setItemLocked: async (scene, itemId, locked) => this.mutate(() => this.engine.call("setItemLocked", requireName(scene), requireItemId(itemId), requireBoolean(locked))),
+    moveSceneItem: async (scene, itemId, direction) => this.mutate(() => this.engine.call("moveSceneItem", requireName(scene), requireItemId(itemId), direction === "up" ? "up" : "down")),
+    reorderSceneItem: async (scene, itemId, index) => this.mutate(() => this.engine.call("reorderSceneItem", requireName(scene), requireItemId(itemId), requireIndex(index))),
+    applyTransform: async (scene, itemId, preset) => this.canvasEdit(requireName(scene), requireItemId(itemId), () => this.engine.call("applyTransform", scene, itemId, preset)),
     patchItemTransform: async (scene, itemId, patch, commit) => {
+      requireName(scene);
+      requireItemId(itemId);
       const clean = sanitizeTransformPatch(patch);
       const key = `${scene}\u0000${itemId}`;
       // Live drag updates only touch the engine; the drag end refreshes, saves
@@ -588,32 +603,34 @@ export class Studio {
       if (!this.engine.running || !this.engineState) return;
       await this.engine.call("setSelectedItem", scene, typeof itemId === "number" ? itemId : null);
     },
-    getItemTransform: async (scene, itemId) => this.engine.call("getItemTransform", scene, itemId),
+    getItemTransform: async (scene, itemId) => this.engine.call("getItemTransform", requireName(scene), requireItemId(itemId)),
     // A transform shown live by previewItemTransform is undone back to where it started.
-    setItemTransform: async (scene, itemId, transform) => this.canvasEdit(scene, itemId, () => this.engine.call("setItemTransform", scene, itemId, transform), `${scene}\u0000${itemId}`),
-    getSourceProperties: async (source) => this.engine.call("getProperties", source),
+    setItemTransform: async (scene, itemId, transform) => this.canvasEdit(requireName(scene), requireItemId(itemId), () => this.engine.call("setItemTransform", scene, itemId, transform), `${scene}\u0000${itemId}`),
+    getSourceProperties: async (source) => this.engine.call("getProperties", requireName(source)),
     updateSourceSettings: async (source, settings) => {
-      const result = await this.engine.call("updateSettings", source, settings);
+      const result = await this.engine.call("updateSettings", requireName(source), requireSourceSettings(settings));
       await this.refreshState();
       this.persist();
       return result;
     },
     clickSourceButton: async (source, property) => {
-      const result = await this.engine.call("clickButton", source, property);
+      const result = await this.engine.call("clickButton", requireName(source), requireName(property));
       await this.refreshState();
       this.persist();
       return result;
     },
     renameSource: async (source, nextName) => {
+      requireName(source);
+      requireName(nextName);
       await this.mutate(() => this.engine.call("renameSource", source, nextName));
       this.renameHotkeys(["mute", "pushToTalk", "pushToMute"], source, nextName);
     },
 
     moveScene: async (name, direction) => this.mutate(() => this.engine.call("moveScene", String(name), direction === "up" ? "up" : "down")),
-    reorderScene: async (name, index) => this.mutate(() => this.engine.call("reorderScene", String(name), Number(index))),
+    reorderScene: async (name, index) => this.mutate(() => this.engine.call("reorderScene", requireName(name), requireIndex(index))),
     duplicateScene: async (name) => this.mutate(() => this.engine.call("duplicateScene", String(name))),
-    duplicateSceneItem: async (scene, itemId) => this.mutate(() => this.engine.call("duplicateSceneItem", String(scene), Number(itemId))),
-    getItemPlacement: async (scene, itemId) => this.engine.call("getItemPlacement", String(scene), Number(itemId)),
+    duplicateSceneItem: async (scene, itemId) => this.mutate(() => this.engine.call("duplicateSceneItem", requireName(scene), requireItemId(itemId))),
+    getItemPlacement: async (scene, itemId) => this.engine.call("getItemPlacement", requireName(scene), requireItemId(itemId)),
     setItemPlacement: async (scene, itemId, placement) => {
       const clean = sanitizePlacement(placement);
       if (!clean) throw new Error("invalid-transform");
@@ -651,8 +668,10 @@ export class Studio {
       return result.canceled ? null : (result.filePaths[0] ?? null);
     },
 
-    setVolume: async (source, deflection) => this.setVolume(String(source), Number(deflection)),
+    setVolume: async (source, deflection) => this.setVolume(requireName(source), requireDeflection(deflection)),
     setMuted: async (source, muted) => {
+      requireName(source);
+      requireBoolean(muted);
       // Unmuting a microphone opens its device, which needs OS access first.
       if (!muted && this.engineState?.audio.find((entry) => entry.name === source)?.microphone) {
         await this.ensureCapturePermission("microphone");
@@ -766,6 +785,9 @@ export class Studio {
       this.window.webContents.send(IPC.sourceMenu, { itemId, x, y });
     },
     previewItemTransform: async (scene, itemId, transform) => {
+      requireName(scene);
+      requireItemId(itemId);
+      if (transform !== null) requireObject(transform);
       const key = `${scene}\u0000${itemId}`;
       return this.inCanvasQueue(async () => {
         if (transform) {
@@ -788,7 +810,7 @@ export class Studio {
 
     setVideoSettings: async (settings) => {
       if (this.busy) throw new Error("settings-locked-live");
-      const clean = sanitizeVideo(settings);
+      const clean = sanitizeVideo(requireObject(settings) as unknown as VideoSettings);
       await this.engine.call("applyVideo", clean);
       this.state.video = clean;
       // The preview surface is tied to the old canvas; rebuild it.
@@ -819,6 +841,7 @@ export class Studio {
       return this.state.recordingFolder;
     },
     setPreferences: async (patch) => {
+      requireObject(patch);
       const streaming = [...this.statuses.values()].some((status) => ACTIVE_STATES.has(status.state));
       if (streaming && ("confirmGoLive" in patch || "confirmEndStream" in patch || "keepAwakeWhileLive" in patch)) throw new Error("settings-locked-live");
       this.state.preferences = sanitizePreferences({ ...this.state.preferences, ...patch });
@@ -827,6 +850,7 @@ export class Studio {
       await this.syncReplay();
     },
     setAdvancedSettings: async (patch) => {
+      requireObject(patch);
       // Applies to stream outputs, which are configured when a stream starts.
       if ([...this.statuses.values()].some((status) => ACTIVE_STATES.has(status.state))) throw new Error("settings-locked-live");
       this.state.advanced = sanitizeAdvanced({ ...this.state.advanced, ...patch });
@@ -834,15 +858,15 @@ export class Studio {
       this.pushSnapshot();
     },
     createCollection: async (name) => this.workspace.createCollection(name),
-    renameCollection: async (id, name) => this.workspace.renameCollection(String(id), name),
-    duplicateCollection: async (id, name) => this.workspace.duplicateCollection(String(id), name),
-    removeCollection: async (id) => this.workspace.removeCollection(String(id)),
-    switchCollection: async (id) => this.workspace.switchCollection(String(id)),
+    renameCollection: async (id, name) => this.workspace.renameCollection(requireName(id), name),
+    duplicateCollection: async (id, name) => this.workspace.duplicateCollection(requireName(id), name),
+    removeCollection: async (id) => this.workspace.removeCollection(requireName(id)),
+    switchCollection: async (id) => this.workspace.switchCollection(requireName(id)),
     createProfile: async (name) => this.workspace.createProfile(name),
-    renameProfile: async (id, name) => this.workspace.renameProfile(String(id), name),
-    duplicateProfile: async (id, name) => this.workspace.duplicateProfile(String(id), name),
-    removeProfile: async (id) => this.workspace.removeProfile(String(id)),
-    switchProfile: async (id) => this.workspace.switchProfile(String(id)),
+    renameProfile: async (id, name) => this.workspace.renameProfile(requireName(id), name),
+    duplicateProfile: async (id, name) => this.workspace.duplicateProfile(requireName(id), name),
+    removeProfile: async (id) => this.workspace.removeProfile(requireName(id)),
+    switchProfile: async (id) => this.workspace.switchProfile(requireName(id)),
     setOutputFormats: async (patch) => this.workspace.setFormats(patch && typeof patch === "object" ? patch : {}),
     findImports: async () => findImportCandidates(importRoots(process.platform, app.getPath("home"), app.getPath("appData")), process.platform),
     importCollection: async (candidateId, switchTo) => {
@@ -867,8 +891,9 @@ export class Studio {
       this.pushSnapshot();
     },
 
-    saveDestination: async (draft) => this.saveDestination(draft),
+    saveDestination: async (draft) => this.saveDestination(requireDestinationDraft(draft)),
     removeDestination: async (id) => {
+      requireName(id);
       if (this.isLive(id)) throw new Error("destination-live");
       this.state.destinations = this.state.destinations.filter((destination) => destination.id !== id);
       delete this.state.broadcastInfo[id];
@@ -878,7 +903,7 @@ export class Studio {
       this.pushSnapshot();
     },
     setDestinationEnabled: async (id, enabled) => {
-      this.requireDestination(id).enabled = enabled;
+      this.requireDestination(requireName(id)).enabled = requireBoolean(enabled);
       this.persist();
       this.pushSnapshot();
     },
@@ -914,11 +939,18 @@ export class Studio {
       this.upsertAccount({ platform: "youtube", ...account });
       this.notify({ kind: "success", key: "notices.accountConnected", values: { name: account.displayName } });
     },
-    disconnectAccount: async (accountId) => {
+    disconnectAccount: async (rawAccountId) => {
+      const accountId = requireName(rawAccountId);
       const linked = this.state.destinations.filter((destination) => destination.accountId === accountId);
       if (linked.some((destination) => this.isLive(destination.id))) throw new Error("destination-live");
       const account = this.state.accounts.find((entry) => entry.id === accountId);
-      const token = readToken(accountId);
+      let token: ReturnType<typeof readToken> = null;
+      try {
+        token = readToken(accountId);
+      } catch (error) {
+        // Locked secure storage: the token can't be revoked online, but disconnecting still forgets it here.
+        console.warn("[studio] token unreadable while disconnecting", error instanceof Error ? error.message : "unknown error");
+      }
       if (account && token) {
         const revoke = account.platform === "twitch" ? twitch.revokeTwitch : youtube.revokeYouTube;
         revoke(token.accessToken).catch((error: unknown) => console.error("[studio] token revoke failed", error));
@@ -940,9 +972,11 @@ export class Studio {
       const saved = this.state.broadcastInfo[destinationId] ?? { title: "" };
       const account = this.accountFor(destination);
       if (account?.platform === "twitch") return { ...saved, ...(await twitch.twitchBroadcastInfo(account)) };
-      return { privacy: "public", ...saved };
+      // A saved destination may hold privacy: undefined (Twitch, or never chosen); the default must still apply.
+      return { ...saved, privacy: saved.privacy ?? "public" };
     },
-    setBroadcastInfo: async (destinationId, info) => {
+    setBroadcastInfo: async (destinationId, rawInfo) => {
+      const info = requireBroadcastInfo(rawInfo);
       const destination = this.requireDestination(destinationId);
       const account = this.accountFor(destination);
       if (account?.platform === "twitch") await twitch.setTwitchBroadcastInfo(account, info);
@@ -963,20 +997,23 @@ export class Studio {
       for (const { id, liveChatId } of broadcasts) if (liveChatId) this.scheduledChatIds.set(id, liveChatId);
       return broadcasts.map(({ liveChatId: _chat, ...option }) => option);
     },
-    searchCategories: async (accountId, query) => twitch.searchTwitchCategories(accountId, query),
+    searchCategories: async (accountId, query) => {
+      if (typeof query !== "string" || query.length > 200) throw new Error("invalid-request");
+      return twitch.searchTwitchCategories(requireName(accountId), query);
+    },
     openExternal: async (url) => {
-      const parsed = new URL(url);
-      if (parsed.protocol !== "https:") throw new Error("invalid-url");
-      await shell.openExternal(parsed.toString());
+      await shell.openExternal(requireExternalUrl(url));
     },
 
-    goLive: async (destinationIds) => {
+    goLive: async (rawIds) => {
+      const destinationIds = requireIdList(rawIds);
       // A new attempt by the user may fall back to the software encoder again.
       for (const id of destinationIds) this.encoderRetried.delete(id);
       return this.goLive(destinationIds);
     },
-    checkStream: async (destinationIds) => this.checkStream(destinationIds),
-    endStream: async (destinationIds) => {
+    checkStream: async (destinationIds) => this.checkStream(requireIdList(destinationIds)),
+    endStream: async (rawIds) => {
+      const destinationIds = requireIdList(rawIds);
       for (const id of destinationIds) {
         const preparation = this.preparations.get(id);
         if (!preparation) continue;
@@ -1063,10 +1100,10 @@ export class Studio {
     listOverlays: async () => this.library.list(),
     listOverlayPresets: async () =>
       OVERLAY_PRESETS.map(({ id, name, kind, description, accent, width, height }) => ({ id, name, kind, description, accent, width, height })),
-    getOverlay: async (id) => this.library.require(String(id)),
+    getOverlay: async (id) => this.library.require(requireName(id)),
     createOverlayFromPreset: async (presetId) => summarize(this.library.createFromPreset(String(presetId))),
     updateOverlay: async (id, patch) => {
-      const before = this.library.require(String(id));
+      const before = this.library.require(requireName(id));
       const overlay = this.library.update(before.id, patch ?? {});
       if (patch?.values) this.overlay.pushSettings(overlay);
       if (overlay.width !== before.width || overlay.height !== before.height) {
@@ -1075,14 +1112,14 @@ export class Studio {
       return overlay;
     },
     resetOverlay: async (id) => {
-      const overlay = this.library.reset(String(id));
+      const overlay = this.library.reset(requireName(id));
       this.overlay.pushSettings(overlay);
       return overlay;
     },
-    duplicateOverlay: async (id) => summarize(this.library.duplicate(String(id))),
-    deleteOverlay: async (id) => this.library.remove(String(id)),
+    duplicateOverlay: async (id) => summarize(this.library.duplicate(requireName(id))),
+    deleteOverlay: async (id) => this.library.remove(requireName(id)),
     addOverlayToScene: async (id, scene) => {
-      const overlay = this.library.require(String(id));
+      const overlay = this.library.require(requireName(id));
       const settings = { url: this.overlay.overlayUrl(overlay.id), width: overlay.width, height: overlay.height, shutdown: false, restart_when_active: false };
       return this.mutate(() => this.engine.call("addSource", scene, "overlay", overlay.name, settings));
     },

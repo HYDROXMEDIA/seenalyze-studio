@@ -4,6 +4,7 @@
 // file is kept as main.old.log once it grows past the size limit.
 
 import { appendFileSync, mkdirSync, renameSync, statSync } from "node:fs";
+import { appendFile } from "node:fs/promises";
 import path from "node:path";
 import { format } from "node:util";
 import { app } from "electron";
@@ -21,13 +22,61 @@ export function redact(text: string): string {
     .replace(/\b(access_token|refresh_token|client_secret|code|key|token)=[^\s&"']+/giu, "$1=[redacted]");
 }
 
+let size = 0;
+/** Lines waiting for the next asynchronous write; warnings during a stream must not block the main thread. */
+let pending: string[] = [];
+let writing = false;
+
+function rotateIfLarge(target: string): void {
+  if (size <= MAX_BYTES) return;
+  try {
+    renameSync(target, path.join(path.dirname(target), "main.old.log"));
+  } catch (error) {
+    // Keep appending to the current file; the console still has every message.
+    process.stderr.write(`[log] could not rotate the app log: ${error instanceof Error ? error.message : "unknown error"}\n`);
+  }
+  size = 0;
+}
+
+function flush(): void {
+  if (writing || !file || pending.length === 0) return;
+  const target = file;
+  const chunk = pending.join("");
+  pending = [];
+  writing = true;
+  appendFile(target, chunk)
+    .then(() => {
+      size += Buffer.byteLength(chunk);
+      rotateIfLarge(target);
+    })
+    .catch((error: unknown) => {
+      // Logging must never take the app down; the console still has the message.
+      process.stderr.write(`[log] could not write the app log: ${error instanceof Error ? error.message : "unknown error"}\n`);
+    })
+    .finally(() => {
+      writing = false;
+      flush();
+    });
+}
+
+/** Writes whatever is still queued; used when the process exits or crashes. */
+export function flushAppLog(): void {
+  if (!file || pending.length === 0) return;
+  const chunk = pending.join("");
+  pending = [];
+  try {
+    appendFileSync(file, chunk);
+  } catch (error) {
+    process.stderr.write(`[log] could not write the app log: ${error instanceof Error ? error.message : "unknown error"}\n`);
+  }
+}
+
 export function appendLog(level: string, text: string): void {
   if (!file) return;
-  try {
-    appendFileSync(file, `${new Date().toISOString()} [${level}] ${redact(text.trimEnd())}\n`);
-  } catch {
-    // Logging must never take the app down; the console still has the message.
-  }
+  pending.push(`${new Date().toISOString()} [${level}] ${redact(text.trimEnd())}\n`);
+  // A crash may end the process before an asynchronous write finishes.
+  if (level === "fatal") flushAppLog();
+  else if (!writing) setImmediate(flush);
 }
 
 /** Mirrors console warnings and errors into the log file. Call once, before anything else logs. */
@@ -37,7 +86,11 @@ export function installAppLog(): void {
     mkdirSync(dir, { recursive: true });
     file = path.join(dir, "main.log");
     try {
-      if (statSync(file).size > MAX_BYTES) renameSync(file, path.join(dir, "main.old.log"));
+      size = statSync(file).size;
+      if (size > MAX_BYTES) {
+        renameSync(file, path.join(dir, "main.old.log"));
+        size = 0;
+      }
     } catch {
       // No previous log yet.
     }
@@ -56,6 +109,7 @@ export function installAppLog(): void {
     };
   }
   // The monitor variant records without changing how Electron handles the error.
+  process.on("exit", flushAppLog);
   process.on("uncaughtExceptionMonitor", (error) => appendLog("fatal", format("uncaught exception", error)));
   process.on("unhandledRejection", (reason) => appendLog("error", format("unhandled rejection", reason)));
   app.on("render-process-gone", (_event, _contents, details) => appendLog("error", format("renderer process gone", details)));

@@ -79,12 +79,19 @@ async function pollForToken(device: DeviceResponse, signal: AbortSignal): Promis
   throw new Error("sign-in-expired");
 }
 
-function refreshToken(token: StoredToken): Promise<TokenResponse> {
-  return postForm<TokenResponse>("https://id.twitch.tv/oauth2/token", {
-    client_id: clientId(),
-    grant_type: "refresh_token",
-    refresh_token: token.refreshToken ?? "",
-  });
+export async function refreshToken(token: StoredToken): Promise<TokenResponse> {
+  try {
+    return await postForm<TokenResponse>("https://id.twitch.tv/oauth2/token", {
+      client_id: clientId(),
+      grant_type: "refresh_token",
+      refresh_token: token.refreshToken ?? "",
+    });
+  } catch (error) {
+    // Twitch answers a revoked or expired refresh token with 400 and no OAuth error code,
+    // so without this the user would see a generic failure forever instead of "connect again".
+    if (error instanceof OAuthError && error.status === 400) throw new OAuthError(400, "invalid_grant");
+    throw error;
+  }
 }
 
 async function helix<T>(accountId: string, pathAndQuery: string, init: RequestInit = {}): Promise<T> {

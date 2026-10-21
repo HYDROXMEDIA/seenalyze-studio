@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('recordingRecorder', {
   started: (): void => ipcRenderer.send('recorder:started'),
   done: (): void => ipcRenderer.send('recorder:done'),
   stop: (): void => ipcRenderer.send('recorder:stop-clicked'),
+  noMicrophone: (): void => ipcRenderer.send('recorder:no-microphone'),
   error: (message: string): void => ipcRenderer.send('recorder:error', message),
   onPause: (callback: () => void): void => {
     ipcRenderer.on('recorder:pause', () => callback());

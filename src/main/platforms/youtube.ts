@@ -13,6 +13,9 @@ const SCOPE = "https://www.googleapis.com/auth/youtube";
 const API = "https://www.googleapis.com/youtube/v3";
 const SIGN_IN_TIMEOUT_MS = 5 * 60_000;
 
+/** Cancels the sign-in still waiting for its browser callback, so a new attempt never leaves the old listener open. */
+let cancelPendingSignIn: (() => void) | null = null;
+
 export interface YouTubeAccount {
   id: string;
   displayName: string;
@@ -54,33 +57,53 @@ export async function signInYouTube(callbackHtml: (ok: boolean) => string): Prom
   const challenge = base64Url(createHash("sha256").update(verifier).digest());
   const state = base64Url(randomBytes(16));
 
+  cancelPendingSignIn?.();
   const { code, redirectUri } = await new Promise<{ code: string; redirectUri: string }>((resolve, reject) => {
+    const settle = () => {
+      clearTimeout(timer);
+      server.close();
+      if (cancelPendingSignIn === cancel) cancelPendingSignIn = null;
+    };
+    const cancel = () => {
+      console.warn("[youtube] previous sign-in replaced by a new attempt");
+      settle();
+      reject(new Error("sign-in-cancelled"));
+    };
+    cancelPendingSignIn = cancel;
     const server = createServer((request, response) => {
-      const url = new URL(request.url ?? "/", "http://127.0.0.1");
+      let url: URL;
+      try {
+        url = new URL(request.url ?? "/", "http://127.0.0.1");
+      } catch (error) {
+        // A malformed request must not throw inside the handler (that would crash the app); the sign-in keeps waiting.
+        console.warn("[youtube] sign-in callback ignored a malformed request", error instanceof Error ? error.message : error);
+        response.writeHead(400).end();
+        return;
+      }
       if (url.pathname !== "/callback") {
         response.writeHead(404).end();
         return;
       }
       if (url.searchParams.get("state") !== state) {
-        response.writeHead(400).end(callbackHtml(false));
+        console.warn("[youtube] sign-in callback with another state ignored");
+        response.writeHead(400, { "Content-Type": "text/html; charset=utf-8" }).end(callbackHtml(false));
         return;
       }
       const returnedCode = url.searchParams.get("code");
       const ok = Boolean(returnedCode);
       response.writeHead(ok ? 200 : 400, { "Content-Type": "text/html; charset=utf-8" }).end(callbackHtml(ok));
-      clearTimeout(timer);
-      server.close();
+      settle();
       if (ok && returnedCode) resolve({ code: returnedCode, redirectUri });
       else reject(new Error("sign-in-cancelled"));
     });
     const timer = setTimeout(() => {
-      server.close();
+      settle();
       reject(new Error("sign-in-expired"));
     }, SIGN_IN_TIMEOUT_MS);
     let redirectUri = "";
-    const fail = () => {
-      clearTimeout(timer);
-      server.close();
+    const fail = (error: unknown) => {
+      console.error("[youtube] sign-in could not start", error instanceof Error ? error.message : error);
+      settle();
       reject(new Error("platform-request-failed"));
     };
     server.on("error", fail);

@@ -42,6 +42,8 @@ export class TwitchEventSub {
     this.stopped = true;
     if (this.timer) clearTimeout(this.timer);
     if (this.watchdog) clearTimeout(this.watchdog);
+    this.timer = null;
+    this.watchdog = null;
     this.socket?.close();
     this.socket = null;
     this.onState("offline");
@@ -53,6 +55,9 @@ export class TwitchEventSub {
     const previous = this.socket;
     this.socket = socket;
     socket.addEventListener("message", (raw) => {
+      // A stopped feed may still receive a few frames while its socket closes. (During a reconnect
+      // handoff the old socket keeps delivering until the new one is welcomed, so it is not ignored.)
+      if (this.stopped) return;
       let message: EventSubMessage;
       try {
         message = JSON.parse(String(raw.data)) as EventSubMessage;
@@ -90,6 +95,8 @@ export class TwitchEventSub {
       }
     });
     socket.addEventListener("close", () => {
+      // A reconnect handoff that failed before its welcome would otherwise leave the old socket open for good.
+      if (previous && previous !== this.socket) previous.close();
       if (this.socket !== socket || this.stopped) return;
       this.socket = null;
       this.retry();
@@ -99,15 +106,21 @@ export class TwitchEventSub {
 
   private async subscribe(sessionId: string): Promise<void> {
     const id = this.account.channelId;
+    const socket = this.socket;
+    // Stopped (or reconnected) while a request was out: the result belongs to a session nobody uses any more.
+    const stale = () => this.stopped || this.socket !== socket;
     try {
       await createEventSubSubscription(this.account, sessionId, "channel.follow", "2", { broadcaster_user_id: id, moderator_user_id: id });
+      if (stale()) return;
       await createEventSubSubscription(this.account, sessionId, "channel.channel_points_custom_reward_redemption.add", "1", { broadcaster_user_id: id });
+      if (stale()) return;
       this.onState("connected");
       // Backoff resets only once fully subscribed, so repeated subscription failures keep backing off.
       this.attempt = 0;
     } catch (error) {
       const code = error instanceof Error ? error.message : "";
       console.warn("[eventsub] subscription failed", code);
+      if (stale()) return;
       if (code === "twitch-scope-missing" || code === "account-signed-out") {
         // Retrying cannot help until the user reconnects with the new scopes.
         this.onState("needsReconnect");
@@ -123,7 +136,10 @@ export class TwitchEventSub {
   private armWatchdog(seconds: number | undefined): void {
     if (this.watchdog) clearTimeout(this.watchdog);
     const timeout = ((seconds ?? 10) + 5) * 1000;
-    this.watchdog = setTimeout(() => this.socket?.close(), timeout);
+    this.watchdog = setTimeout(() => {
+      this.watchdog = null;
+      this.socket?.close();
+    }, timeout);
   }
 
   private retry(): void {

@@ -68,8 +68,15 @@ export class YouTubeChat implements ChatSource {
   }
 
   private async tick(): Promise<void> {
+    if (this.stopped) return;
     const account = this.account();
-    if (this.stopped || !account) return;
+    if (!account) {
+      // The account was disconnected while chat was open: say so instead of showing "connecting" forever,
+      // and look again later in case it is connected again.
+      this.sink.status({ state: "error", errorKey: "signedOut" });
+      this.schedule(ERROR_RETRY_MS);
+      return;
+    }
     const generation = this.generation;
     const current = () => !this.stopped && generation === this.generation;
     try {

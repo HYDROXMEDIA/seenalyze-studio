@@ -111,7 +111,15 @@ export class OverlayServer {
   }
 
   private route(request: IncomingMessage, response: ServerResponse): void {
-    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    let url: URL;
+    try {
+      url = new URL(request.url ?? "/", "http://127.0.0.1");
+    } catch (error) {
+      // A malformed request target would otherwise throw inside the request handler and crash the app.
+      console.warn("[overlay] rejected a request with a malformed address", error instanceof Error ? error.message : error);
+      response.writeHead(400).end();
+      return;
+    }
     // Only pages addressed to this machine by name are served, so a web page that re-points its own
     // domain at 127.0.0.1 (DNS rebinding) cannot read the chat feed.
     const host = (request.headers.host ?? "").toLowerCase();

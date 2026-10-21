@@ -67,13 +67,14 @@ export class SeenalyzeAccountService {
 
   /** Opens the dashboard consent page and waits for the app link callback. */
   async signIn(): Promise<SeenalyzeAccount> {
-    this.pending?.reject(new Error("sign-in-cancelled"));
+    // Cancels the previous attempt and its timer, so that timer cannot end this attempt later.
+    this.cancelSignIn();
     const verifier = base64Url(randomBytes(32));
     const challenge = base64Url(createHash("sha256").update(verifier).digest());
     const state = base64Url(randomBytes(16));
     const code = await new Promise<string>((resolve, reject) => {
       const timer = setTimeout(() => {
-        this.pending = null;
+        if (this.pending?.state === state) this.pending = null;
         reject(new Error("sign-in-expired"));
       }, SIGN_IN_TIMEOUT_MS);
       this.pending = { state, verifier, resolve, reject, timer };
@@ -90,7 +91,8 @@ export class SeenalyzeAccountService {
       }).toString();
       shell.openExternal(url.toString()).catch((error: unknown) => {
         clearTimeout(timer);
-        this.pending = null;
+        if (this.pending?.state === state) this.pending = null;
+        console.error("[seenalyze] browser could not be opened for sign-in", error instanceof Error ? error.message : error);
         reject(error instanceof Error ? error : new Error("sign-in-cancelled"));
       });
     });
@@ -131,7 +133,13 @@ export class SeenalyzeAccountService {
   }
 
   async signOut(): Promise<void> {
-    const session = this.session();
+    let session: Session | null = null;
+    try {
+      session = this.session();
+    } catch (error) {
+      // Locked secure storage: the session can't be revoked online, but signing out still forgets it here.
+      console.warn("[seenalyze] session unreadable while signing out", error instanceof Error ? error.message : "unknown error");
+    }
     deleteSecret(SESSION_SECRET);
     this.profile = null;
     if (!session) return;
@@ -191,12 +199,19 @@ export class SeenalyzeAccountService {
 
   private async authorizedFetch(path: string, init: RequestInit, timeoutMs: number): Promise<Response> {
     const session = await this.validSession();
-    const response = await fetch(`${seenalyzeOrigin()}${path}`, {
-      ...init,
-      headers: { ...init.headers, Authorization: `Bearer ${session.accessToken}` },
-      signal: AbortSignal.timeout(timeoutMs),
-      redirect: "error",
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${seenalyzeOrigin()}${path}`, {
+        ...init,
+        headers: { ...init.headers, Authorization: `Bearer ${session.accessToken}` },
+        signal: AbortSignal.timeout(timeoutMs),
+        redirect: "error",
+      });
+    } catch (error) {
+      // No network, a timeout or a refused redirect: say the service is unreachable instead of a generic failure.
+      console.warn("[seenalyze] request failed before a reply", error instanceof Error ? error.name : "unknown");
+      throw new Error("seenalyze-unreachable", { cause: error });
+    }
     if (response.ok) return response;
     const body = (await response.json().catch(() => ({}))) as { error?: unknown };
     throw new Error(dashboardErrorCode(response.status, typeof body.error === "string" ? body.error : ""));
@@ -222,8 +237,10 @@ export class SeenalyzeAccountService {
     this.refreshing ??= this.tokenRequest({ grant_type: "refresh_token", refresh_token: session.refreshToken })
       .then((tokens) => this.store(tokens, session))
       .catch((error: unknown) => {
-        deleteSecret(SESSION_SECRET);
         console.warn("[seenalyze] session refresh failed", error instanceof Error ? error.message : error);
+        // Offline or a dashboard outage says nothing about the session: keep it so the next try can refresh.
+        if (error instanceof Error && error.message === "seenalyze-unreachable") throw error;
+        deleteSecret(SESSION_SECRET);
         throw new Error("seenalyze-signed-out");
       })
       .finally(() => {
@@ -233,14 +250,25 @@ export class SeenalyzeAccountService {
   }
 
   private async tokenRequest(params: Record<string, string>): Promise<{ access_token: string; refresh_token?: string; expires_in?: number }> {
-    const response = await fetch(`${seenalyzeOrigin()}/api/studio/oauth/token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ client_id: CLIENT_ID, ...params }),
-      signal: AbortSignal.timeout(20_000),
-      redirect: "error",
-    });
-    const body = (await response.json().catch(() => ({}))) as { access_token?: string; refresh_token?: string; expires_in?: number };
+    let response: Response;
+    try {
+      response = await fetch(`${seenalyzeOrigin()}/api/studio/oauth/token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ client_id: CLIENT_ID, ...params }),
+        signal: AbortSignal.timeout(20_000),
+        redirect: "error",
+      });
+    } catch (error) {
+      console.warn("[seenalyze] token request could not reach the dashboard", error instanceof Error ? error.message : error);
+      throw new Error("seenalyze-unreachable", { cause: error });
+    }
+    // Rate limits and server errors are temporary; only an answer that rejects the request ends the session.
+    if (response.status === 429 || response.status >= 500) throw new Error("seenalyze-unreachable");
+    const body = (await response.json().catch((error: unknown) => {
+      console.warn("[seenalyze] token response unreadable", error instanceof Error ? error.message : error);
+      return {};
+    })) as { access_token?: string; refresh_token?: string; expires_in?: number };
     if (!response.ok || !body.access_token) throw new Error("seenalyze-sign-in-failed");
     return { access_token: body.access_token, refresh_token: body.refresh_token, expires_in: body.expires_in };
   }

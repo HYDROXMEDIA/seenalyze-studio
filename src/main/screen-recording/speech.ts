@@ -116,7 +116,7 @@ export class SpeechService {
 
   /** Splits a recording's sound into parts and turns each one into a caption. */
   async transcribeMedia(path: string, id: string, onProgress: (progress: number) => void): Promise<{ captions: Caption[] }> {
-    if (this.jobs.size > 0) throw new Error('A transcription is already running.');
+    if (this.jobs.size > 0) throw new Error('caption-busy');
     const file = await fs.stat(path);
     if (!file.isFile() || file.size > MAX_MEDIA_BYTES) throw new Error('caption-too-long');
     const controller = new AbortController();
@@ -297,7 +297,7 @@ export class SpeechService {
   private async waitReady(child: ChildProcess, root: string, signal: AbortSignal): Promise<void> {
     for (let attempt = 0; attempt < READY_ATTEMPTS; attempt += 1) {
       signal.throwIfAborted();
-      if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null || this.shuttingDown) throw new Error('The caption recognizer stopped.');
+      if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null || this.shuttingDown) throw new Error('caption-stopped');
       try {
         const response = await fetch(`${root}/${IS_WINDOWS ? 'health' : ''}`, { signal: AbortSignal.timeout(2000) });
         if (IS_WINDOWS && (!response.ok || (await response.json() as { status?: string }).status !== 'ok')) throw new Error('loading');

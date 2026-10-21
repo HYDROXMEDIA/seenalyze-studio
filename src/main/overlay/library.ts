@@ -29,6 +29,32 @@ function clampSize(value: number, fallback: number): number {
   return Number.isFinite(n) ? Math.min(MAX_SIZE, Math.max(MIN_SIZE, n)) : fallback;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * A stored overlay as the library can use it, or null. Files are edited by hand or left over from older
+ * versions, so missing settings or sizes get safe defaults, and the id must match the file name so
+ * deleting an overlay always removes its own file.
+ */
+export function loadedOverlay(raw: unknown, file: string): OverlayDefinition | null {
+  if (!isRecord(raw) || typeof raw.id !== "string" || !ID.test(raw.id) || file !== `${raw.id}.json`) return null;
+  if (typeof raw.html !== "string" || !Array.isArray(raw.fields) || !raw.fields.every((field) => isRecord(field) && typeof field.key === "string")) return null;
+  const overlay = raw as unknown as OverlayDefinition;
+  const updatedAt = Number.isFinite(raw.updatedAt) ? Number(raw.updatedAt) : 0;
+  return {
+    ...overlay,
+    name: typeof raw.name === "string" && raw.name.trim() ? raw.name.slice(0, 60) : "Overlay",
+    kind: OVERLAY_KINDS.includes(raw.kind as OverlayKind) ? overlay.kind : "custom",
+    values: isRecord(raw.values) ? overlay.values : {},
+    width: clampSize(Number(raw.width), 800),
+    height: clampSize(Number(raw.height), 600),
+    createdAt: Number.isFinite(raw.createdAt) ? Number(raw.createdAt) : updatedAt,
+    updatedAt,
+  };
+}
+
 export class OverlayLibrary {
   private readonly cache = new Map<string, OverlayDefinition>();
 
@@ -37,8 +63,9 @@ export class OverlayLibrary {
     for (const file of readdirSync(dir)) {
       if (!file.endsWith(".json")) continue;
       try {
-        const overlay = JSON.parse(readFileSync(path.join(dir, file), "utf8")) as OverlayDefinition;
-        if (ID.test(overlay.id) && typeof overlay.html === "string" && Array.isArray(overlay.fields)) this.cache.set(overlay.id, overlay);
+        const overlay = loadedOverlay(JSON.parse(readFileSync(path.join(dir, file), "utf8")), file);
+        if (overlay) this.cache.set(overlay.id, overlay);
+        else console.error(`[overlays] ${file} is not a valid overlay; it was skipped`);
       } catch (error) {
         console.error(`[overlays] could not read ${file}; it was skipped`, error);
       }

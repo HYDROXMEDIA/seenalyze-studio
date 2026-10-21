@@ -67,7 +67,11 @@ export function handleMediaScheme(): void {
     const url = new URL(request.url);
     const token = url.pathname.slice(1).replace(/\.[a-z0-9]+$/, '');
     const path = url.hostname === 'file' ? files.get(token) : undefined;
-    const stat = path === undefined ? null : await fs.stat(path).catch(() => null);
+    const stat = path === undefined ? null : await fs.stat(path).catch((error: unknown) => {
+      // A registered file that cannot be read shows as missing in the editor; the cause is kept in the log.
+      console.warn(`[recording-media] registered file could not be read: ${(error as NodeJS.ErrnoException | null)?.code ?? 'unknown error'}`);
+      return null;
+    });
     if (path === undefined || stat === null || !stat.isFile()) return new Response(null, { status: 404 });
     const headers = new Headers({
       'Content-Type': TYPES[extname(path).toLowerCase()] ?? 'application/octet-stream',
