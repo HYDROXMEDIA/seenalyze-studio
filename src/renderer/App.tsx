@@ -42,6 +42,9 @@ export function App() {
   const setLevels = useStudio((state) => state.setLevels);
   const [quitRequested, setQuitRequested] = useState(false);
   const [restarting, setRestarting] = useState(false);
+  /** The first state never arrived after the spaced retries; the user can try again. */
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   useCanvasUndo();
   useArrowNudge();
 
@@ -49,7 +52,7 @@ export function App() {
     let cancelled = false;
     let retryTimer: number | undefined;
     // The first state can fail while the app is still starting; a few spaced retries keep the
-    // loading screen from waiting forever, and a lasting failure is shown.
+    // loading screen from waiting forever, and a lasting failure replaces it with a retry.
     const load = (attempt: number) => {
       studio
         .getSnapshot()
@@ -57,13 +60,20 @@ export function App() {
           if (!cancelled) setSnapshot(initial);
         })
         .catch((error: unknown) => {
-          console.error("[app] could not load the studio state", error);
+          console.error(`[app] could not load the studio state (attempt ${attempt + 1})`, error);
           if (cancelled || useStudio.getState().snapshot) return;
           if (attempt < 3) retryTimer = window.setTimeout(() => load(attempt + 1), 1000 * 2 ** attempt);
-          else toast.error(t("errors.codes.generic"));
+          else setLoadFailed(true);
         });
     };
     load(0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(retryTimer);
+    };
+  }, [setSnapshot, loadAttempt]);
+
+  useEffect(() => {
     const unsubscribers = [
       studio.onSnapshot(setSnapshot),
       studio.onStats(setStats),
@@ -78,8 +88,6 @@ export function App() {
       }),
     ];
     return () => {
-      cancelled = true;
-      window.clearTimeout(retryTimer);
       for (const unsubscribe of unsubscribers) unsubscribe();
     };
   }, [setSnapshot, setStats, setLevels, applyChat, t]);
@@ -89,7 +97,21 @@ export function App() {
   return (
     <div className="flex h-full flex-col">
       <Header />
-      {!snapshot || (!snapshot.ready && !snapshot.engineErrorKey) ? (
+      {!snapshot && loadFailed ? (
+        <div role="alert" className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+          <UnplugIcon aria-hidden className="size-16 text-muted-foreground" strokeWidth={1.5} />
+          <h2 className="text-xl font-bold">{t("engine.failedTitle")}</h2>
+          <p className="max-w-md text-sm text-muted-foreground">{t("errors.codes.generic")}</p>
+          <Button
+            onClick={() => {
+              setLoadFailed(false);
+              setLoadAttempt((value) => value + 1);
+            }}
+          >
+            {t("common.retry")}
+          </Button>
+        </div>
+      ) : !snapshot || (!snapshot.ready && !snapshot.engineErrorKey) ? (
         <div className="flex flex-1 items-center justify-center">
           <span className="size-6 animate-spin rounded-full border-2 border-muted border-t-foreground" aria-label={t("common.loading")} />
         </div>
