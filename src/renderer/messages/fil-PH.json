@@ -144,6 +144,7 @@
     "useExisting": "Gamitin ang dati na",
     "chooseSource": "Pumili ng source…",
     "noExisting": "Walang source na puwedeng gamitin muli sa scene na ito.",
+    "existingFailed": "Hindi ma-load ang mga source.",
     "kinds": {
       "display": "Screen",
       "window": "Window",
@@ -180,6 +181,7 @@
     "choose": "Pumili…",
     "refresh": "I-refresh",
     "loadFailed": "Hindi ma-load ang mga setting. I-refresh para subukan muli.",
+    "invalidUrl": "Maglagay ng web address na nagsisimula sa http:// o https://.",
     "noOptions": "Walang nakita. Ikonekta ang iyong device o buksan ang app, pagkatapos ay i-refresh.",
     "onePerLine": "Isang file o address bawat linya",
     "fontFamily": "Font",
@@ -198,6 +200,7 @@
     "removeTitle": "Alisin ang {name}?",
     "noSettings": "Walang setting ang effect na ito",
     "unavailable": "Walang available na effect sa computer na ito.",
+    "loadFailed": "Hindi ma-load ang mga effect.",
     "kinds": {
       "chromaKey": "Chroma key",
       "colorCorrection": "Pagwawasto ng kulay",
@@ -282,6 +285,7 @@
     "loadingDevices": "Nilo-load ang mga device",
     "systemDefault": "Default ng system",
     "noDevices": "Walang device na mapipili",
+    "devicesFailed": "Hindi ma-load ang mga device.",
     "loadFailed": "Hindi ma-load ang mga setting ng audio.",
     "cleanupMic": "Linisin ang mic ko",
     "cleanupAudio": "Linisin ang audio",
@@ -1021,7 +1025,8 @@
           "max": "Pinakamataas"
         },
         "protected": "Pumili ng ibang pangalan: pag-aari ng isang recording ang file na iyan.",
-        "revealWindows": "Ipakita sa File Explorer"
+        "revealWindows": "Ipakita sa File Explorer",
+        "revealFailed": "Hindi maipakita ang na-export na video. Hanapin ito sa folder na pinili mo."
       },
       "background": {
         "title": "Background",
@@ -1039,7 +1044,8 @@
         "removeImage": "Alisin ang larawan",
         "invalidImage": "Hindi suportadong larawan ang file na iyan.",
         "imageFailed": "Hindi maidagdag ang larawan. Subukan muli.",
-        "removeFailed": "Hindi maalis ang larawan. Subukan ulit."
+        "removeFailed": "Hindi maalis ang larawan. Subukan ulit.",
+        "missingImage": "Hindi mahanap ang iyong background image. Ang default na background ang ginagamit."
       },
       "frame": {
         "title": "Frame",
@@ -1116,7 +1122,8 @@
         },
         "preview": "Preview ng camera",
         "smaller": "Mas maliit",
-        "larger": "Mas malaki"
+        "larger": "Mas malaki",
+        "unavailable": "Hindi mabuksan ang recording ng camera. Hindi ito kasama sa preview at sa export."
       },
       "sounds": {
         "title": "Mga tunog",
@@ -1196,6 +1203,9 @@
         "downloadFailed": "Hindi ma-download ang mga tool para sa captions. Tingnan ang iyong internet connection at subukan ulit.",
         "tooLong": "Masyadong mahaba ang recording na ito para sa captions.",
         "prepareFailed": "Hindi mabasa ang tunog ng recording para sa captions.",
+        "busy": "Ginagawa na ang mga caption. Hintaying matapos.",
+        "stopped": "Biglang huminto ang paggawa ng mga caption. Subukan ulit.",
+        "startFailed": "Hindi masimulan ang mga tool para sa captions. Subukan ulit.",
         "exported": "Na-save ang subtitles",
         "exportFailed": "Hindi ma-save ang subtitles. Subukan ulit."
       },
@@ -1351,7 +1361,8 @@
     "cellPreview": "Preview: {scene}",
     "cellProgram": "Program: {scene}",
     "leaveFullscreen": "Umalis sa full screen",
-    "close": "Isara ang projector"
+    "close": "Isara ang projector",
+    "actionFailed": "Hindi gumana. Subukang muli."
   },
   "workspace": {
     "collectionButton": "Scene collection: {name}",
@@ -1426,6 +1437,7 @@
       "description": "Kinokopya ang mga scene, source, filter at transition. Hindi kailanman kinokopya ang mga stream key.",
       "searching": "Naghahanap ng mga scene collection…",
       "none": "Walang nakitang scene collection ng OBS Studio o Streamlabs sa computer na ito.",
+      "searchFailed": "Hindi mahanap ang mga scene collection. Subukang muli.",
       "apps": {
         "obs": "OBS Studio",
         "streamlabs": "Streamlabs Desktop"

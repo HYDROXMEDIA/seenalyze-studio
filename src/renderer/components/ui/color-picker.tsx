@@ -1,7 +1,7 @@
 import { ChevronDownIcon } from "lucide-react";
 import { Slider as SliderPrimitive } from "radix-ui";
 import { useState, type KeyboardEvent, type PointerEvent } from "react";
-import { useTranslations } from "use-intl";
+import { useFormatter, useTranslations } from "use-intl";
 import { clamp, formatColor, hsvToRgb, parseColor, rgbToHsv, toHex, type Hsv } from "@/lib/color";
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
@@ -30,7 +30,10 @@ export function ColorPicker({
   disabled?: boolean;
 }) {
   const t = useTranslations("colorPicker");
+  const format = useFormatter();
   const color = parseColor(value) ?? { r: 255, g: 255, b: 255, a: 1 };
+  // Opacity in the app's language: Arabic digits, "50 %" where the language spaces it.
+  const opacityText = format.number(Math.round(color.a * 100) / 100, { style: "percent" });
   const hex = toHex(color);
   const [remembered, setRemembered] = useState({ hex, hsv: rgbToHsv(color) });
   const [draft, setDraft] = useState(hex);
@@ -105,7 +108,7 @@ export function ColorPicker({
             <span className="absolute inset-0" style={{ background: opacity ? formatColor(color) : hex }} />
           </span>
           <span className="flex-1 text-left text-sm tabular-nums">{hex}</span>
-          {opacity && color.a < 1 && <span className="text-xs text-muted-foreground tabular-nums">{Math.round(color.a * 100)}%</span>}
+          {opacity && color.a < 1 && <span className="text-xs text-muted-foreground tabular-nums">{opacityText}</span>}
           <ChevronDownIcon className="size-4 text-muted-foreground" aria-hidden />
         </Button>
       </PopoverTrigger>
@@ -171,7 +174,7 @@ export function ColorPicker({
           <div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">{t("opacity")}</span>
-              <span className="tabular-nums">{Math.round(color.a * 100)}%</span>
+              <span className="tabular-nums">{opacityText}</span>
             </div>
             <SliderPrimitive.Root min={0} max={1} step={0.01} value={[color.a]} disabled={disabled} onValueChange={([alpha]) => onChange(formatColor({ ...color, a: alpha }))} className="relative flex h-11 touch-none items-center">
               <SliderPrimitive.Track className="relative h-3 grow overflow-hidden rounded-full border" style={CHECKERBOARD}>

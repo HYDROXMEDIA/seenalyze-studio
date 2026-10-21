@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 
 type Key = string | number;
 
@@ -58,6 +58,18 @@ export function useReorder<T>(scope: string, items: T[], keyOf: (item: T) => Key
   const scrollFrame = useRef(0);
   /** What the rows need to render the drag: changes on every move. */
   const [view, setView] = useState<{ key: Key; from: number; target: number; offset: number; height: number } | null>(null);
+  /** Row moved with Alt+Arrow. React may move its element in the page, which drops focus; it gets it back. */
+  const refocus = useRef<Key | null>(null);
+
+  useLayoutEffect(() => {
+    const key = refocus.current;
+    if (key === null) return;
+    const row = rows.current.get(key);
+    const active = document.activeElement;
+    if (row && (!active || active === document.body)) row.focus();
+    // Kept until the move settles: the real order may move the row again.
+    if (!pending) refocus.current = null;
+  });
 
   const move = (item: T, index: number) => {
     const from = shown.findIndex((entry) => keyOf(entry) === keyOf(item));
@@ -228,6 +240,7 @@ export function useReorder<T>(scope: string, items: T[], keyOf: (item: T) => Key
       onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
         if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
         event.preventDefault();
+        refocus.current = key;
         move(item, event.key === "ArrowUp" ? index - 1 : index + 1);
       },
     };

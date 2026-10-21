@@ -5,7 +5,7 @@ import { EventEmitter } from "node:events";
 import path from "node:path";
 import { app, utilityProcess, type UtilityProcess } from "electron";
 import { appendLog, redact } from "../log";
-import { stopOrphanedHosts } from "./orphans";
+import { stopOrphanedHostsAsync } from "./orphans";
 import type { EngineEvent, EngineHandlers, EngineInit, WorkerMessage, WorkerRequest } from "./worker";
 
 type Method = keyof EngineHandlers;
@@ -60,7 +60,11 @@ export class EngineClient extends EventEmitter {
     });
     if (!app.isPackaged) child.stdout?.on("data", (chunk: Buffer) => process.stdout.write(chunk));
     child.on("message", (message: WorkerMessage) => this.onMessage(message));
-    child.on("exit", (code) => this.onExit(code));
+    // Only the current worker's exit counts: a killed worker whose exit arrives after a
+    // restart must not reject the new worker's calls or report a crash.
+    child.on("exit", (code) => {
+      if (this.child === child) this.onExit(code);
+    });
     await new Promise<void>((resolve, reject) => {
       child.once("spawn", () => resolve());
       child.once("exit", () => reject(new Error("engine-stopped")));
@@ -93,7 +97,7 @@ export class EngineClient extends EventEmitter {
   async shutdown(): Promise<void> {
     if (!this.child) {
       // A crashed worker can leave its engine host running (holding devices); stop it before quitting.
-      stopOrphanedHosts();
+      await stopOrphanedHostsAsync();
       return;
     }
     this.exiting = true;
@@ -113,7 +117,7 @@ export class EngineClient extends EventEmitter {
     }
     this.child = null;
     // If teardown did not finish, the engine host outlives the worker; stop it.
-    stopOrphanedHosts();
+    await stopOrphanedHostsAsync();
   }
 
   private onMessage(message: WorkerMessage): void {
@@ -140,8 +144,13 @@ export class EngineClient extends EventEmitter {
       console.error(`[engine] worker exited unexpectedly (code ${code})`);
       // The engine host the dead worker started can stay alive with the camera, microphone and
       // connections open; its owner is gone now, so it is stopped here rather than at the next start.
-      const stopped = stopOrphanedHosts();
-      if (stopped > 0) console.warn(`[engine] stopped ${stopped} engine process(es) left by the crashed worker`);
+      // Listed asynchronously: the process lookup can take seconds and must not freeze the window.
+      void stopOrphanedHostsAsync().then(
+        (stopped) => {
+          if (stopped > 0) console.warn(`[engine] stopped ${stopped} engine process(es) left by the crashed worker`);
+        },
+        (error: unknown) => console.error("[engine] leftover engine processes could not be stopped", error),
+      );
       this.emit("crash");
     }
   }

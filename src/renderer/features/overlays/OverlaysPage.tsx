@@ -39,6 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/overlays";
+import { OVERLAY_SIZE, overlaySize } from "@/lib/limits";
 import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
 import { useSeenalyzeAccount } from "@/lib/use-seenalyze-account";
@@ -78,6 +79,11 @@ export function OverlaysPage() {
   const [previewAttempt, setPreviewAttempt] = useState(0);
   // The overlay whose pending values are saved; a ref, so edits don't restart the save delay.
   const overlayIdRef = useRef<string | null>(null);
+  // The selection when an AI change finishes, which can be many seconds after it was asked for.
+  const selectionRef = useRef<Selection>(null);
+  useEffect(() => {
+    selectionRef.current = selection;
+  });
 
   const refresh = useCallback(async () => {
     const [mine, gallery] = await Promise.all([run(() => studio.listOverlays()), run(() => studio.listOverlayPresets())]);
@@ -136,8 +142,14 @@ export function OverlaysPage() {
     const values = pendingValues.current;
     pendingValues.current = {};
     const id = overlayIdRef.current;
-    if (!id || Object.keys(values).length === 0) return;
-    await run(() => studio.updateOverlay(id, { values }));
+    if (!id || Object.keys(values).length === 0) return true;
+    const saved = await run(() => studio.updateOverlay(id, { values }));
+    if (saved === undefined) {
+      // The toast already said it failed; keep the edits so the next change, Back or a new selection retries them.
+      pendingValues.current = { ...values, ...pendingValues.current };
+      return false;
+    }
+    return true;
   }, [run]);
 
   // Saves what is still waiting when the page closes; `flush` is stable, so this runs on unmount only.
@@ -152,17 +164,18 @@ export function OverlaysPage() {
     saveTimer.current = window.setTimeout(() => void flush(), SAVE_DELAY_MS);
   };
 
-  const patchOverlay = async (patch: { name?: string; width?: number; height?: number }) => {
+  /** Saves a name or size typed in `input`; the field shows the saved value again when the change is not usable or fails. */
+  const patchOverlay = async (input: HTMLInputElement, saved: string | number, patch: { name?: string; width?: number; height?: number }) => {
     if (!overlay) return;
     const next = await run(() => studio.updateOverlay(overlay.id, patch));
     if (next) {
       setOverlay(next);
       void refresh();
-    }
+    } else if (input.isConnected) input.value = String(saved);
   };
 
   const select = async (next: Selection) => {
-    await flush();
+    if (!(await flush())) return;
     setSelection(next);
     if (!next) setOverlay(null);
   };
@@ -188,7 +201,7 @@ export function OverlaysPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col animate-ui-fade">
       <div className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
-        <Button variant="ghost" size="sm" onClick={() => void flush().then(() => setView("studio"))}>
+        <Button variant="ghost" size="sm" onClick={() => void flush().then((saved) => saved && setView("studio"))}>
           <ArrowLeftIcon />
           {t("back")}
         </Button>
@@ -300,12 +313,16 @@ export function OverlaysPage() {
             }}
             onUpdated={async (id) => {
               await refresh();
+              // Another overlay picked while the change was designed stays on screen; its edits must not go to this one.
+              const shown = () => selectionRef.current?.type === "overlay" && selectionRef.current.id === id;
+              if (!shown()) return;
               const next = await run(() => studio.getOverlay(id));
-              if (next) setOverlay(next);
+              if (next && shown()) setOverlay(next);
               // The design changed: reload the preview frame.
+              if (!shown()) return;
               setPreviewUrl(null);
               const url = await run(() => studio.overlayPreviewUrl({ overlayId: id }));
-              setPreviewUrl(url ?? null);
+              if (shown()) setPreviewUrl(url ?? null);
             }}
           />
         </aside>
@@ -362,7 +379,10 @@ export function OverlaysPage() {
                     defaultValue={overlay.name}
                     maxLength={60}
                     onBlur={(event) => {
-                      if (event.target.value.trim() && event.target.value !== overlay.name) void patchOverlay({ name: event.target.value });
+                      const input = event.currentTarget;
+                      // An empty name is not saved; show the saved one again instead of an empty field.
+                      if (!input.value.trim()) input.value = overlay.name;
+                      else if (input.value !== overlay.name) void patchOverlay(input, overlay.name, { name: input.value });
                     }}
                   />
                 </Field>
@@ -373,12 +393,15 @@ export function OverlaysPage() {
                         id={`overlay-${dimension}`}
                         key={`${overlay.id}-${dimension}-${overlay[dimension]}`}
                         type="number"
-                        min={40}
-                        max={3840}
+                        min={OVERLAY_SIZE.min}
+                        max={OVERLAY_SIZE.max}
                         defaultValue={overlay[dimension]}
                         onBlur={(event) => {
-                          const value = Number(event.target.value);
-                          if (Number.isFinite(value) && value !== overlay[dimension]) void patchOverlay({ [dimension]: value });
+                          const input = event.currentTarget;
+                          const value = overlaySize(input.value);
+                          // An emptied field keeps the saved size; out-of-range values show the size that is saved.
+                          input.value = String(value ?? overlay[dimension]);
+                          if (value !== null && value !== overlay[dimension]) void patchOverlay(input, overlay[dimension], { [dimension]: value });
                         }}
                       />
                     </Field>
@@ -403,7 +426,7 @@ export function OverlaysPage() {
                       disabled={!scene}
                       onClick={async () => {
                         if (!scene) return;
-                        await flush();
+                        if (!(await flush())) return;
                         const name = await run(() => studio.addOverlayToScene(overlay.id, scene));
                         if (name) toast.success(t("addedToScene", { name: overlay.name, scene }));
                       }}

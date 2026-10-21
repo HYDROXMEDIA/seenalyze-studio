@@ -16,7 +16,8 @@ function useScreens(): ScreenChoice[] {
         .then((next) => {
           if (!cancelled) setScreens(next);
         })
-        .catch(console.error);
+        // The menu keeps the last known screens; focusing the window lists them again.
+        .catch((error: unknown) => console.error("[projector] screens could not be listed", error));
     load();
     window.addEventListener("focus", load);
     return () => {

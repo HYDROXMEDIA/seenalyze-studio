@@ -1,0 +1,47 @@
+import { describe, expect, test } from "bun:test";
+import { broadcastPrivacy, clampVolume, isWebUrl, overlaySize } from "./limits";
+
+describe("limits checked before values go to the main process", () => {
+  test("only http(s) addresses with a host count as web page addresses", () => {
+    expect(isWebUrl("https://example.com/overlay")).toBe(true);
+    expect(isWebUrl("http://127.0.0.1:47821/chat")).toBe(true);
+    expect(isWebUrl("  https://example.com  ")).toBe(true);
+    expect(isWebUrl("example.com")).toBe(false);
+    expect(isWebUrl("https://")).toBe(false);
+    expect(isWebUrl("about:blank")).toBe(false);
+    expect(isWebUrl("file:///etc/passwd")).toBe(false);
+    expect(isWebUrl("javascript:alert(1)")).toBe(false);
+    expect(isWebUrl("")).toBe(false);
+    expect(isWebUrl(42)).toBe(false);
+  });
+
+  test("broadcast privacy is always one of the three allowed values", () => {
+    expect(broadcastPrivacy("unlisted")).toBe("unlisted");
+    expect(broadcastPrivacy("private")).toBe("private");
+    expect(broadcastPrivacy(undefined)).toBe("public");
+    expect(broadcastPrivacy("friends")).toBe("public");
+  });
+
+  test("volume stays between silent and full", () => {
+    expect(clampVolume(0.42)).toBe(0.42);
+    expect(clampVolume(-0.1)).toBe(0);
+    expect(clampVolume(1.5)).toBe(1);
+    expect(clampVolume(Number.NaN)).toBeNull();
+    expect(clampVolume(Number.POSITIVE_INFINITY)).toBeNull();
+  });
+});
+
+describe("overlay size typed in the editor", () => {
+  test("an empty or non-number field keeps the saved size", () => {
+    expect(overlaySize("")).toBeNull();
+    expect(overlaySize("   ")).toBeNull();
+    expect(overlaySize("abc")).toBeNull();
+  });
+
+  test("numbers are rounded and kept in range", () => {
+    expect(overlaySize("1280")).toBe(1280);
+    expect(overlaySize("99.6")).toBe(100);
+    expect(overlaySize("0")).toBe(40);
+    expect(overlaySize("99999")).toBe(3840);
+  });
+});

@@ -144,6 +144,7 @@
     "useExisting": "Meglévő használata",
     "chooseSource": "Válassz forrást…",
     "noExisting": "Nincs újra felhasználható forrás ehhez a jelenethez.",
+    "existingFailed": "Nem sikerült betölteni a forrásokat.",
     "kinds": {
       "display": "Képernyő",
       "window": "Ablak",
@@ -180,6 +181,7 @@
     "choose": "Kiválasztás…",
     "refresh": "Frissítés",
     "loadFailed": "Nem sikerült betölteni a beállításokat. Frissíts az újrapróbálkozáshoz.",
+    "invalidUrl": "Adj meg egy http:// vagy https:// kezdetű webcímet.",
     "noOptions": "Nincs találat. Csatlakoztasd az eszközt vagy nyisd meg az alkalmazást, majd frissíts.",
     "onePerLine": "Soronként egy fájl vagy cím",
     "fontFamily": "Betűtípus",
@@ -198,6 +200,7 @@
     "removeTitle": "Eltávolítod: {name}?",
     "noSettings": "Ennek az effektnek nincsenek beállításai",
     "unavailable": "Ezen a számítógépen nem érhetők el effektek.",
+    "loadFailed": "Nem sikerült betölteni az effekteket.",
     "kinds": {
       "chromaKey": "Chroma key",
       "colorCorrection": "Színkorrekció",
@@ -282,6 +285,7 @@
     "loadingDevices": "Eszközök betöltése",
     "systemDefault": "Rendszer alapértelmezése",
     "noDevices": "Nincs választható eszköz",
+    "devicesFailed": "Nem sikerült betölteni az eszközöket.",
     "loadFailed": "Nem sikerült betölteni a hangbeállításokat.",
     "cleanupMic": "Mikrofonom tisztítása",
     "cleanupAudio": "Hang tisztítása",
@@ -1021,7 +1025,8 @@
           "max": "Maximális"
         },
         "protected": "Válassz másik nevet: ez a fájl egy felvételhez tartozik.",
-        "revealWindows": "Megjelenítés a Fájlkezelőben"
+        "revealWindows": "Megjelenítés a Fájlkezelőben",
+        "revealFailed": "Nem sikerült megmutatni az exportált videót. A kiválasztott mappában találod."
       },
       "background": {
         "title": "Háttér",
@@ -1039,7 +1044,8 @@
         "removeImage": "Kép eltávolítása",
         "invalidImage": "Ez a fájl nem támogatott képformátum.",
         "imageFailed": "Nem sikerült hozzáadni a képet. Próbáld újra.",
-        "removeFailed": "Nem sikerült eltávolítani a képet. Próbáld újra."
+        "removeFailed": "Nem sikerült eltávolítani a képet. Próbáld újra.",
+        "missingImage": "Nem található a háttérképed. Helyette az alapértelmezett háttér látszik."
       },
       "frame": {
         "title": "Képarány",
@@ -1116,7 +1122,8 @@
         },
         "preview": "Kamera előnézete",
         "smaller": "Kisebb",
-        "larger": "Nagyobb"
+        "larger": "Nagyobb",
+        "unavailable": "Nem sikerült megnyitni a kamerafelvételt. Kimarad az előnézetből és az exportból."
       },
       "sounds": {
         "title": "Hangok",
@@ -1196,6 +1203,9 @@
         "downloadFailed": "Nem sikerült letölteni a feliratkészítő eszközöket. Ellenőrizd az internetkapcsolatot, és próbáld újra.",
         "tooLong": "Ez a felvétel túl hosszú a feliratkészítéshez.",
         "prepareFailed": "A felvétel hangját nem sikerült beolvasni a feliratokhoz.",
+        "busy": "A feliratok készítése már folyamatban van. Várd meg, amíg elkészül.",
+        "stopped": "A feliratkészítés váratlanul leállt. Próbáld újra.",
+        "startFailed": "A feliratkészítő eszközök nem indultak el. Próbáld újra.",
         "exported": "Felirat mentve",
         "exportFailed": "A feliratot nem sikerült menteni. Próbáld újra."
       },
@@ -1351,7 +1361,8 @@
     "cellPreview": "Előnézet: {scene}",
     "cellProgram": "Program: {scene}",
     "leaveFullscreen": "Kilépés a teljes képernyőből",
-    "close": "Kivetítő bezárása"
+    "close": "Kivetítő bezárása",
+    "actionFailed": "Ez nem sikerült. Próbáld újra."
   },
   "workspace": {
     "collectionButton": "Jelenetgyűjtemény: {name}",
@@ -1426,6 +1437,7 @@
       "description": "Átmásolja a jeleneteket, forrásokat, szűrőket és az átmenetet. A streamkulcsokat soha nem másolja.",
       "searching": "Jelenetgyűjtemények keresése…",
       "none": "Ezen a számítógépen nincs OBS Studio- vagy Streamlabs-jelenetgyűjtemény.",
+      "searchFailed": "Nem sikerült megkeresni a jelenetgyűjteményeket. Próbáld újra.",
       "apps": {
         "obs": "OBS Studio",
         "streamlabs": "Streamlabs Desktop"

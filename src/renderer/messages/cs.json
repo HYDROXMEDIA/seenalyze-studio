@@ -144,6 +144,7 @@
     "useExisting": "Použít existující",
     "chooseSource": "Vyberte zdroj…",
     "noExisting": "V této scéně nejsou žádné zdroje k opětovnému použití.",
+    "existingFailed": "Zdroje se nepodařilo načíst.",
     "kinds": {
       "display": "Obrazovka",
       "window": "Okno",
@@ -180,6 +181,7 @@
     "choose": "Vybrat…",
     "refresh": "Obnovit",
     "loadFailed": "Nastavení se nepodařilo načíst. Zkuste to znovu obnovením.",
+    "invalidUrl": "Zadejte webovou adresu, která začíná http:// nebo https://.",
     "noOptions": "Nic nenalezeno. Připojte zařízení nebo otevřete aplikaci a pak obnovte.",
     "onePerLine": "Jeden soubor nebo adresa na řádek",
     "fontFamily": "Písmo",
@@ -198,6 +200,7 @@
     "removeTitle": "Odebrat {name}?",
     "noSettings": "Tento efekt nemá žádná nastavení",
     "unavailable": "Na tomto počítači nejsou dostupné žádné efekty.",
+    "loadFailed": "Efekty se nepodařilo načíst.",
     "kinds": {
       "chromaKey": "Klíčování barvy (chroma key)",
       "colorCorrection": "Korekce barev",
@@ -282,6 +285,7 @@
     "loadingDevices": "Načítání zařízení",
     "systemDefault": "Výchozí systémové",
     "noDevices": "Žádná zařízení na výběr",
+    "devicesFailed": "Zařízení se nepodařilo načíst.",
     "loadFailed": "Nastavení zvuku se nepodařilo načíst.",
     "cleanupMic": "Vyčistit můj mikrofon",
     "cleanupAudio": "Vyčistit zvuk",
@@ -1021,7 +1025,8 @@
           "max": "Maximální"
         },
         "protected": "Zvolte jiný název: tento soubor patří k nahrávce.",
-        "revealWindows": "Zobrazit v Průzkumníku souborů"
+        "revealWindows": "Zobrazit v Průzkumníku souborů",
+        "revealFailed": "Exportované video se nepodařilo zobrazit. Najdete ho ve zvolené složce."
       },
       "background": {
         "title": "Pozadí",
@@ -1039,7 +1044,8 @@
         "removeImage": "Odstranit obrázek",
         "invalidImage": "Tento soubor není podporovaný obrázek.",
         "imageFailed": "Obrázek se nepodařilo přidat. Zkuste to znovu.",
-        "removeFailed": "Obrázek se nepodařilo odstranit. Zkuste to znovu."
+        "removeFailed": "Obrázek se nepodařilo odstranit. Zkuste to znovu.",
+        "missingImage": "Váš obrázek na pozadí se nepodařilo najít. Místo něj se použije výchozí pozadí."
       },
       "frame": {
         "title": "Formát",
@@ -1116,7 +1122,8 @@
         },
         "preview": "Náhled kamery",
         "smaller": "Menší",
-        "larger": "Větší"
+        "larger": "Větší",
+        "unavailable": "Záznam z kamery se nepodařilo otevřít. V náhledu ani v exportu nebude."
       },
       "sounds": {
         "title": "Zvuky",
@@ -1196,6 +1203,9 @@
         "downloadFailed": "Nástroje pro titulky se nepodařilo stáhnout. Zkontrolujte připojení k internetu a zkuste to znovu.",
         "tooLong": "Tato nahrávka je pro titulky příliš dlouhá.",
         "prepareFailed": "Zvuk nahrávky se pro titulky nepodařilo načíst.",
+        "busy": "Titulky se už vytvářejí. Počkejte na dokončení.",
+        "stopped": "Vytváření titulků se nečekaně zastavilo. Zkuste to znovu.",
+        "startFailed": "Nástroje pro titulky se nepodařilo spustit. Zkuste to znovu.",
         "exported": "Titulky uloženy",
         "exportFailed": "Titulky se nepodařilo uložit. Zkuste to znovu."
       },
@@ -1351,7 +1361,8 @@
     "cellPreview": "Náhled: {scene}",
     "cellProgram": "Program: {scene}",
     "leaveFullscreen": "Ukončit celou obrazovku",
-    "close": "Zavřít projektor"
+    "close": "Zavřít projektor",
+    "actionFailed": "To se nepovedlo. Zkuste to znovu."
   },
   "workspace": {
     "collectionButton": "Kolekce scén: {name}",
@@ -1426,6 +1437,7 @@
       "description": "Zkopíruje scény, zdroje, filtry a přechod. Klíče streamu se nikdy nekopírují.",
       "searching": "Hledání kolekcí scén…",
       "none": "V tomto počítači nebyly nalezeny žádné kolekce scén z OBS Studio ani Streamlabs.",
+      "searchFailed": "Kolekce scén se nepodařilo vyhledat. Zkuste to znovu.",
       "apps": {
         "obs": "OBS Studio",
         "streamlabs": "Streamlabs Desktop"

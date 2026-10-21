@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/overlays";
 import { studio } from "@/lib/studio";
 import { formatColor, packSourceColor, parseColor, toHex, unpackSourceColor } from "@/lib/color";
+import { isWebUrl, WEB_PAGE_KINDS, WEB_PAGE_URL_SETTING } from "@/lib/limits";
 import { useAction } from "@/lib/use-action";
 import { useStudio } from "@/store/studio";
 
@@ -48,6 +49,9 @@ function PropertiesForm({ source, onClose }: { source: string; onClose: () => vo
   const updateVersion = useRef(0);
   const [loadFailed, setLoadFailed] = useState(false);
   const kind = useStudio((state) => state.snapshot?.scenes.flatMap((scene) => scene.items).find((item) => item.sourceName === source)?.kind);
+  /** Settings shown with an error and not sent; the source keeps its last valid value. */
+  const [invalid, setInvalid] = useState<ReadonlySet<string>>(() => new Set());
+  const checksUrl = kind !== undefined && WEB_PAGE_KINDS.has(kind);
 
   useEffect(() => {
     mounted.current = true;
@@ -92,7 +96,21 @@ function PropertiesForm({ source, onClose }: { source: string; onClose: () => vo
 
   const change = (name: string, value: unknown, immediate = false) => {
     setProperties((current) => current?.map((property) => (property.name === name ? { ...property, value } : property)) ?? null);
-    pendingUpdate.current[name] = value;
+    if (checksUrl && name === WEB_PAGE_URL_SETTING) {
+      // A web page source only takes http(s) addresses; anything else (also while typing) is not sent.
+      const valid = isWebUrl(value);
+      setInvalid((current) => {
+        const next = new Set(current);
+        if (valid) next.delete(name);
+        else next.add(name);
+        return next;
+      });
+      if (!valid) {
+        delete pendingUpdate.current[name];
+        return;
+      }
+    }
+    pendingUpdate.current[name] = checksUrl && name === WEB_PAGE_URL_SETTING ? String(value).trim() : value;
     if (timer.current !== null) window.clearTimeout(timer.current);
     if (immediate) void flush();
     else timer.current = window.setTimeout(() => void flush(), 250);
@@ -119,6 +137,7 @@ function PropertiesForm({ source, onClose }: { source: string; onClose: () => vo
               <PropertyField
                 key={property.name}
                 property={property}
+                error={invalid.has(property.name) ? t("invalidUrl") : undefined}
                 onChange={change}
                 onButton={async () => {
                   if (!await flush()) return;
@@ -134,13 +153,18 @@ function PropertiesForm({ source, onClose }: { source: string; onClose: () => vo
         <Button variant="outline" onClick={async () => {
           if (!await flush()) return;
           const next = await run(() => studio.getSourceProperties(source));
-          if (next && mounted.current) { setLoadFailed(false); setProperties(next); }
+          if (next && mounted.current) { setLoadFailed(false); setInvalid(new Set()); setProperties(next); }
         }}>
           <RefreshCwIcon />
           {t("refresh")}
         </Button>
         <Button
           onClick={async () => {
+            const [firstInvalid] = invalid;
+            if (firstInvalid !== undefined) {
+              document.getElementById(`prop-${firstInvalid}`)?.focus();
+              return;
+            }
             if (!await flush()) return;
             onClose();
           }}
@@ -155,10 +179,13 @@ function PropertiesForm({ source, onClose }: { source: string; onClose: () => vo
 /** One generic engine property control (sources and effects). */
 export function PropertyField({
   property,
+  error,
   onChange,
   onButton,
 }: {
   property: PropertyDTO;
+  /** Shown under a text field whose value was not applied. */
+  error?: string;
   onChange: (name: string, value: unknown, immediate?: boolean) => void;
   onButton: () => void;
 }) {
@@ -222,8 +249,11 @@ export function PropertyField({
             type={property.kind === "password" ? "password" : "text"}
             disabled={disabled}
             value={String(property.value ?? "")}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? `${id}-error` : undefined}
             onChange={(event) => onChange(property.name, event.target.value)}
           />
+          {error && <p id={`${id}-error`} role="alert" className="text-sm text-destructive">{error}</p>}
         </div>
       );
     case "multiline":

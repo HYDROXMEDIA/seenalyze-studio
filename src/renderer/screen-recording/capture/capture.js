@@ -46,7 +46,9 @@ function loadSettings() {
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
     return typeof parsed === 'object' && parsed !== null ? parsed : {};
-  } catch {
+  } catch (error) {
+    // Unreadable saved choices fall back to the defaults; the picker still works.
+    console.error('[capture] saved picker settings could not be read; using defaults', error instanceof Error ? error.name : 'unknown');
     return {};
   }
 }
@@ -54,8 +56,9 @@ function loadSettings() {
 function saveSettings(patch) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...loadSettings(), ...patch }));
-  } catch {
+  } catch (error) {
     // Settings are a convenience; capturing still works without them.
+    console.error('[capture] picker settings could not be saved', error instanceof Error ? error.name : 'unknown');
   }
 }
 
@@ -84,7 +87,9 @@ async function listDevices(kind) {
   try {
     return (await navigator.mediaDevices.enumerateDevices())
       .filter((device) => device.kind === kind && device.deviceId !== 'default' && device.deviceId !== 'communications');
-  } catch {
+  } catch (error) {
+    // The menus still offer Off and Default, and a saved device stays selected by name.
+    console.error(`[capture] ${kind} devices could not be listed`, error instanceof Error ? error.name : 'unknown');
     return [];
   }
 }

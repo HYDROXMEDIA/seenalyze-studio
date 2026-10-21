@@ -38,7 +38,13 @@ api.onState((next) => {
   render();
 });
 
-const initial = await api.init();
+let initial = null;
+try {
+  initial = await api.init();
+} catch (error) {
+  // The bar still works from the state pushed through onState; the failure is logged.
+  console.error('[controls] initial state could not be read', error);
+}
 if (initial) state = initial;
 render();
 window.setInterval(render, 250);

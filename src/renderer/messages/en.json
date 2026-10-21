@@ -144,6 +144,7 @@
     "useExisting": "Use existing",
     "chooseSource": "Choose a source…",
     "noExisting": "No sources available to reuse in this scene.",
+    "existingFailed": "Couldn't load the sources.",
     "kinds": {
       "display": "Screen",
       "window": "Window",
@@ -180,6 +181,7 @@
     "choose": "Choose…",
     "refresh": "Refresh",
     "loadFailed": "Settings couldn't be loaded. Refresh to try again.",
+    "invalidUrl": "Enter a web address that starts with http:// or https://.",
     "noOptions": "Nothing found. Connect your device or open the app, then refresh.",
     "onePerLine": "One file or address per line",
     "fontFamily": "Font",
@@ -198,6 +200,7 @@
     "removeTitle": "Remove {name}?",
     "noSettings": "This effect has no settings",
     "unavailable": "No effects are available on this computer.",
+    "loadFailed": "Couldn't load the effects.",
     "kinds": {
       "chromaKey": "Chroma key",
       "colorCorrection": "Color correction",
@@ -282,6 +285,7 @@
     "loadingDevices": "Loading devices",
     "systemDefault": "System default",
     "noDevices": "No devices to choose from",
+    "devicesFailed": "Couldn't load the devices.",
     "loadFailed": "Couldn't load the audio settings.",
     "cleanupMic": "Clean up my mic",
     "cleanupAudio": "Clean up audio",
@@ -1021,7 +1025,8 @@
           "max": "Maximum"
         },
         "protected": "Choose another name: that file belongs to a recording.",
-        "revealWindows": "Show in File Explorer"
+        "revealWindows": "Show in File Explorer",
+        "revealFailed": "The exported video could not be shown. Look for it in the folder you chose."
       },
       "background": {
         "title": "Background",
@@ -1039,7 +1044,8 @@
         "removeImage": "Remove image",
         "invalidImage": "That file is not a supported image.",
         "imageFailed": "The image could not be added. Try again.",
-        "removeFailed": "The image could not be removed. Try again."
+        "removeFailed": "The image could not be removed. Try again.",
+        "missingImage": "Your background image could not be found. The default background is used instead."
       },
       "frame": {
         "title": "Frame",
@@ -1116,7 +1122,8 @@
         },
         "preview": "Camera preview",
         "smaller": "Smaller",
-        "larger": "Larger"
+        "larger": "Larger",
+        "unavailable": "The camera recording could not be opened. It is left out of the preview and export."
       },
       "sounds": {
         "title": "Sounds",
@@ -1196,6 +1203,9 @@
         "downloadFailed": "The caption tools couldn't be downloaded. Check your internet connection and try again.",
         "tooLong": "This recording is too long for captions.",
         "prepareFailed": "The recording's sound couldn't be read for captions.",
+        "busy": "Captions are already being created. Wait for them to finish.",
+        "stopped": "Creating captions stopped unexpectedly. Try again.",
+        "startFailed": "The caption tools couldn't start. Try again.",
         "exported": "Subtitles saved",
         "exportFailed": "Subtitles couldn't be saved. Try again."
       },
@@ -1351,7 +1361,8 @@
     "cellPreview": "Preview: {scene}",
     "cellProgram": "Program: {scene}",
     "leaveFullscreen": "Leave full screen",
-    "close": "Close projector"
+    "close": "Close projector",
+    "actionFailed": "That didn't work. Try again."
   },
   "workspace": {
     "collectionButton": "Scene collection: {name}",
@@ -1426,6 +1437,7 @@
       "description": "Copies scenes, sources, filters and the transition. Stream keys are never copied.",
       "searching": "Looking for scene collections…",
       "none": "No OBS Studio or Streamlabs scene collections found on this computer.",
+      "searchFailed": "Couldn't look for scene collections. Try again.",
       "apps": {
         "obs": "OBS Studio",
         "streamlabs": "Streamlabs Desktop"

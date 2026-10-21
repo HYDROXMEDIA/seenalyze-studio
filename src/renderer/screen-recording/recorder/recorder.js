@@ -167,6 +167,8 @@ async function start() {
 
   if (!(await api.begin(type.extension))) {
     release();
+    // Stop the capture streams and timers here too, not only when main closes the window.
+    cleanup();
     api.error('The video file could not be created');
     return;
   }

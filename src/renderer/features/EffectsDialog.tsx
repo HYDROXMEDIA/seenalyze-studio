@@ -39,6 +39,8 @@ import {
 import { Tooltip } from "@/components/ui/tooltip";
 import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
+import type { MoveDirection } from "@/lib/focus-target";
+import { useMoveFocus } from "@/lib/use-move-focus";
 import { cn } from "@/lib/utils";
 import { PropertyField } from "./SourcePropertiesDialog";
 
@@ -76,23 +78,31 @@ function EffectsPanel({ source, onClose }: { source: string; onClose: () => void
   const [list, setList] = useState<EffectList | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [removing, setRemoving] = useState<EffectDTO | null>(null);
+  // A failed list is not "no effects on this computer": it says so and offers a retry.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const sourceKind = useStudio((state) => state.snapshot?.scenes.flatMap((scene) => scene.items).find((item) => item.sourceName === source)?.kind);
 
   useEffect(() => {
     let cancelled = false;
     void run(() => studio.listEffects(source)).then((result) => {
       if (cancelled) return;
-      setList(result ?? { available: [], effects: [] });
-      setSelected(result?.effects[0]?.name ?? null);
+      if (!result) {
+        setLoadFailed(true);
+        return;
+      }
+      setList(result);
+      setSelected(result.effects[0]?.name ?? null);
     });
     return () => {
       cancelled = true;
     };
-  }, [source, run]);
+  }, [source, run, loadAttempt]);
 
-  const apply = async (call: () => Promise<EffectList>, select?: (next: EffectList) => string | null) => {
+  const apply = async (call: () => Promise<EffectList>, select?: (next: EffectList) => string | null, moved?: { name: string; direction: MoveDirection }) => {
     const next = await run(call);
     if (!next) return;
+    if (moved) moveFocus.expect(moved.name, moved.direction);
     setList(next);
     setSelected((current) => (select ? select(next) : next.effects.some((effect) => effect.name === current) ? current : (next.effects[0]?.name ?? null)));
   };
@@ -105,6 +115,9 @@ function EffectsPanel({ source, onClose }: { source: string; onClose: () => void
     );
 
   const effects = list?.effects ?? [];
+  const detail = useRef<HTMLDivElement>(null);
+  // The Move button pressed keeps focus, or its sibling once the effect reaches an end of the list.
+  const moveFocus = useMoveFocus(detail, effects.map((effect) => effect.name));
   const current = effects.find((effect) => effect.name === selected) ?? null;
   const index = current ? effects.indexOf(current) : -1;
   const available = (list?.available ?? []).filter((kind) => effectSuitsSource(kind, sourceKind));
@@ -115,7 +128,21 @@ function EffectsPanel({ source, onClose }: { source: string; onClose: () => void
       <DialogHeader>
         <DialogTitle>{t("title", { name: source })}</DialogTitle>
       </DialogHeader>
-      {list === null ? (
+      {list === null && loadFailed ? (
+        <div className="grid justify-items-center gap-3 py-6 text-center">
+          <p role="alert" className="text-sm text-destructive">{t("loadFailed")}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setLoadFailed(false);
+              setLoadAttempt((value) => value + 1);
+            }}
+          >
+            {tc("retry")}
+          </Button>
+        </div>
+      ) : list === null ? (
         <div className="flex h-40 items-center justify-center">
           <span className="size-5 animate-spin rounded-full border-2 border-muted border-t-foreground" aria-label={tc("loading")} />
         </div>
@@ -187,7 +214,7 @@ function EffectsPanel({ source, onClose }: { source: string; onClose: () => void
             </ActionMenu>
           </div>
           {current && (
-            <div className="grid min-w-0 content-start gap-3">
+            <div ref={detail} className="grid min-w-0 content-start gap-3">
               <div className="flex items-center gap-1">
                 <h3 className="min-w-0 flex-1 truncate font-semibold">{t(`kinds.${current.kind}`)}</h3>
                 <Tooltip label={t("moveUp")}>
@@ -196,7 +223,9 @@ function EffectsPanel({ source, onClose }: { source: string; onClose: () => void
                     size="icon-sm"
                     aria-label={t("moveUp")}
                     disabled={index <= 0}
-                    onClick={() => void apply(() => studio.moveEffect(source, current.name, "up"), () => current.name)}
+                    data-move-key={current.name}
+                    data-move="up"
+                    onClick={() => void apply(() => studio.moveEffect(source, current.name, "up"), () => current.name, { name: current.name, direction: "up" })}
                   >
                     <ArrowUpIcon />
                   </Button>
@@ -207,7 +236,9 @@ function EffectsPanel({ source, onClose }: { source: string; onClose: () => void
                     size="icon-sm"
                     aria-label={t("moveDown")}
                     disabled={index >= effects.length - 1}
-                    onClick={() => void apply(() => studio.moveEffect(source, current.name, "down"), () => current.name)}
+                    data-move-key={current.name}
+                    data-move="down"
+                    onClick={() => void apply(() => studio.moveEffect(source, current.name, "down"), () => current.name, { name: current.name, direction: "down" })}
                   >
                     <ArrowDownIcon />
                   </Button>

@@ -144,6 +144,7 @@
     "useExisting": "Koristi postojeći",
     "chooseSource": "Odaberi izvor…",
     "noExisting": "U ovoj sceni nema izvora koje možeš ponovno koristiti.",
+    "existingFailed": "Izvori se nisu mogli učitati.",
     "kinds": {
       "display": "Zaslon",
       "window": "Prozor",
@@ -180,6 +181,7 @@
     "choose": "Odaberi…",
     "refresh": "Osvježi",
     "loadFailed": "Postavke se nisu mogle učitati. Osvježi i pokušaj ponovno.",
+    "invalidUrl": "Unesi web adresu koja počinje s http:// ili https://.",
     "noOptions": "Ništa nije pronađeno. Poveži uređaj ili otvori aplikaciju pa osvježi.",
     "onePerLine": "Jedna datoteka ili adresa po retku",
     "fontFamily": "Font",
@@ -198,6 +200,7 @@
     "removeTitle": "Ukloniti {name}?",
     "noSettings": "Ovaj efekt nema postavki",
     "unavailable": "Na ovom računalu nema dostupnih efekata.",
+    "loadFailed": "Efekte nije moguće učitati.",
     "kinds": {
       "chromaKey": "Chroma key",
       "colorCorrection": "Korekcija boja",
@@ -282,6 +285,7 @@
     "loadingDevices": "Učitavanje uređaja",
     "systemDefault": "Zadano u sustavu",
     "noDevices": "Nema uređaja za odabir",
+    "devicesFailed": "Uređaji se nisu mogli učitati.",
     "loadFailed": "Postavke zvuka nije moguće učitati.",
     "cleanupMic": "Očisti moj mikrofon",
     "cleanupAudio": "Očisti zvuk",
@@ -1021,7 +1025,8 @@
           "max": "Najviša"
         },
         "protected": "Odaberi drugi naziv: ta datoteka pripada snimci.",
-        "revealWindows": "Prikaži u File Exploreru"
+        "revealWindows": "Prikaži u File Exploreru",
+        "revealFailed": "Izvezeni video nije se mogao prikazati. Potraži ga u mapi koju si odabrao."
       },
       "background": {
         "title": "Pozadina",
@@ -1039,7 +1044,8 @@
         "removeImage": "Ukloni sliku",
         "invalidImage": "Ta datoteka nije podržana slika.",
         "imageFailed": "Slika se nije mogla dodati. Pokušaj ponovno.",
-        "removeFailed": "Slika se nije mogla ukloniti. Pokušaj ponovno."
+        "removeFailed": "Slika se nije mogla ukloniti. Pokušaj ponovno.",
+        "missingImage": "Tvoja slika pozadine nije pronađena. Umjesto nje koristi se zadana pozadina."
       },
       "frame": {
         "title": "Okvir",
@@ -1116,7 +1122,8 @@
         },
         "preview": "Pregled kamere",
         "smaller": "Manje",
-        "larger": "Veće"
+        "larger": "Veće",
+        "unavailable": "Snimka kamere nije se mogla otvoriti. Izostavljena je iz pregleda i izvoza."
       },
       "sounds": {
         "title": "Zvukovi",
@@ -1196,6 +1203,9 @@
         "downloadFailed": "Alati za titlove nisu se mogli preuzeti. Provjerite internetsku vezu i pokušajte ponovno.",
         "tooLong": "Ova je snimka predugačka za titlove.",
         "prepareFailed": "Zvuk snimke nije se mogao pročitati za titlove.",
+        "busy": "Titlovi se već izrađuju. Pričekajte da završi.",
+        "stopped": "Izrada titlova neočekivano se zaustavila. Pokušajte ponovno.",
+        "startFailed": "Alati za titlove nisu se mogli pokrenuti. Pokušajte ponovno.",
         "exported": "Titlovi su spremljeni",
         "exportFailed": "Titlovi se nisu mogli spremiti. Pokušajte ponovno."
       },
@@ -1351,7 +1361,8 @@
     "cellPreview": "Pregled: {scene}",
     "cellProgram": "Program: {scene}",
     "leaveFullscreen": "Izađi iz cijelog zaslona",
-    "close": "Zatvori projektor"
+    "close": "Zatvori projektor",
+    "actionFailed": "To nije uspjelo. Pokušajte ponovno."
   },
   "workspace": {
     "collectionButton": "Zbirka scena: {name}",
@@ -1426,6 +1437,7 @@
       "description": "Kopira scene, izvore, filtre i prijelaz. Ključevi prijenosa nikad se ne kopiraju.",
       "searching": "Traženje zbirki scena…",
       "none": "Na ovom računalu nisu pronađene zbirke scena iz OBS Studija ni Streamlabsa.",
+      "searchFailed": "Zbirke scena nije bilo moguće pretražiti. Pokušajte ponovno.",
       "apps": {
         "obs": "OBS Studio",
         "streamlabs": "Streamlabs Desktop"

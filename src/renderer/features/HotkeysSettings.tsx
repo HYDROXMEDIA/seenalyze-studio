@@ -136,6 +136,7 @@ function HotkeyRow({
   const [problem, setProblem] = useState<HotkeyProblem | "reserved" | null>(null);
   // Snapshots re-render often; the key listener reads the latest values without re-subscribing.
   const latest = useRef({ combo, onChange });
+  const setButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     latest.current = { combo, onChange };
   });
@@ -176,6 +177,7 @@ function HotkeyRow({
       <div className="flex items-center gap-3">
         <span className="min-w-0 flex-1 truncate text-sm">{label}</span>
         <button
+          ref={setButton}
           type="button"
           aria-label={t("setLabel", { action: fullLabel })}
           aria-describedby={message ? messageId : undefined}
@@ -204,7 +206,11 @@ function HotkeyRow({
             aria-label={t("clearLabel", { action: fullLabel })}
             disabled={!combo}
             className={cn(!combo && "invisible")}
-            onClick={() => onChange(null)}
+            onClick={() => {
+              // The clear button hides once the hotkey is gone; focus moves to the row's set button instead of the page.
+              setButton.current?.focus();
+              onChange(null);
+            }}
           >
             <XIcon />
           </Button>

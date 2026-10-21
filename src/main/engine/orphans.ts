@@ -2,7 +2,10 @@
 // host is started with a pipe name that embeds the owning app's PID, so on
 // startup we stop any host whose owner is no longer running.
 
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
 
 export const PIPE_PREFIX = "seenalyze-studio-";
 
@@ -20,18 +23,22 @@ function isAlive(pid: number): boolean {
   }
 }
 
-function listHostProcesses(): { pid: number; commandLine: string }[] {
+type HostProcess = { pid: number; commandLine: string };
+
+const WINDOWS_LIST: [string, string[]] = [
+  "powershell.exe",
+  [
+    "-NoProfile",
+    "-NonInteractive",
+    "-Command",
+    "Get-CimInstance Win32_Process -Filter \"Name='obs64.exe'\" | ForEach-Object { \"$($_.ProcessId)`t$($_.CommandLine)\" }",
+  ],
+];
+const POSIX_LIST: [string, string[]] = ["ps", ["-A", "-o", "pid=,stat=,command="]];
+const LIST_TIMEOUT_MS = 10_000;
+
+function parseHostProcesses(output: string): HostProcess[] {
   if (process.platform === "win32") {
-    const output = execFileSync(
-      "powershell.exe",
-      [
-        "-NoProfile",
-        "-NonInteractive",
-        "-Command",
-        "Get-CimInstance Win32_Process -Filter \"Name='obs64.exe'\" | ForEach-Object { \"$($_.ProcessId)`t$($_.CommandLine)\" }",
-      ],
-      { encoding: "utf8", windowsHide: true, timeout: 10_000 },
-    );
     return output
       .split(/\r?\n/u)
       .filter(Boolean)
@@ -40,7 +47,6 @@ function listHostProcesses(): { pid: number; commandLine: string }[] {
         return { pid: Number(pid), commandLine: rest.join("\t") };
       });
   }
-  const output = execFileSync("ps", ["-A", "-o", "pid=,stat=,command="], { encoding: "utf8", timeout: 10_000 });
   return (
     output
       .split("\n")
@@ -57,16 +63,26 @@ function listHostProcesses(): { pid: number; commandLine: string }[] {
   );
 }
 
-/** Stops engine hosts left behind by app instances that are no longer running. */
-export function stopOrphanedHosts(): number {
+/** Blocks synchronously; only for the engine worker. */
+function listHostProcesses(): HostProcess[] {
+  const [command, args] = process.platform === "win32" ? WINDOWS_LIST : POSIX_LIST;
+  const output = execFileSync(command, args, { encoding: "utf8", windowsHide: true, timeout: LIST_TIMEOUT_MS });
+  return parseHostProcesses(output);
+}
+
+/** Non-blocking variant for the main process. */
+async function listHostProcessesAsync(): Promise<HostProcess[]> {
+  const [command, args] = process.platform === "win32" ? WINDOWS_LIST : POSIX_LIST;
+  const { stdout } = await execFileAsync(command, args, {
+    encoding: "utf8",
+    windowsHide: true,
+    timeout: LIST_TIMEOUT_MS,
+  });
+  return parseHostProcesses(stdout);
+}
+
+function stopHostsWithoutOwner(hosts: HostProcess[]): number {
   let stopped = 0;
-  let hosts: { pid: number; commandLine: string }[];
-  try {
-    hosts = listHostProcesses();
-  } catch (error) {
-    console.warn("[engine] could not check for leftover engine processes", error);
-    return 0;
-  }
   const pattern = new RegExp(`${PIPE_PREFIX}(\\d+)-`, "u");
   for (const host of hosts) {
     const owner = Number(pattern.exec(host.commandLine)?.[1]);
@@ -82,6 +98,34 @@ export function stopOrphanedHosts(): number {
 }
 
 /**
+ * Stops engine hosts left behind by app instances that are no longer running.
+ * Blocks synchronously; only call it from the engine worker (the main process
+ * uses stopOrphanedHostsAsync).
+ */
+export function stopOrphanedHosts(): number {
+  let hosts: HostProcess[];
+  try {
+    hosts = listHostProcesses();
+  } catch (error) {
+    console.warn("[engine] could not check for leftover engine processes", error);
+    return 0;
+  }
+  return stopHostsWithoutOwner(hosts);
+}
+
+/** Same as stopOrphanedHosts without blocking the calling thread; for the main process. */
+export async function stopOrphanedHostsAsync(): Promise<number> {
+  let hosts: HostProcess[];
+  try {
+    hosts = await listHostProcessesAsync();
+  } catch (error) {
+    console.warn("[engine] could not check for leftover engine processes", error);
+    return 0;
+  }
+  return stopHostsWithoutOwner(hosts);
+}
+
+/**
  * Waits up to `graceMs` for this app's own engine host to exit after
  * disconnecting (it tears itself down first), then stops it if still running.
  * Blocks synchronously; only call it from the engine worker.
@@ -91,7 +135,7 @@ export function stopHost(pipe: string, graceMs: number): void {
   // process until it is reaped, and signal 0 still reports it as alive
   // (listHostProcesses skips zombies).
   const running = () => listHostProcesses().filter((host) => host.commandLine.includes(pipe));
-  let hosts: { pid: number; commandLine: string }[];
+  let hosts: HostProcess[];
   try {
     hosts = running();
     const pause = new Int32Array(new SharedArrayBuffer(4));

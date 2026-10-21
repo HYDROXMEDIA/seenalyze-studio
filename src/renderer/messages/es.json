@@ -144,6 +144,7 @@
     "useExisting": "Usar existente",
     "chooseSource": "Elige una fuente…",
     "noExisting": "No hay fuentes disponibles para reutilizar en esta escena.",
+    "existingFailed": "No se pudieron cargar las fuentes.",
     "kinds": {
       "display": "Pantalla",
       "window": "Ventana",
@@ -180,6 +181,7 @@
     "choose": "Elegir…",
     "refresh": "Actualizar",
     "loadFailed": "No se pudieron cargar los ajustes. Actualiza para volver a intentarlo.",
+    "invalidUrl": "Introduce una dirección web que empiece por http:// o https://.",
     "noOptions": "No se encontró nada. Conecta tu dispositivo o abre la aplicación y actualiza.",
     "onePerLine": "Un archivo o dirección por línea",
     "fontFamily": "Fuente",
@@ -198,6 +200,7 @@
     "removeTitle": "¿Quitar {name}?",
     "noSettings": "Este efecto no tiene ajustes",
     "unavailable": "No hay efectos disponibles en este ordenador.",
+    "loadFailed": "No se pudieron cargar los efectos.",
     "kinds": {
       "chromaKey": "Clave cromática",
       "colorCorrection": "Corrección de color",
@@ -282,6 +285,7 @@
     "loadingDevices": "Cargando dispositivos",
     "systemDefault": "Predeterminado del sistema",
     "noDevices": "No hay dispositivos para elegir",
+    "devicesFailed": "No se pudieron cargar los dispositivos.",
     "loadFailed": "No se pudieron cargar los ajustes de audio.",
     "cleanupMic": "Limpiar mi micrófono",
     "cleanupAudio": "Limpiar audio",
@@ -1021,7 +1025,8 @@
           "max": "Máxima"
         },
         "protected": "Elige otro nombre: ese archivo pertenece a una grabación.",
-        "revealWindows": "Mostrar en el Explorador de archivos"
+        "revealWindows": "Mostrar en el Explorador de archivos",
+        "revealFailed": "No se pudo mostrar el vídeo exportado. Búscalo en la carpeta que elegiste."
       },
       "background": {
         "title": "Fondo",
@@ -1039,7 +1044,8 @@
         "removeImage": "Quitar imagen",
         "invalidImage": "Ese archivo no es una imagen compatible.",
         "imageFailed": "No se pudo añadir la imagen. Inténtalo de nuevo.",
-        "removeFailed": "No se ha podido quitar la imagen. Inténtalo de nuevo."
+        "removeFailed": "No se ha podido quitar la imagen. Inténtalo de nuevo.",
+        "missingImage": "No se encontró tu imagen de fondo. Se usa el fondo predeterminado."
       },
       "frame": {
         "title": "Formato",
@@ -1116,7 +1122,8 @@
         },
         "preview": "Vista previa de la cámara",
         "smaller": "Más pequeña",
-        "larger": "Más grande"
+        "larger": "Más grande",
+        "unavailable": "No se pudo abrir la grabación de la cámara. Queda fuera de la vista previa y de la exportación."
       },
       "sounds": {
         "title": "Sonidos",
@@ -1196,6 +1203,9 @@
         "downloadFailed": "No se pudieron descargar las herramientas de subtítulos. Comprueba tu conexión a internet e inténtalo de nuevo.",
         "tooLong": "Esta grabación es demasiado larga para crear subtítulos.",
         "prepareFailed": "No se pudo leer el sonido de la grabación para los subtítulos.",
+        "busy": "Ya se están generando los subtítulos. Espera a que terminen.",
+        "stopped": "La generación de subtítulos se detuvo inesperadamente. Inténtalo de nuevo.",
+        "startFailed": "No se pudieron iniciar las herramientas de subtítulos. Inténtalo de nuevo.",
         "exported": "Subtítulos guardados",
         "exportFailed": "No se pudieron guardar los subtítulos. Inténtalo de nuevo."
       },
@@ -1351,7 +1361,8 @@
     "cellPreview": "Vista previa: {scene}",
     "cellProgram": "Programa: {scene}",
     "leaveFullscreen": "Salir de pantalla completa",
-    "close": "Cerrar proyector"
+    "close": "Cerrar proyector",
+    "actionFailed": "No funcionó. Inténtalo de nuevo."
   },
   "workspace": {
     "collectionButton": "Colección de escenas: {name}",
@@ -1426,6 +1437,7 @@
       "description": "Copia escenas, fuentes, filtros y la transición. Nunca se copian las claves de emisión.",
       "searching": "Buscando colecciones de escenas…",
       "none": "No se encontraron colecciones de escenas de OBS Studio ni de Streamlabs en este equipo.",
+      "searchFailed": "No se pudieron buscar colecciones de escenas. Inténtalo de nuevo.",
       "apps": {
         "obs": "OBS Studio",
         "streamlabs": "Streamlabs Desktop"

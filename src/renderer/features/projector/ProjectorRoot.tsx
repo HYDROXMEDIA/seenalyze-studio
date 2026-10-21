@@ -75,6 +75,16 @@ export function ProjectorRoot() {
   const [view, setView] = useState<ProjectorView | null>(null);
   const pixelRatio = useSyncExternalStore(subscribePixelRatio, readPixelRatio);
   const timer = useRef(0);
+  // The projector has no other chrome: a failed action shows a short note above the pictures.
+  const [failed, setFailed] = useState(false);
+  const failTimer = useRef(0);
+  const fail = useCallback((what: string, error: unknown) => {
+    console.error(`[projector] ${what}`, error);
+    setFailed(true);
+    window.clearTimeout(failTimer.current);
+    failTimer.current = window.setTimeout(() => setFailed(false), 4000);
+  }, []);
+  useEffect(() => () => window.clearTimeout(failTimer.current), []);
 
   useEffect(() => {
     const api = projectorApi();
@@ -84,7 +94,8 @@ export function ProjectorRoot() {
       .then((initial) => {
         if (!cancelled && initial) setView(initial);
       })
-      .catch(console.error);
+      // The next pushed view still arrives through onView.
+      .catch((error: unknown) => console.error("[projector] initial view could not be read", error));
     const unsubscribe = api.onView(setView);
     return () => {
       cancelled = true;
@@ -105,7 +116,7 @@ export function ProjectorRoot() {
           ? { x: Math.round(box.left), y: Math.round(box.top), width: Math.round(box.width), height: Math.round(box.height) }
           : null;
       });
-      projectorApi().setCells(rects, window.devicePixelRatio).catch(console.error);
+      projectorApi().setCells(rects, window.devicePixelRatio).catch((error: unknown) => console.error("[projector] cell layout not applied", error));
     }, 80);
   }, []);
 
@@ -162,12 +173,18 @@ export function ProjectorRoot() {
       label={label(entry)}
       index={index}
       onLayout={report}
-      onPick={multiview && entry.role === "scene" && entry.name ? () => void projectorApi().pick(index).catch(console.error) : undefined}
+      onPick={multiview && entry.role === "scene" && entry.name ? () => void projectorApi().pick(index).catch((error: unknown) => fail("scene could not be picked", error)) : undefined}
     />
   );
 
   return (
-    <div className="flex h-full w-full flex-col bg-black p-0 text-white select-none" onContextMenu={(event) => void openMenu(event).catch(console.error)}>
+    <div className="flex h-full w-full flex-col bg-black p-0 text-white select-none" onContextMenu={(event) => void openMenu(event).catch((error: unknown) => fail("menu action failed", error))}>
+      {failed && (
+        // Its own strip in the layout: the pictures are native surfaces above the page, so a floating note would sit under them.
+        <div role="alert" className="shrink-0 px-3 py-1.5 text-center text-sm text-white">
+          {t("actionFailed")}
+        </div>
+      )}
       {multiview ? (
         <>
           <div className="grid min-h-0 flex-[3] grid-cols-2 gap-1 p-1">{view.cells.slice(0, 2).map((entry, index) => cell(entry, index))}</div>

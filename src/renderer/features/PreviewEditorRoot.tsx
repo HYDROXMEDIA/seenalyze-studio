@@ -24,7 +24,8 @@ export function PreviewEditorRoot() {
       .then((initial) => {
         if (!cancelled) setSnapshot(initial);
       })
-      .catch(console.error);
+      // The next pushed snapshot still arrives through onSnapshot.
+      .catch((error: unknown) => console.error("[preview-editor] initial snapshot could not be read", error));
     const unsubscribe = studio.onSnapshot(setSnapshot);
     return () => {
       cancelled = true;

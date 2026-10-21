@@ -1,5 +1,5 @@
 import { AudioLinesIcon, CheckIcon, MicIcon, Settings2Icon, SlidersHorizontalIcon, SpeakerIcon, Volume2Icon, VolumeXIcon } from "lucide-react";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "use-intl";
 import type { AudioDeviceChoice } from "../../shared/audio";
 import { Dock, DockEmpty } from "@/components/Dock";
@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/overlay
 import { Tooltip } from "@/components/ui/tooltip";
 import { deflectionToDb, formatDb, MIN_DB, meterChannels, meterDeflection } from "@/lib/audio-meter";
 import { studio } from "@/lib/studio";
+import { clampVolume } from "@/lib/limits";
 import { useAction } from "@/lib/use-action";
 import { cn } from "@/lib/utils";
 import { useStudio } from "@/store/studio";
@@ -120,7 +121,10 @@ const MixerChannel = memo(function MixerChannel({
           value={[deflection]}
           aria-label={t("volume", { name })}
           aria-valuetext={formatDb(deflectionToDb(deflection))}
-          onValueChange={([value]) => void run(() => studio.setVolume(name, value))}
+          onValueChange={([value]) => {
+            const volume = clampVolume(value);
+            if (volume !== null) void run(() => studio.setVolume(name, volume));
+          }}
         />
         <span className={cn("w-14 shrink-0 truncate text-right text-xs tabular-nums", muted ? "text-red-500" : "text-muted-foreground")}>
           {muted ? t("muted") : formatDb(deflectionToDb(deflection))}
@@ -145,26 +149,44 @@ const MixerChannel = memo(function MixerChannel({
 function DevicePicker({ source, microphone }: { source: string; microphone: boolean }) {
   const t = useTranslations("mixer");
   const tt = useTranslations("tooltips");
+  const tc = useTranslations("common");
   const run = useAction();
   const [open, setOpen] = useState(false);
-  const [choice, setChoice] = useState<AudioDeviceChoice | null | undefined>(undefined);
+  /** undefined while loading; null when the source has no device to pick; "failed" when the list could not be loaded. */
+  const [choice, setChoice] = useState<AudioDeviceChoice | null | "failed" | undefined>(undefined);
+  const [attempt, setAttempt] = useState(0);
+  const content = useRef<HTMLDivElement>(null);
+  /** Set by Retry, whose button disappears while the list reloads: focus goes to what the reload shows. */
+  const refocus = useRef(false);
+
+  useLayoutEffect(() => {
+    if (!refocus.current || choice === undefined) return;
+    refocus.current = false;
+    const root = content.current;
+    const active = document.activeElement;
+    // Focus the user moved elsewhere stays there.
+    if (!root || (active && active !== document.body && active !== root)) return;
+    const target = root.querySelector<HTMLElement>("[role='option'][aria-selected='true'], [role='option'], button");
+    (target ?? root).focus();
+  }, [choice]);
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     void run(() => studio.listAudioDevices(source)).then((result) => {
-      if (!cancelled) setChoice(result ?? null);
+      if (!cancelled) setChoice(result === undefined ? "failed" : result);
     });
     return () => {
       cancelled = true;
     };
-  }, [open, source, run]);
+  }, [open, source, run, attempt]);
 
   const Icon = microphone ? MicIcon : SpeakerIcon;
   return (
     <Popover
       open={open}
       onOpenChange={(next) => {
+        refocus.current = false;
         if (next) setChoice(undefined);
         setOpen(next);
       }}
@@ -174,10 +196,26 @@ function DevicePicker({ source, microphone }: { source: string; microphone: bool
           <Button variant="ghost" size="icon-sm" aria-label={t("device", { name: source })}><Icon /></Button>
         </PopoverTrigger>
       </Tooltip>
-      <PopoverContent align="end" className="w-72 p-1">
+      <PopoverContent ref={content} align="end" className="w-72 p-1">
         {choice === undefined ? (
           <div className="flex h-16 items-center justify-center">
             <span className="size-4 animate-spin rounded-full border-2 border-muted border-t-foreground" aria-label={t("loadingDevices")} />
+          </div>
+        ) : choice === "failed" ? (
+          <div className="grid justify-items-center gap-2 px-3 py-3 text-center">
+            <p role="alert" className="text-sm text-destructive">{t("devicesFailed")}</p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                refocus.current = true;
+                content.current?.focus();
+                setChoice(undefined);
+                setAttempt((value) => value + 1);
+              }}
+            >
+              {tc("retry")}
+            </Button>
           </div>
         ) : !choice || choice.options.length === 0 ? (
           <p className="px-3 py-4 text-center text-sm text-muted-foreground">{t("noDevices")}</p>

@@ -126,6 +126,8 @@ export function SettingsPage() {
   const [pending, setPending] = useState(false);
   const [disconnecting, setDisconnecting] = useState<{ id: string; name: string } | null>(null);
   const [twitchPrompt, setTwitchPrompt] = useState<DeviceCodePrompt | null>(null);
+  // One Twitch reconnect at a time: a second request cancels the first, whose code could still arrive last and be shown.
+  const [reconnecting, setReconnecting] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
   // Settings changed elsewhere (a profile switch) replace the draft unless it has unsaved edits.
   const [synced, setSynced] = useState({ video: JSON.stringify(snapshot?.video ?? null), encoder: snapshot?.selectedEncoder ?? "" });
@@ -389,12 +391,20 @@ export function SettingsPage() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            // Not disabled, so keyboard focus stays on it while the code is requested.
+                            aria-disabled={reconnecting}
                             onClick={async () => {
-                              const prompt = await run(() => studio.connectTwitch());
-                              if (prompt) setTwitchPrompt(prompt);
+                              if (reconnecting) return;
+                              setReconnecting(true);
+                              try {
+                                const prompt = await run(() => studio.connectTwitch());
+                                if (prompt) setTwitchPrompt(prompt);
+                              } finally {
+                                setReconnecting(false);
+                              }
                             }}
                           >
-                            <RefreshCwIcon />
+                            {reconnecting ? <Loader2Icon aria-hidden className="animate-spin" /> : <RefreshCwIcon />}
                             {t("reconnect")}
                           </Button>
                         )}
@@ -411,6 +421,8 @@ export function SettingsPage() {
                     ))}
                   </ul>
                 )}
+                {/* Another platform (or a second channel) can be connected here too, not only from a destination. */}
+                {snapshot.accounts.length > 0 && <ConnectAccountButtons onTwitchPrompt={setTwitchPrompt} />}
               </SettingsCard>
             )}
 
@@ -776,7 +788,7 @@ function LanguageSelect() {
   );
 }
 
-/** Connects a YouTube or Twitch account from where no account exists yet. */
+/** Connects a YouTube or Twitch account from Settings > Accounts. */
 function ConnectAccountButtons({ onTwitchPrompt }: { onTwitchPrompt: (prompt: DeviceCodePrompt) => void }) {
   const td = useTranslations("destinations");
   const run = useAction();

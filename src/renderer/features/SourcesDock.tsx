@@ -93,7 +93,9 @@ export function SourcesDock() {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
-  const [removing, setRemoving] = useState<SceneItemDTO | null>(null);
+  // Keeps the item's scene: item ids are per scene, and the active scene can change
+  // (hotkey, projector menu) while the confirmation is open.
+  const [removing, setRemoving] = useState<{ scene: string; item: SceneItemDTO } | null>(null);
   const [transforming, setTransforming] = useState<{ scene: string; itemId: number } | null>(null);
   const [effectsOf, setEffectsOf] = useState<string | null>(null);
   const clipboard = useClipboard();
@@ -116,9 +118,9 @@ export function SourcesDock() {
       if (view !== "studio" || overlays > 0 || poppers > 0 || selected === null) return;
       const active = snapshot?.scenes.find((entry) => entry.name === snapshot.activeScene);
       const item = active?.items.find((entry) => entry.id === selected);
-      if (!item || item.locked) return;
+      if (!active || !item || item.locked) return;
       event.preventDefault();
-      setRemoving(item);
+      setRemoving({ scene: active.name, item });
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -149,7 +151,8 @@ export function SourcesDock() {
         label: t("duplicate"),
         onSelect: () =>
           void run(() => studio.duplicateSceneItem(scene.name, item.id)).then((copy) => {
-            if (copy) selectItem(copy.itemId);
+            // The copy's id belongs to its scene; another scene may be active by now.
+            if (copy && useStudio.getState().snapshot?.activeScene === scene.name) selectItem(copy.itemId);
           }),
       },
       ...(pictureless
@@ -202,7 +205,7 @@ export function SourcesDock() {
       { label: t("moveDown"), disabled: index === scene.items.length - 1, onSelect: () => void run(() => studio.moveSceneItem(scene.name, item.id, "down")) },
       "separator",
       ...(pictureless ? [] : [...projectorMenu(item.kind === "scene" ? { kind: "scene", name: item.sourceName } : { kind: "source", name: item.sourceName }), "separator" as const]),
-      { label: tc("remove"), disabled: item.locked, onSelect: () => setRemoving(item) },
+      { label: tc("remove"), disabled: item.locked, onSelect: () => setRemoving({ scene: scene.name, item }) },
     ];
     return entries.filter((entry): entry is ActionMenuItem => entry !== false);
   };
@@ -309,15 +312,16 @@ export function SourcesDock() {
         {removing !== null && (
           <AlertDialogContent>
             <DialogHeader>
-              <AlertDialogTitle>{t("removeTitle", { name: removing.sourceName })}</AlertDialogTitle>
+              <AlertDialogTitle>{t("removeTitle", { name: removing.item.sourceName })}</AlertDialogTitle>
               <AlertDialogDescription>{t("removeDescription")}</AlertDialogDescription>
             </DialogHeader>
             <DialogFooter>
               <AlertDialogCancel>{tc("cancel")}</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => {
-                  if (selectedItemId === removing.id) selectItem(null);
-                  void run(() => studio.removeSceneItem(scene.name, removing.id));
+                  const { scene: sceneName, item } = removing;
+                  if (sceneName === scene.name && selectedItemId === item.id) selectItem(null);
+                  void run(() => studio.removeSceneItem(sceneName, item.id));
                 }}
               >
                 {tc("remove")}

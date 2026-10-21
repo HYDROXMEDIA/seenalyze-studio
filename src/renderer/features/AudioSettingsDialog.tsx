@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Select,
 import { Tooltip } from "@/components/ui/tooltip";
 import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
+import { useMoveFocus } from "@/lib/use-move-focus";
 import { cn } from "@/lib/utils";
 import { ALL_TRACKS } from "../../shared/formats";
 import { TrackToggles } from "./settings/advanced-parts";
@@ -42,8 +43,12 @@ function AudioSettingsForm({ source, microphone, onClose }: { source: string; mi
   const [loadFailed, setLoadFailed] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [monitorDevices, setMonitorDevices] = useState<MonitoringDevices | null>(null);
+  const [monitorDevicesFailed, setMonitorDevicesFailed] = useState(false);
+  const [monitorAttempt, setMonitorAttempt] = useState(0);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const mounted = useRef(true);
+  const body = useRef<HTMLDivElement>(null);
+  const moveFocus = useMoveFocus(body, details?.filters.map((filter) => filter.id) ?? []);
 
   useEffect(() => {
     mounted.current = true;
@@ -64,23 +69,31 @@ function AudioSettingsForm({ source, microphone, onClose }: { source: string; mi
     if (monitoring === "off" || monitorDevices) return;
     let cancelled = false;
     void run(() => studio.getMonitoringDevices()).then((result) => {
-      if (!cancelled && result) setMonitorDevices(result);
+      if (cancelled) return;
+      // A failed list is not "System default": the picker says so and offers a retry.
+      if (result) setMonitorDevices(result);
+      else setMonitorDevicesFailed(true);
     });
     return () => {
       cancelled = true;
     };
-  }, [monitoring, monitorDevices, run]);
+  }, [monitoring, monitorDevices, run, monitorAttempt]);
 
   /** Changes run one after another; the engine's answer replaces the shown state. */
   const apply = (change: AudioChange) => {
     const next = queue.current.then(async () => {
       const result = await run(() => studio.changeAudio(source, change));
       if (!mounted.current) return;
-      if (result) setDetails(result);
+      // A moved filter keeps keyboard focus on its Move buttons in the new order.
+      const settle = (state: AudioSourceDetails) => {
+        if (change.type === "moveFilter") moveFocus.expect(change.id, change.direction);
+        setDetails(state);
+      };
+      if (result) settle(result);
       else {
         // Show the real state again after a failed change.
         const fresh = await run(() => studio.getAudioDetails(source));
-        if (fresh && mounted.current) setDetails(fresh);
+        if (fresh && mounted.current) settle(fresh);
       }
     });
     queue.current = next;
@@ -95,7 +108,7 @@ function AudioSettingsForm({ source, microphone, onClose }: { source: string; mi
       <DialogHeader>
         <DialogTitle>{t("audioSettings", { name: source })}</DialogTitle>
       </DialogHeader>
-      <div className="-mx-6 max-h-[65vh] overflow-y-auto px-6">
+      <div ref={body} className="-mx-6 max-h-[65vh] overflow-y-auto px-6">
         {loadFailed ? (
           <p role="alert" className="py-6 text-center text-sm text-destructive">{t("loadFailed")}</p>
         ) : !details ? (
@@ -146,9 +159,15 @@ function AudioSettingsForm({ source, microphone, onClose }: { source: string; mi
                   <Select
                     disabled={!monitorDevices}
                     value={monitorDevices?.current}
-                    onValueChange={(id) => {
+                    onValueChange={async (id) => {
+                      const previous = monitorDevices?.current;
                       setMonitorDevices((current) => current && { ...current, current: id });
-                      void run(() => studio.setMonitoringDevice(id));
+                      const saved = await run(async () => {
+                        await studio.setMonitoringDevice(id);
+                        return true;
+                      });
+                      // Shows the device that is really in use again (the error was already shown).
+                      if (!saved && mounted.current) setMonitorDevices((current) => current && current.current === id ? { ...current, current: previous ?? current.current } : current);
                     }}
                   >
                     <SelectTrigger id="audio-headphones">
@@ -160,6 +179,22 @@ function AudioSettingsForm({ source, microphone, onClose }: { source: string; mi
                       ))}
                     </SelectContent>
                   </Select>
+                  {monitorDevicesFailed && !monitorDevices && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground" role="alert">
+                      <span className="min-w-0 flex-1">{t("devicesFailed")}</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => {
+                          setMonitorDevicesFailed(false);
+                          setMonitorAttempt((count) => count + 1);
+                        }}
+                      >
+                        {tc("retry")}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -318,10 +353,10 @@ function FilterCard({
         />
         <span className={cn("min-w-0 flex-1 truncate text-sm font-medium", !filter.enabled && "text-muted-foreground")}>{name}</span>
         <Tooltip label={tt("moveUp")}>
-          <Button variant="ghost" size="icon-sm" disabled={first} aria-label={t("moveUp", { name })} onClick={() => apply({ type: "moveFilter", id: filter.id, direction: "up" })}><ArrowUpIcon /></Button>
+          <Button variant="ghost" size="icon-sm" disabled={first} data-move-key={filter.id} data-move="up" aria-label={t("moveUp", { name })} onClick={() => apply({ type: "moveFilter", id: filter.id, direction: "up" })}><ArrowUpIcon /></Button>
         </Tooltip>
         <Tooltip label={tt("moveDown")}>
-          <Button variant="ghost" size="icon-sm" disabled={last} aria-label={t("moveDown", { name })} onClick={() => apply({ type: "moveFilter", id: filter.id, direction: "down" })}><ArrowDownIcon /></Button>
+          <Button variant="ghost" size="icon-sm" disabled={last} data-move-key={filter.id} data-move="down" aria-label={t("moveDown", { name })} onClick={() => apply({ type: "moveFilter", id: filter.id, direction: "down" })}><ArrowDownIcon /></Button>
         </Tooltip>
         <Tooltip label={tt("removeFilter")}>
           <Button variant="ghost" size="icon-sm" aria-label={t("removeFilter", { name })} onClick={() => apply({ type: "removeFilter", id: filter.id })}><Trash2Icon /></Button>

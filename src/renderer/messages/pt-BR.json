@@ -144,6 +144,7 @@
     "useExisting": "Usar existente",
     "chooseSource": "Escolha uma fonte…",
     "noExisting": "Nenhuma fonte disponível para reutilizar nesta cena.",
+    "existingFailed": "Não foi possível carregar as fontes.",
     "kinds": {
       "display": "Tela",
       "window": "Janela",
@@ -180,6 +181,7 @@
     "choose": "Escolher…",
     "refresh": "Atualizar",
     "loadFailed": "Não foi possível carregar as configurações. Atualize para tentar novamente.",
+    "invalidUrl": "Digite um endereço da web que comece com http:// ou https://.",
     "noOptions": "Nada encontrado. Conecte o dispositivo ou abra o aplicativo e atualize.",
     "onePerLine": "Um arquivo ou endereço por linha",
     "fontFamily": "Fonte",
@@ -198,6 +200,7 @@
     "removeTitle": "Remover {name}?",
     "noSettings": "Este efeito não tem configurações",
     "unavailable": "Nenhum efeito disponível neste computador.",
+    "loadFailed": "Não foi possível carregar os efeitos.",
     "kinds": {
       "chromaKey": "Chroma key",
       "colorCorrection": "Correção de cor",
@@ -282,6 +285,7 @@
     "loadingDevices": "Carregando dispositivos",
     "systemDefault": "Padrão do sistema",
     "noDevices": "Nenhum dispositivo para escolher",
+    "devicesFailed": "Não foi possível carregar os dispositivos.",
     "loadFailed": "Não foi possível carregar as configurações de áudio.",
     "cleanupMic": "Limpar meu microfone",
     "cleanupAudio": "Limpar áudio",
@@ -1021,7 +1025,8 @@
           "max": "Máxima"
         },
         "protected": "Escolha outro nome: esse arquivo pertence a uma gravação.",
-        "revealWindows": "Mostrar no Explorador de Arquivos"
+        "revealWindows": "Mostrar no Explorador de Arquivos",
+        "revealFailed": "Não foi possível mostrar o vídeo exportado. Procure-o na pasta que você escolheu."
       },
       "background": {
         "title": "Fundo",
@@ -1039,7 +1044,8 @@
         "removeImage": "Remover imagem",
         "invalidImage": "Esse arquivo não é uma imagem compatível.",
         "imageFailed": "Não foi possível adicionar a imagem. Tente novamente.",
-        "removeFailed": "Não foi possível remover a imagem. Tente novamente."
+        "removeFailed": "Não foi possível remover a imagem. Tente novamente.",
+        "missingImage": "Sua imagem de fundo não foi encontrada. O fundo padrão será usado."
       },
       "frame": {
         "title": "Proporção",
@@ -1116,7 +1122,8 @@
         },
         "preview": "Prévia da câmera",
         "smaller": "Menor",
-        "larger": "Maior"
+        "larger": "Maior",
+        "unavailable": "Não foi possível abrir a gravação da câmera. Ela fica fora da prévia e da exportação."
       },
       "sounds": {
         "title": "Sons",
@@ -1196,6 +1203,9 @@
         "downloadFailed": "Não foi possível baixar as ferramentas de legendas. Verifique sua conexão com a internet e tente novamente.",
         "tooLong": "Esta gravação é longa demais para legendas.",
         "prepareFailed": "Não foi possível ler o som da gravação para as legendas.",
+        "busy": "As legendas já estão sendo geradas. Aguarde terminar.",
+        "stopped": "A geração das legendas parou inesperadamente. Tente novamente.",
+        "startFailed": "Não foi possível iniciar as ferramentas de legendas. Tente novamente.",
         "exported": "Legendas salvas",
         "exportFailed": "Não foi possível salvar as legendas. Tente novamente."
       },
@@ -1351,7 +1361,8 @@
     "cellPreview": "Prévia: {scene}",
     "cellProgram": "Programa: {scene}",
     "leaveFullscreen": "Sair da tela cheia",
-    "close": "Fechar projetor"
+    "close": "Fechar projetor",
+    "actionFailed": "Não funcionou. Tente novamente."
   },
   "workspace": {
     "collectionButton": "Coleção de cenas: {name}",
@@ -1426,6 +1437,7 @@
       "description": "Copia cenas, fontes, filtros e a transição. Chaves de transmissão nunca são copiadas.",
       "searching": "Procurando coleções de cenas…",
       "none": "Nenhuma coleção de cenas do OBS Studio ou do Streamlabs foi encontrada neste computador.",
+      "searchFailed": "Não foi possível procurar coleções de cenas. Tente novamente.",
       "apps": {
         "obs": "OBS Studio",
         "streamlabs": "Streamlabs Desktop"

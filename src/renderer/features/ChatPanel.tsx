@@ -72,21 +72,26 @@ export function ChatPanel() {
   const [unseen, setUnseen] = useState(0);
   const lastCount = useRef(0);
 
+  const [connectFailed, setConnectFailed] = useState(false);
+  const [connectAttempt, setConnectAttempt] = useState(0);
+
   // Connect while the panel is visible; the chat hub disconnects when hidden.
   useEffect(() => {
     let cancelled = false;
-    void studio.setChatActive(true).catch(console.error);
-    void studio
-      .getChat()
-      .then((state) => {
+    Promise.all([studio.setChatActive(true), studio.getChat()])
+      .then(([, state]) => {
         if (!cancelled) load(state);
       })
-      .catch(console.error);
+      .catch((error: unknown) => {
+        // Without this the panel would look like a quiet chat; show it failed and offer a retry.
+        console.error("[chat] could not connect the chat", error);
+        if (!cancelled) setConnectFailed(true);
+      });
     return () => {
       cancelled = true;
-      void studio.setChatActive(false).catch(console.error);
+      studio.setChatActive(false).catch((error: unknown) => console.error("[chat] could not disconnect the chat", error));
     };
-  }, [load]);
+  }, [load, connectAttempt]);
 
   const activeTab = tab === "all" || accounts.some((account) => account.id === tab) ? tab : "all";
   const visible = useMemo(() => (activeTab === "all" ? messages : messages.filter((message) => message.accountId === activeTab)), [messages, activeTab]);
@@ -164,6 +169,18 @@ export function ChatPanel() {
               </TabButton>
             ))}
           </div>
+
+          {connectFailed && (
+            <div role="alert" className="flex shrink-0 items-center gap-2 border-b px-3 py-2 text-xs text-muted-foreground">
+              <span className="min-w-0 flex-1">{t("states.error")}</span>
+              <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => {
+                  setConnectFailed(false);
+                  setConnectAttempt((count) => count + 1);
+                }}>
+                {t("reconnect")}
+              </Button>
+            </div>
+          )}
 
           {problems.length > 0 && (
             <ul className="shrink-0 border-b px-3 py-2 text-xs text-muted-foreground">

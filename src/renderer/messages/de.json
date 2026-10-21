@@ -144,6 +144,7 @@
     "useExisting": "Vorhandene verwenden",
     "chooseSource": "Quelle auswählen…",
     "noExisting": "Keine Quellen zur Wiederverwendung in dieser Szene verfügbar.",
+    "existingFailed": "Die Quellen konnten nicht geladen werden.",
     "kinds": {
       "display": "Bildschirm",
       "window": "Fenster",
@@ -180,6 +181,7 @@
     "choose": "Auswählen…",
     "refresh": "Aktualisieren",
     "loadFailed": "Die Einstellungen konnten nicht geladen werden. Aktualisieren Sie, um es erneut zu versuchen.",
+    "invalidUrl": "Geben Sie eine Webadresse ein, die mit http:// oder https:// beginnt.",
     "noOptions": "Nichts gefunden. Schließen Sie Ihr Gerät an oder öffnen Sie die App und aktualisieren Sie dann.",
     "onePerLine": "Eine Datei oder Adresse pro Zeile",
     "fontFamily": "Schriftart",
@@ -198,6 +200,7 @@
     "removeTitle": "{name} entfernen?",
     "noSettings": "Dieser Effekt hat keine Einstellungen",
     "unavailable": "Auf diesem Computer sind keine Effekte verfügbar.",
+    "loadFailed": "Die Effekte konnten nicht geladen werden.",
     "kinds": {
       "chromaKey": "Chroma-Key",
       "colorCorrection": "Farbkorrektur",
@@ -282,6 +285,7 @@
     "loadingDevices": "Geräte werden geladen",
     "systemDefault": "Systemstandard",
     "noDevices": "Keine Geräte zur Auswahl",
+    "devicesFailed": "Die Geräte konnten nicht geladen werden.",
     "loadFailed": "Die Audioeinstellungen konnten nicht geladen werden.",
     "cleanupMic": "Mein Mikrofon verbessern",
     "cleanupAudio": "Audio verbessern",
@@ -1021,7 +1025,8 @@
           "max": "Maximal"
         },
         "protected": "Wählen Sie einen anderen Namen: Diese Datei gehört zu einer Aufnahme.",
-        "revealWindows": "Im Explorer anzeigen"
+        "revealWindows": "Im Explorer anzeigen",
+        "revealFailed": "Das exportierte Video konnte nicht angezeigt werden. Sie finden es im gewählten Ordner."
       },
       "background": {
         "title": "Hintergrund",
@@ -1039,7 +1044,8 @@
         "removeImage": "Bild entfernen",
         "invalidImage": "Diese Datei ist kein unterstütztes Bild.",
         "imageFailed": "Das Bild konnte nicht hinzugefügt werden. Versuchen Sie es erneut.",
-        "removeFailed": "Das Bild konnte nicht entfernt werden. Versuchen Sie es erneut."
+        "removeFailed": "Das Bild konnte nicht entfernt werden. Versuchen Sie es erneut.",
+        "missingImage": "Ihr Hintergrundbild wurde nicht gefunden. Stattdessen wird der Standardhintergrund verwendet."
       },
       "frame": {
         "title": "Format",
@@ -1116,7 +1122,8 @@
         },
         "preview": "Kameravorschau",
         "smaller": "Kleiner",
-        "larger": "Größer"
+        "larger": "Größer",
+        "unavailable": "Die Kameraaufnahme konnte nicht geöffnet werden. Sie fehlt in der Vorschau und im Export."
       },
       "sounds": {
         "title": "Sounds",
@@ -1196,6 +1203,9 @@
         "downloadFailed": "Die Untertitel-Werkzeuge konnten nicht geladen werden. Prüfe deine Internetverbindung und versuche es erneut.",
         "tooLong": "Diese Aufnahme ist für Untertitel zu lang.",
         "prepareFailed": "Der Ton der Aufnahme konnte für Untertitel nicht gelesen werden.",
+        "busy": "Untertitel werden bereits erstellt. Warte, bis sie fertig sind.",
+        "stopped": "Die Untertitelerstellung wurde unerwartet beendet. Versuche es erneut.",
+        "startFailed": "Die Untertitel-Werkzeuge konnten nicht gestartet werden. Versuche es erneut.",
         "exported": "Untertitel gespeichert",
         "exportFailed": "Untertitel konnten nicht gespeichert werden. Versuche es erneut."
       },
@@ -1351,7 +1361,8 @@
     "cellPreview": "Vorschau: {scene}",
     "cellProgram": "Programm: {scene}",
     "leaveFullscreen": "Vollbild beenden",
-    "close": "Projektor schließen"
+    "close": "Projektor schließen",
+    "actionFailed": "Das hat nicht geklappt. Versuche es erneut."
   },
   "workspace": {
     "collectionButton": "Szenensammlung: {name}",
@@ -1426,6 +1437,7 @@
       "description": "Übernimmt Szenen, Quellen, Filter und den Übergang. Stream-Schlüssel werden nie übernommen.",
       "searching": "Suche nach Szenensammlungen…",
       "none": "Auf diesem Computer wurden keine Szenensammlungen von OBS Studio oder Streamlabs gefunden.",
+      "searchFailed": "Szenensammlungen konnten nicht gesucht werden. Versuche es erneut.",
       "apps": {
         "obs": "OBS Studio",
         "streamlabs": "Streamlabs Desktop"
