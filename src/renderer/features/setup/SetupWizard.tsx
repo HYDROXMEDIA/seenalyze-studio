@@ -68,10 +68,12 @@ export function SetupWizard() {
   const pending = useStudio((state) => Boolean(state.snapshot?.ready && state.snapshot.setupPending));
   const manual = useSetupWizard((state) => state.open);
   const hide = useSetupWizard((state) => state.hide);
+  const run = useAction();
   const open = pending || manual;
   const close = () => {
     hide();
-    if (pending) studio.completeSetup().catch(console.error);
+    // A failed save keeps setup pending (the wizard stays open); the action logs it and says why.
+    if (pending) void run(() => studio.completeSetup());
   };
   const snapshot = useStudio((state) => state.snapshot);
   return (

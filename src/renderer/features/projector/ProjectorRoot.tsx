@@ -84,7 +84,8 @@ export function ProjectorRoot() {
       .then((initial) => {
         if (!cancelled && initial) setView(initial);
       })
-      .catch(console.error);
+      // The next pushed view still arrives through onView.
+      .catch((error: unknown) => console.error("[projector] initial view could not be read", error));
     const unsubscribe = api.onView(setView);
     return () => {
       cancelled = true;
@@ -105,7 +106,7 @@ export function ProjectorRoot() {
           ? { x: Math.round(box.left), y: Math.round(box.top), width: Math.round(box.width), height: Math.round(box.height) }
           : null;
       });
-      projectorApi().setCells(rects, window.devicePixelRatio).catch(console.error);
+      projectorApi().setCells(rects, window.devicePixelRatio).catch((error: unknown) => console.error("[projector] cell layout not applied", error));
     }, 80);
   }, []);
 
