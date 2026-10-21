@@ -46,6 +46,8 @@ export class ControlsWindow {
       skipTaskbar: true,
       hasShadow: false,
       alwaysOnTop: true,
+      // The page draws its own rounded shape; no system corner mask or window outline around it.
+      roundedCorners: false,
       show: false,
       webPreferences: {
         preload: preloadPath('controls'),

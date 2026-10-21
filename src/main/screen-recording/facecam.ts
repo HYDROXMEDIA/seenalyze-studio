@@ -56,6 +56,8 @@ export class FacecamWindow {
       frame: false,
       transparent: true,
       hasShadow: false,
+      // The page draws its own rounded shape; no system corner mask or window outline around it.
+      roundedCorners: false,
       resizable: false,
       movable: true,
       focusable: false,
