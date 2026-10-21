@@ -1196,6 +1196,9 @@
         "downloadFailed": "Alati za titlove nisu se mogli preuzeti. Provjerite internetsku vezu i pokušajte ponovno.",
         "tooLong": "Ova je snimka predugačka za titlove.",
         "prepareFailed": "Zvuk snimke nije se mogao pročitati za titlove.",
+        "busy": "Titlovi se već izrađuju. Pričekajte da završi.",
+        "stopped": "Izrada titlova neočekivano se zaustavila. Pokušajte ponovno.",
+        "startFailed": "Alati za titlove nisu se mogli pokrenuti. Pokušajte ponovno.",
         "exported": "Titlovi su spremljeni",
         "exportFailed": "Titlovi se nisu mogli spremiti. Pokušajte ponovno."
       },

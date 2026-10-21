@@ -1196,6 +1196,9 @@
         "downloadFailed": "Hindi ma-download ang mga tool para sa captions. Tingnan ang iyong internet connection at subukan ulit.",
         "tooLong": "Masyadong mahaba ang recording na ito para sa captions.",
         "prepareFailed": "Hindi mabasa ang tunog ng recording para sa captions.",
+        "busy": "Ginagawa na ang mga caption. Hintaying matapos.",
+        "stopped": "Biglang huminto ang paggawa ng mga caption. Subukan ulit.",
+        "startFailed": "Hindi masimulan ang mga tool para sa captions. Subukan ulit.",
         "exported": "Na-save ang subtitles",
         "exportFailed": "Hindi ma-save ang subtitles. Subukan ulit."
       },

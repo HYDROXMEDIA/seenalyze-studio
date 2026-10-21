@@ -1196,6 +1196,9 @@
         "downloadFailed": "Nástroje pro titulky se nepodařilo stáhnout. Zkontrolujte připojení k internetu a zkuste to znovu.",
         "tooLong": "Tato nahrávka je pro titulky příliš dlouhá.",
         "prepareFailed": "Zvuk nahrávky se pro titulky nepodařilo načíst.",
+        "busy": "Titulky se už vytvářejí. Počkejte na dokončení.",
+        "stopped": "Vytváření titulků se nečekaně zastavilo. Zkuste to znovu.",
+        "startFailed": "Nástroje pro titulky se nepodařilo spustit. Zkuste to znovu.",
         "exported": "Titulky uloženy",
         "exportFailed": "Titulky se nepodařilo uložit. Zkuste to znovu."
       },

@@ -1324,7 +1324,10 @@ const CAPTION_ERROR_KEYS = {
   'caption-unsupported': 'editor.captions.unsupported',
   'caption-download-failed': 'editor.captions.downloadFailed',
   'caption-too-long': 'editor.captions.tooLong',
-  'caption-prepare-failed': 'editor.captions.prepareFailed'
+  'caption-prepare-failed': 'editor.captions.prepareFailed',
+  'caption-busy': 'editor.captions.busy',
+  'caption-stopped': 'editor.captions.stopped',
+  'caption-start-failed': 'editor.captions.startFailed'
 };
 const captionRows = $('caption-rows');
 function renderCaptions() {

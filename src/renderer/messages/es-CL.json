@@ -1196,6 +1196,9 @@
         "downloadFailed": "No se pudieron descargar las herramientas de subtítulos. Revisa tu conexión a internet e inténtalo de nuevo.",
         "tooLong": "Esta grabación es demasiado larga para crear subtítulos.",
         "prepareFailed": "No se pudo leer el sonido de la grabación para los subtítulos.",
+        "busy": "Ya se están generando los subtítulos. Espera a que terminen.",
+        "stopped": "La generación de subtítulos se detuvo inesperadamente. Inténtalo de nuevo.",
+        "startFailed": "No se pudieron iniciar las herramientas de subtítulos. Inténtalo de nuevo.",
         "exported": "Subtítulos guardados",
         "exportFailed": "No se pudieron guardar los subtítulos. Inténtalo de nuevo."
       },

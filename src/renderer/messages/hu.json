@@ -1196,6 +1196,9 @@
         "downloadFailed": "Nem sikerült letölteni a feliratkészítő eszközöket. Ellenőrizd az internetkapcsolatot, és próbáld újra.",
         "tooLong": "Ez a felvétel túl hosszú a feliratkészítéshez.",
         "prepareFailed": "A felvétel hangját nem sikerült beolvasni a feliratokhoz.",
+        "busy": "A feliratok készítése már folyamatban van. Várd meg, amíg elkészül.",
+        "stopped": "A feliratkészítés váratlanul leállt. Próbáld újra.",
+        "startFailed": "A feliratkészítő eszközök nem indultak el. Próbáld újra.",
         "exported": "Felirat mentve",
         "exportFailed": "A feliratot nem sikerült menteni. Próbáld újra."
       },

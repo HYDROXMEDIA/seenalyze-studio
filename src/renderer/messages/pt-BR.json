@@ -1196,6 +1196,9 @@
         "downloadFailed": "Não foi possível baixar as ferramentas de legendas. Verifique sua conexão com a internet e tente novamente.",
         "tooLong": "Esta gravação é longa demais para legendas.",
         "prepareFailed": "Não foi possível ler o som da gravação para as legendas.",
+        "busy": "As legendas já estão sendo geradas. Aguarde terminar.",
+        "stopped": "A geração das legendas parou inesperadamente. Tente novamente.",
+        "startFailed": "Não foi possível iniciar as ferramentas de legendas. Tente novamente.",
         "exported": "Legendas salvas",
         "exportFailed": "Não foi possível salvar as legendas. Tente novamente."
       },

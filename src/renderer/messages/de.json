@@ -1196,6 +1196,9 @@
         "downloadFailed": "Die Untertitel-Werkzeuge konnten nicht geladen werden. Prüfe deine Internetverbindung und versuche es erneut.",
         "tooLong": "Diese Aufnahme ist für Untertitel zu lang.",
         "prepareFailed": "Der Ton der Aufnahme konnte für Untertitel nicht gelesen werden.",
+        "busy": "Untertitel werden bereits erstellt. Warte, bis sie fertig sind.",
+        "stopped": "Die Untertitelerstellung wurde unerwartet beendet. Versuche es erneut.",
+        "startFailed": "Die Untertitel-Werkzeuge konnten nicht gestartet werden. Versuche es erneut.",
         "exported": "Untertitel gespeichert",
         "exportFailed": "Untertitel konnten nicht gespeichert werden. Versuche es erneut."
       },
