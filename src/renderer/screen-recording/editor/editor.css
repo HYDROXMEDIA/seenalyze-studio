@@ -103,9 +103,15 @@ input:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 52px;
-  /* Window controls: macOS traffic lights on the left, Windows caption buttons on the right. */
-  padding: 10px max(12px, calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 8px)) 8px env(titlebar-area-x, 84px);
+  /* The bar is exactly as tall as the window buttons' title bar (the border sits below it), so
+     its items, the macOS traffic lights and the Windows caption buttons share one centre line. */
+  box-sizing: content-box;
+  min-height: var(--titlebar-height);
+  padding-block: 0;
+  /* Window controls: macOS traffic lights in the leading reserve (set by the preload), Windows
+     caption buttons over the trailing end (the title bar area tells how wide they are). */
+  padding-left: max(12px, env(titlebar-area-x, var(--traffic-light-reserve)));
+  padding-right: max(12px, calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 8px));
   background: var(--toolbar);
   border-bottom: 1px solid var(--separator);
   -webkit-app-region: drag;
@@ -242,7 +248,8 @@ canvas {
 
 .load-error {
   position: fixed;
-  inset: 52px 0 0;
+  /* Below the toolbar and its 1px border. */
+  inset: calc(var(--titlebar-height) + 1px) 0 0;
   z-index: 5;
   display: grid;
   place-content: center;

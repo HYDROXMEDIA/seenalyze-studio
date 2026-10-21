@@ -2,6 +2,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { app, BrowserWindow, ipcMain, nativeTheme, screen, session, shell } from "electron";
 import { IPC, STUDIO_ERROR_PREFIX, STUDIO_METHODS, type StudioMethod } from "../shared/ipc";
+import { STUDIO_TITLE_BAR, trafficLightPosition } from "../shared/window-chrome";
 import { setVendorRoot } from "./engine/osn";
 import { appendLog, flushAppLog, installAppLog } from "./log";
 import { PREVIEW_EDITOR_HASH, PREVIEW_EDITOR_METHODS, PreviewEditorWindow } from "./preview-editor-window";
@@ -9,6 +10,7 @@ import { PROJECTOR_HASH } from "./projectors";
 import { registerMediaScheme } from "./screen-recording";
 import { STUDIO_SCHEME } from "./seenalyze/account";
 import { errorKey, Studio, vendorRoot } from "./studio";
+import { releaseTrafficLightRoomInFullScreen } from "./window-chrome";
 import { initialBounds, keepWindowOnScreen, minimumSizeFor } from "./window-fit";
 
 installAppLog();
@@ -39,7 +41,8 @@ function createWindow(): BrowserWindow {
     show: false,
     title: "SEENALYZE STUDIO",
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#000000" : "#ffffff",
-    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
+    // macOS draws its window buttons inside the header (`Header.tsx`), centred on it.
+    ...(process.platform === "darwin" ? { titleBarStyle: "hiddenInset" as const, trafficLightPosition: trafficLightPosition(STUDIO_TITLE_BAR) } : {}),
     webPreferences: {
       preload: PRELOAD,
       contextIsolation: true,
@@ -52,6 +55,7 @@ function createWindow(): BrowserWindow {
 
   window.once("ready-to-show", () => window.show());
   keepWindowOnScreen(window, screen);
+  releaseTrafficLightRoomInFullScreen(window);
 
   // The app never navigates away from its own UI and never opens child windows.
   window.webContents.on("will-navigate", (event, url) => {

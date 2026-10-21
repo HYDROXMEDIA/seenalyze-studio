@@ -5,9 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useChat } from "@/store/chat";
 import appIcon from "@/assets/icons/seenalyze-app-icon.svg";
-import { isMac } from "@/lib/studio";
 import { COMPACT_HEADER_QUERY, useMediaQuery } from "@/lib/use-media-query";
-import { cn } from "@/lib/utils";
 import { useStudio } from "@/store/studio";
 import { isActive } from "./DestinationsDock";
 import { StatsButton } from "./StatsPanel";
@@ -27,7 +25,7 @@ export function Header() {
   const tip = (label: string, button: ReactElement) => (compact ? <Tooltip label={label}>{button}</Tooltip> : button);
 
   return (
-    <header className={cn("app-drag flex h-12 shrink-0 items-center gap-3 border-b px-4", isMac && "pl-20")}>
+    <header className="app-drag app-titlebar flex shrink-0 items-center gap-3 border-b px-4">
       <img src={appIcon} alt="" className="size-6 shrink-0 rounded-md" draggable={false} />
       <h1 className="truncate text-sm font-semibold max-[900px]:sr-only">{t("appName")}</h1>
       <div className="ml-2 flex shrink-0 items-center gap-2">

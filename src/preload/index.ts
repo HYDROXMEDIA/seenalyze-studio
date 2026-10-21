@@ -1,5 +1,6 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
+import { contextBridge, ipcRenderer, webFrame, type IpcRendererEvent } from "electron";
 import { IPC, STUDIO_METHODS, type StudioApi } from "../shared/ipc";
+import { macOSMajorVersion, STUDIO_TITLE_BAR, titleBarCss } from "../shared/window-chrome";
 
 function subscribe<T>(channel: string, listener: (payload: T) => void): () => void {
   const handler = (_event: IpcRendererEvent, payload: T) => listener(payload);
@@ -24,3 +25,7 @@ const api = {
 
 contextBridge.exposeInMainWorld("studio", api);
 contextBridge.exposeInMainWorld("platform", process.platform);
+
+// The header's height and the room it keeps for the macOS window buttons, from
+// the same numbers the main process places the buttons with.
+webFrame.insertCSS(titleBarCss(STUDIO_TITLE_BAR, process.platform, macOSMajorVersion(process.getSystemVersion())));

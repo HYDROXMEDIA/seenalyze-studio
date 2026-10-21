@@ -1,6 +1,11 @@
 // Bridge for the recording editor window.
 
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webFrame } from 'electron';
+import { macOSMajorVersion, RECORDING_EDITOR_TITLE_BAR, titleBarCss } from '../shared/window-chrome';
+
+// The toolbar's height and the room it keeps for the macOS window buttons, from
+// the same numbers the main process places the window buttons with.
+webFrame.insertCSS(titleBarCss(RECORDING_EDITOR_TITLE_BAR, process.platform, macOSMajorVersion(process.getSystemVersion())));
 
 contextBridge.exposeInMainWorld('recordingEditor', {
   transcribe: (id: string) => ipcRenderer.invoke('editor:transcribe', id),

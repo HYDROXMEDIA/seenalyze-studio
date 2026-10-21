@@ -10,6 +10,8 @@ import { cameraPath } from './recording';
 import { JsMuxer, type ExportAudioCodec } from './js-muxer';
 import { forgetMedia, mediaUrl } from './media-protocol';
 import { loadPage, preloadPath } from './pages';
+import { RECORDING_EDITOR_TITLE_BAR, trafficLightPosition } from '../../shared/window-chrome';
+import { releaseTrafficLightRoomInFullScreen } from '../window-chrome';
 
 export type EditorDependencies = {
   log: (line: string) => void;
@@ -171,15 +173,17 @@ export class EditorWindows {
       minHeight: 560,
       show: false,
       title: t('dialogs.editRecording'),
-      // macOS keeps its inset traffic lights; Windows draws its caption buttons over the toolbar.
+      // Window buttons sit in the toolbar, centred on it: macOS draws its traffic lights in
+      // the toolbar's leading space, Windows its caption buttons over its trailing end.
       ...(process.platform === 'darwin'
-        ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 14, y: 17 } }
+        ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: trafficLightPosition(RECORDING_EDITOR_TITLE_BAR) }
         : {
           titleBarStyle: 'hidden' as const,
           titleBarOverlay: {
-            color: this.deps.theme() === 'dark' ? '#000000' : '#ffffff',
+            // The toolbar's translucent colour over the window background, so the caption buttons blend in.
+            color: this.deps.theme() === 'dark' ? '#090909' : '#ffffff',
             symbolColor: this.deps.theme() === 'dark' ? '#ffffff' : '#000000',
-            height: 52
+            height: RECORDING_EDITOR_TITLE_BAR.height
           }
         }),
       backgroundColor: this.deps.theme() === 'dark' ? '#000000' : '#ffffff',
@@ -194,6 +198,7 @@ export class EditorWindows {
     });
 
     const entry: EditorEntry = { videoPath, window, job: null, beginning: false, saves: 0, lastExport: null, discarding: false, pendingSave: Promise.resolve() };
+    releaseTrafficLightRoomInFullScreen(window);
     this.entries.set(videoPath, entry);
     window.on('closed', () => {
       void this.cancelJob(entry);

@@ -124,7 +124,18 @@
   }
 }
 
-/* macOS: leave room for the inset traffic lights and let the header drag the window. */
+/*
+ * The window's header. Its height (above the bottom border) and the leading
+ * room for the macOS window buttons come from the preload, which uses the same
+ * numbers the main process centres the buttons on the header with.
+ */
+.app-titlebar {
+  box-sizing: content-box;
+  block-size: var(--titlebar-height);
+  padding-inline-start: max(1rem, var(--traffic-light-reserve, 0px));
+}
+
+/* The header drags the window; its controls opt out. */
 .app-drag {
   -webkit-app-region: drag;
 }
