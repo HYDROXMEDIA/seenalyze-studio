@@ -283,6 +283,7 @@
     "loadingDevices": "Geräte werden geladen",
     "systemDefault": "Systemstandard",
     "noDevices": "Keine Geräte zur Auswahl",
+    "devicesFailed": "Die Geräte konnten nicht geladen werden.",
     "loadFailed": "Die Audioeinstellungen konnten nicht geladen werden.",
     "cleanupMic": "Mein Mikrofon verbessern",
     "cleanupAudio": "Audio verbessern",

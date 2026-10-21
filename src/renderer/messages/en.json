@@ -283,6 +283,7 @@
     "loadingDevices": "Loading devices",
     "systemDefault": "System default",
     "noDevices": "No devices to choose from",
+    "devicesFailed": "Couldn't load the devices.",
     "loadFailed": "Couldn't load the audio settings.",
     "cleanupMic": "Clean up my mic",
     "cleanupAudio": "Clean up audio",

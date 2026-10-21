@@ -149,20 +149,23 @@ const MixerChannel = memo(function MixerChannel({
 function DevicePicker({ source, microphone }: { source: string; microphone: boolean }) {
   const t = useTranslations("mixer");
   const tt = useTranslations("tooltips");
+  const tc = useTranslations("common");
   const run = useAction();
   const [open, setOpen] = useState(false);
-  const [choice, setChoice] = useState<AudioDeviceChoice | null | undefined>(undefined);
+  /** undefined while loading; null when the source has no device to pick; "failed" when the list could not be loaded. */
+  const [choice, setChoice] = useState<AudioDeviceChoice | null | "failed" | undefined>(undefined);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     void run(() => studio.listAudioDevices(source)).then((result) => {
-      if (!cancelled) setChoice(result ?? null);
+      if (!cancelled) setChoice(result === undefined ? "failed" : result);
     });
     return () => {
       cancelled = true;
     };
-  }, [open, source, run]);
+  }, [open, source, run, attempt]);
 
   const Icon = microphone ? MicIcon : SpeakerIcon;
   return (
@@ -182,6 +185,20 @@ function DevicePicker({ source, microphone }: { source: string; microphone: bool
         {choice === undefined ? (
           <div className="flex h-16 items-center justify-center">
             <span className="size-4 animate-spin rounded-full border-2 border-muted border-t-foreground" aria-label={t("loadingDevices")} />
+          </div>
+        ) : choice === "failed" ? (
+          <div className="grid justify-items-center gap-2 px-3 py-3 text-center">
+            <p role="alert" className="text-sm text-destructive">{t("devicesFailed")}</p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setChoice(undefined);
+                setAttempt((value) => value + 1);
+              }}
+            >
+              {tc("retry")}
+            </Button>
           </div>
         ) : !choice || choice.options.length === 0 ? (
           <p className="px-3 py-4 text-center text-sm text-muted-foreground">{t("noDevices")}</p>

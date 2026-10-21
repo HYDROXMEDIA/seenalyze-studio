@@ -283,6 +283,7 @@
     "loadingDevices": "جارٍ تحميل الأجهزة",
     "systemDefault": "الافتراضي في النظام",
     "noDevices": "لا توجد أجهزة للاختيار",
+    "devicesFailed": "تعذّر تحميل الأجهزة.",
     "loadFailed": "تعذّر تحميل إعدادات الصوت.",
     "cleanupMic": "تنظيف صوت الميكروفون",
     "cleanupAudio": "تنظيف الصوت",

@@ -283,6 +283,7 @@
     "loadingDevices": "Učitavanje uređaja",
     "systemDefault": "Zadano u sustavu",
     "noDevices": "Nema uređaja za odabir",
+    "devicesFailed": "Uređaji se nisu mogli učitati.",
     "loadFailed": "Postavke zvuka nije moguće učitati.",
     "cleanupMic": "Očisti moj mikrofon",
     "cleanupAudio": "Očisti zvuk",

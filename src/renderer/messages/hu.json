@@ -283,6 +283,7 @@
     "loadingDevices": "Eszközök betöltése",
     "systemDefault": "Rendszer alapértelmezése",
     "noDevices": "Nincs választható eszköz",
+    "devicesFailed": "Nem sikerült betölteni az eszközöket.",
     "loadFailed": "Nem sikerült betölteni a hangbeállításokat.",
     "cleanupMic": "Mikrofonom tisztítása",
     "cleanupAudio": "Hang tisztítása",

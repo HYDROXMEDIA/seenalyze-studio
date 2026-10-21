@@ -283,6 +283,7 @@
     "loadingDevices": "Načítání zařízení",
     "systemDefault": "Výchozí systémové",
     "noDevices": "Žádná zařízení na výběr",
+    "devicesFailed": "Zařízení se nepodařilo načíst.",
     "loadFailed": "Nastavení zvuku se nepodařilo načíst.",
     "cleanupMic": "Vyčistit můj mikrofon",
     "cleanupAudio": "Vyčistit zvuk",

@@ -283,6 +283,7 @@
     "loadingDevices": "Nilo-load ang mga device",
     "systemDefault": "Default ng system",
     "noDevices": "Walang device na mapipili",
+    "devicesFailed": "Hindi ma-load ang mga device.",
     "loadFailed": "Hindi ma-load ang mga setting ng audio.",
     "cleanupMic": "Linisin ang mic ko",
     "cleanupAudio": "Linisin ang audio",

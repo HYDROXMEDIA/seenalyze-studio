@@ -283,6 +283,7 @@
     "loadingDevices": "Carregando dispositivos",
     "systemDefault": "Padrão do sistema",
     "noDevices": "Nenhum dispositivo para escolher",
+    "devicesFailed": "Não foi possível carregar os dispositivos.",
     "loadFailed": "Não foi possível carregar as configurações de áudio.",
     "cleanupMic": "Limpar meu microfone",
     "cleanupAudio": "Limpar áudio",
