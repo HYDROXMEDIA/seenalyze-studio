@@ -33,6 +33,7 @@ import {
   sourceAt
 } from './engine.js';
 import { createTimeline } from './timeline.js';
+import { focusPosition, restoreFocus } from './focus.js';
 import { ExportCanceled, QUALITY_BITS, runExport } from './export.js';
 import { keyVariant, soundSet } from './sounds.js';
 
@@ -984,6 +985,7 @@ document.addEventListener('keydown', (event) => {
 }, true);
 
 function renderControls() {
+  const focused = focusPosition();
   if (captionUIReady) renderCaptions();
   const look = project.look;
   for (const button of $('backgrounds').children) {
@@ -1059,6 +1061,7 @@ function renderControls() {
     speedLabel: (value) => t('editor.edit.speedValue', { speed: formatNumber(value) })
   });
   syncRadioGroups();
+  restoreFocus(focused, $('timeline'));
 }
 
 // Slider moves are one undo step each, ending when the slider is let go or
