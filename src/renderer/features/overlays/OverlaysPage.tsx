@@ -79,6 +79,11 @@ export function OverlaysPage() {
   const [previewAttempt, setPreviewAttempt] = useState(0);
   // The overlay whose pending values are saved; a ref, so edits don't restart the save delay.
   const overlayIdRef = useRef<string | null>(null);
+  // The selection when an AI change finishes, which can be many seconds after it was asked for.
+  const selectionRef = useRef<Selection>(null);
+  useEffect(() => {
+    selectionRef.current = selection;
+  });
 
   const refresh = useCallback(async () => {
     const [mine, gallery] = await Promise.all([run(() => studio.listOverlays()), run(() => studio.listOverlayPresets())]);
@@ -308,12 +313,16 @@ export function OverlaysPage() {
             }}
             onUpdated={async (id) => {
               await refresh();
+              // Another overlay picked while the change was designed stays on screen; its edits must not go to this one.
+              const shown = () => selectionRef.current?.type === "overlay" && selectionRef.current.id === id;
+              if (!shown()) return;
               const next = await run(() => studio.getOverlay(id));
-              if (next) setOverlay(next);
+              if (next && shown()) setOverlay(next);
               // The design changed: reload the preview frame.
+              if (!shown()) return;
               setPreviewUrl(null);
               const url = await run(() => studio.overlayPreviewUrl({ overlayId: id }));
-              setPreviewUrl(url ?? null);
+              if (shown()) setPreviewUrl(url ?? null);
             }}
           />
         </aside>
