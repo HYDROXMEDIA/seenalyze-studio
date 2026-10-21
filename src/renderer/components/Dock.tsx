@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
-import type { HTMLAttributes, ReactNode, Ref } from "react";
+import { useRef, type HTMLAttributes, type ReactNode, type Ref } from "react";
+import { useFocusRescue } from "@/lib/use-focus-rescue";
 import { cn } from "@/lib/utils";
 
 export function Dock({
@@ -16,8 +17,10 @@ export function Dock({
   /** Let the content set the dock row's height (up to `className`'s max height) instead of scrolling inside a fixed one. */
   fitContent?: boolean;
 }) {
+  const sectionRef = useRef<HTMLElement>(null);
+  useFocusRescue(sectionRef);
   return (
-    <section className={cn("flex min-h-0 min-w-0 flex-col rounded-xl border bg-card", className)} aria-label={title}>
+    <section ref={sectionRef} className={cn("flex min-h-0 min-w-0 flex-col rounded-xl border bg-card", className)} aria-label={title}>
       <header className="flex h-10 shrink-0 items-center justify-between gap-2 border-b px-3">
         <h2 className="min-w-0 truncate text-sm font-semibold">{title}</h2>
         <div className="flex shrink-0 items-center gap-1">{actions}</div>
