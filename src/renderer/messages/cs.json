@@ -144,6 +144,7 @@
     "useExisting": "Použít existující",
     "chooseSource": "Vyberte zdroj…",
     "noExisting": "V této scéně nejsou žádné zdroje k opětovnému použití.",
+    "existingFailed": "Zdroje se nepodařilo načíst.",
     "kinds": {
       "display": "Obrazovka",
       "window": "Okno",

@@ -144,6 +144,7 @@
     "useExisting": "Usar existente",
     "chooseSource": "Escolha uma fonte…",
     "noExisting": "Nenhuma fonte disponível para reutilizar nesta cena.",
+    "existingFailed": "Não foi possível carregar as fontes.",
     "kinds": {
       "display": "Tela",
       "window": "Janela",

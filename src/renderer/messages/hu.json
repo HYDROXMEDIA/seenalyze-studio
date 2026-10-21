@@ -144,6 +144,7 @@
     "useExisting": "Meglévő használata",
     "chooseSource": "Válassz forrást…",
     "noExisting": "Nincs újra felhasználható forrás ehhez a jelenethez.",
+    "existingFailed": "Nem sikerült betölteni a forrásokat.",
     "kinds": {
       "display": "Képernyő",
       "window": "Ablak",

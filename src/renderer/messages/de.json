@@ -144,6 +144,7 @@
     "useExisting": "Vorhandene verwenden",
     "chooseSource": "Quelle auswählen…",
     "noExisting": "Keine Quellen zur Wiederverwendung in dieser Szene verfügbar.",
+    "existingFailed": "Die Quellen konnten nicht geladen werden.",
     "kinds": {
       "display": "Bildschirm",
       "window": "Fenster",

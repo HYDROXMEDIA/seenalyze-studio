@@ -144,6 +144,7 @@
     "useExisting": "Koristi postojeći",
     "chooseSource": "Odaberi izvor…",
     "noExisting": "U ovoj sceni nema izvora koje možeš ponovno koristiti.",
+    "existingFailed": "Izvori se nisu mogli učitati.",
     "kinds": {
       "display": "Zaslon",
       "window": "Prozor",

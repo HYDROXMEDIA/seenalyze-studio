@@ -144,6 +144,7 @@
     "useExisting": "Gamitin ang dati na",
     "chooseSource": "Pumili ng source…",
     "noExisting": "Walang source na puwedeng gamitin muli sa scene na ito.",
+    "existingFailed": "Hindi ma-load ang mga source.",
     "kinds": {
       "display": "Screen",
       "window": "Window",

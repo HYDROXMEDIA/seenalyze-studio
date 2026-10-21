@@ -144,6 +144,7 @@
     "useExisting": "Usar existente",
     "chooseSource": "Elige una fuente…",
     "noExisting": "No hay fuentes disponibles para reutilizar en esta escena.",
+    "existingFailed": "No se pudieron cargar las fuentes.",
     "kinds": {
       "display": "Pantalla",
       "window": "Ventana",

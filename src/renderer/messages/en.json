@@ -144,6 +144,7 @@
     "useExisting": "Use existing",
     "chooseSource": "Choose a source…",
     "noExisting": "No sources available to reuse in this scene.",
+    "existingFailed": "Couldn't load the sources.",
     "kinds": {
       "display": "Screen",
       "window": "Window",

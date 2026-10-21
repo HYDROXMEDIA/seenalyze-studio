@@ -45,6 +45,8 @@ function AddSourceForm({ scene, onClose, onAdded }: { scene: string; onClose: ()
   const selectedKind = kinds.includes(kind) ? kind : kinds[0];
   const [reuse, setReuse] = useState(false);
   const [choices, setChoices] = useState<SourceChoiceDTO[] | null>(null);
+  const [choicesFailed, setChoicesFailed] = useState(false);
+  const [choicesAttempt, setChoicesAttempt] = useState(0);
   const [existing, setExisting] = useState("");
   const [blocked, setBlocked] = useState<PermissionKind | null>(null);
   const [name, setName] = useState("");
@@ -56,10 +58,13 @@ function AddSourceForm({ scene, onClose, onAdded }: { scene: string; onClose: ()
   useEffect(() => {
     let cancelled = false;
     void run(() => studio.listSourceChoices(scene)).then((result) => {
-      if (!cancelled) setChoices(result ?? []);
+      if (cancelled) return;
+      // A failed list is not "nothing to reuse": say so and offer a retry.
+      if (result) setChoices(result);
+      else setChoicesFailed(true);
     });
     return () => { cancelled = true; };
-  }, [scene, run]);
+  }, [scene, run, choicesAttempt]);
 
   const submit = async () => {
     if (!canSubmit || !selectedKind) return;
@@ -124,10 +129,16 @@ function AddSourceForm({ scene, onClose, onAdded }: { scene: string; onClose: ()
       {needsChoice ? (
         <Field label={selectedKind === "scene" && !reuse ? t("kinds.scene") : t("useExisting")} htmlFor="existing-source">
           <Select value={existing || undefined} onValueChange={setExisting} disabled={choices === null || filteredChoices.length === 0}>
-            <SelectTrigger id="existing-source"><SelectValue placeholder={choices === null ? tc("loading") : t("chooseSource")} /></SelectTrigger>
+            <SelectTrigger id="existing-source"><SelectValue placeholder={choices === null && !choicesFailed ? tc("loading") : t("chooseSource")} /></SelectTrigger>
             <SelectContent>{filteredChoices.map((choice) => <SelectItem key={choice.name} value={choice.name}>{choice.name}</SelectItem>)}</SelectContent>
           </Select>
           {choices !== null && filteredChoices.length === 0 && <p className="text-sm text-muted-foreground">{t("noExisting")}</p>}
+          {choicesFailed && choices === null && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground" role="alert">
+              <span className="min-w-0 flex-1">{t("existingFailed")}</span>
+              <Button size="sm" variant="outline" onClick={() => { setChoicesFailed(false); setChoicesAttempt((count) => count + 1); }}>{tc("retry")}</Button>
+            </div>
+          )}
         </Field>
       ) : <Field label={tc("name")} htmlFor="source-name">
         <Input
