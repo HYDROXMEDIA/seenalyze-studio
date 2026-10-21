@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import { studio } from "@/lib/studio";
+import { shareUnchanged } from "./share-snapshot";
 import type { AudioLevel, EngineStats, StudioSnapshot } from "../../shared/types";
 
 export type View = "studio" | "settings" | "overlays";
@@ -53,7 +54,11 @@ export const useStudio = create<StudioStore>((set, get) => ({
   sourceMenu: null,
   setSourceMenu: (sourceMenu) => set({ sourceMenu }),
   // The main process owns the selection so every window agrees on it.
-  setSnapshot: (snapshot) => set({ snapshot, selectedItemId: snapshot.selectedItemId ?? null }),
+  setSnapshot: (snapshot) =>
+    set((state) => {
+      const shared = shareUnchanged(state.snapshot, snapshot);
+      return shared === state.snapshot ? {} : { snapshot: shared, selectedItemId: shared.selectedItemId ?? null };
+    }),
   setStats: (stats) => set({ stats }),
   setLevels: (levels) =>
     set((state) => {
