@@ -116,8 +116,8 @@ function AddSourceForm({ scene, onClose, onAdded }: { scene: string; onClose: ()
               tabIndex={selected ? 0 : -1}
               onClick={() => setKind(entry)}
               className={cn(
-                "flex flex-col items-center gap-2 rounded-lg border p-3 text-xs outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                selected && "border-primary bg-accent",
+                "flex flex-col items-center gap-2 rounded-lg border p-3 text-xs outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring",
+                selected && "border-selection bg-accent",
               )}
             >
               <SourceIcon kind={entry} className="size-7" />

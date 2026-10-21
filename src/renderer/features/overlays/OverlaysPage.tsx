@@ -220,7 +220,7 @@ export function OverlaysPage() {
                 aria-selected={tab === entry}
                 onClick={() => setTab(entry)}
                 className={cn(
-                  "rounded-md px-3 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                  "rounded-md px-3 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring",
                   tab === entry && "bg-accent font-medium",
                 )}
               >
@@ -259,8 +259,8 @@ export function OverlaysPage() {
                       type="button"
                       onClick={() => void select({ type: "preset", id: preset.id })}
                       className={cn(
-                        "w-full overflow-hidden rounded-lg border text-left outline-none transition-colors hover:bg-accent/60 focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                        selection?.type === "preset" && selection.id === preset.id && "border-primary",
+                        "w-full overflow-hidden rounded-lg border text-left outline-none transition-colors hover:bg-accent/60 focus-visible:ring-[3px] focus-visible:ring-ring",
+                        selection?.type === "preset" && selection.id === preset.id && "border-selection",
                       )}
                     >
                       <span className="block h-1.5" style={{ background: `linear-gradient(90deg, ${preset.accent}, transparent)` }} />
@@ -291,7 +291,7 @@ export function OverlaysPage() {
                       type="button"
                       onClick={() => void select({ type: "overlay", id: entry.id })}
                       className={cn(
-                        "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm outline-none transition-colors hover:bg-accent/60 focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                        "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm outline-none transition-colors hover:bg-accent/60 focus-visible:ring-[3px] focus-visible:ring-ring",
                         selection?.type === "overlay" && selection.id === entry.id && "bg-accent",
                       )}
                     >
@@ -629,7 +629,7 @@ function AiDesigner({
               role="radio"
               aria-checked={mode === entry}
               onClick={() => setMode(entry)}
-              className={cn("rounded-md border px-2 py-1 text-xs outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50", mode === entry && "border-primary bg-accent")}
+              className={cn("rounded-md border px-2 py-1 text-xs outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring", mode === entry && "border-selection bg-accent")}
             >
               {t(`modes.${entry}`)}
             </button>

@@ -158,7 +158,7 @@ function EffectsPanel({ source, onClose }: { source: string; onClose: () => void
                   key={kind}
                   type="button"
                   onClick={() => void add(kind)}
-                  className="flex flex-col items-center gap-2 rounded-lg border bg-background px-3 py-5 text-sm font-medium transition-colors outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50"
+                  className="flex flex-col items-center gap-2 rounded-lg border bg-background px-3 py-5 text-sm font-medium transition-colors outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring dark:bg-input/30 dark:hover:bg-input/50"
                 >
                   <Icon className="size-6 text-muted-foreground" aria-hidden />
                   {t(`kinds.${kind}`)}
@@ -192,7 +192,7 @@ function EffectsPanel({ source, onClose }: { source: string; onClose: () => void
                       type="button"
                       aria-pressed={effect.name === selected}
                       onClick={() => setSelected(effect.name)}
-                      className="flex min-w-0 flex-1 items-center gap-2 self-stretch rounded-sm text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                      className="flex min-w-0 flex-1 items-center gap-2 self-stretch rounded-sm text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
                     >
                       <Icon className={cn("size-4 shrink-0 text-muted-foreground", !effect.enabled && "opacity-40")} aria-hidden />
                       <span className={cn("truncate", !effect.enabled && "text-muted-foreground")}>{label}</span>

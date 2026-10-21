@@ -39,7 +39,7 @@ export function Header() {
         )}
         {!live && connecting && <span className="text-xs text-muted-foreground">{t("connecting")}</span>}
         {recording && (
-          <span className="flex items-center gap-1.5 text-xs text-red-500">
+          <span className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-500">
             <span className="size-1.5 rounded-full bg-red-500" aria-hidden />
             {t("recording")}
           </span>

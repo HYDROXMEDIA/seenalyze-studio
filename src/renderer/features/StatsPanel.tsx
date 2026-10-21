@@ -21,12 +21,12 @@ export function StatsButton() {
   return (
     <Popover>
       <PopoverTrigger
-        className="app-no-drag flex items-center gap-4 rounded-md px-2 py-1 outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="app-no-drag flex items-center gap-4 rounded-md px-2 py-1 outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring"
         aria-label={t("statsOpen")}
       >
         <span>{t("cpu", { value: stats.cpu.toFixed(1) })}</span>
         <span>{t("fps", { value: stats.fps.toFixed(0) })}</span>
-        <span className={cn("max-[1000px]:hidden", stats.renderLagFrames > 0 && "text-yellow-500")}>{t("lagged", { value: stats.renderLagFrames })}</span>
+        <span className={cn("max-[1000px]:hidden", stats.renderLagFrames > 0 && "text-yellow-700 dark:text-yellow-500")}>{t("lagged", { value: stats.renderLagFrames })}</span>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-96">
         <StatsPanel />
@@ -80,7 +80,7 @@ function StatsPanel() {
                   {destination && <PlatformIcon platform={destination.platform} className="size-4" />}
                   <span className="min-w-0 flex-1 truncate">{destination?.name ?? status.id}</span>
                   <span className="text-muted-foreground">{t("kbps", { value: status.kbps })}</span>
-                  <span className={cn(percent >= 1 && "text-yellow-600 dark:text-yellow-400")}>
+                  <span className={cn(percent >= 1 && "text-yellow-700 dark:text-yellow-400")}>
                     {t("dropped", { value: status.droppedFrames, total: status.totalFrames, percent: percent.toFixed(1) })}
                   </span>
                 </li>
@@ -97,7 +97,7 @@ function Stat({ label, value, warn = false }: { label: string; value: string; wa
   return (
     <div className="grid gap-0.5">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={cn("font-medium", warn && "text-yellow-600 dark:text-yellow-400")}>{value}</dd>
+      <dd className={cn("font-medium", warn && "text-yellow-700 dark:text-yellow-400")}>{value}</dd>
     </div>
   );
 }

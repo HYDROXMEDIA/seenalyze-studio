@@ -195,7 +195,7 @@ export function SettingsPage() {
                   aria-current={section === entry ? "page" : undefined}
                   onClick={() => setSection(entry)}
                   className={cn(
-                    "flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                    "flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring",
                     section === entry && "bg-accent font-medium",
                   )}
                 >
@@ -437,7 +437,7 @@ export function SettingsPage() {
                       return (
                         <li key={kind} className="flex items-center gap-3 rounded-lg border px-3 py-2">
                           <span className="min-w-0 flex-1 text-sm">{tp(`${kind}.label`)}</span>
-                          <span className={cn("text-sm", state === "granted" ? "text-brand-green" : "text-muted-foreground")}>{tp(`states.${state}`)}</span>
+                          <span className={cn("text-sm", state === "granted" ? "text-emerald-700 dark:text-brand-green" : "text-muted-foreground")}>{tp(`states.${state}`)}</span>
                           {state === "not-determined" && (
                             <Button size="sm" variant="outline" onClick={() => void run(() => studio.requestPermission(kind))}>
                               {tp("allow")}
@@ -543,8 +543,8 @@ function AppearanceCard() {
         aria-label={name}
         onClick={() => choose({ id: preset.id, custom: null })}
         className={cn(
-          "flex flex-col items-center gap-2 rounded-lg border p-3 text-xs outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
-          selected && "border-primary bg-accent",
+          "flex flex-col items-center gap-2 rounded-lg border p-3 text-xs outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring",
+          selected && "border-selection bg-accent",
         )}
       >
         <span className="size-7 rounded-full border" style={{ background: preset.primary[activeVariant] }} aria-hidden />
@@ -578,8 +578,8 @@ function AppearanceCard() {
               saveTheme(option);
             }}
             className={cn(
-              "flex flex-col items-center gap-2 rounded-lg border p-4 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
-              theme === option && "border-primary bg-accent",
+              "flex flex-col items-center gap-2 rounded-lg border p-4 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring",
+              theme === option && "border-selection bg-accent",
             )}
           >
             <Icon aria-hidden className="size-12" strokeWidth={1.5} />
@@ -604,8 +604,8 @@ function AppearanceCard() {
           aria-checked={custom !== null}
           onClick={customize}
           className={cn(
-            "flex flex-col items-center gap-2 rounded-lg border p-3 text-xs outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
-            custom && "border-primary bg-accent",
+            "flex flex-col items-center gap-2 rounded-lg border p-3 text-xs outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring",
+            custom && "border-selection bg-accent",
           )}
         >
           <PaletteIcon aria-hidden className="size-7" strokeWidth={1.5} />
@@ -624,8 +624,8 @@ function AppearanceCard() {
                 aria-checked={editing === variant}
                 onClick={() => setEditing(variant)}
                 className={cn(
-                  "rounded-md border px-3 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                  editing === variant && "border-primary bg-accent font-medium",
+                  "rounded-md border px-3 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring",
+                  editing === variant && "border-selection bg-accent font-medium",
                 )}
               >
                 {t(`themes.${variant}`)}

@@ -134,8 +134,8 @@ function DestinationForm({ state, onClose }: { state: DestinationDialogState; on
                 aria-checked={mode === option}
                 onClick={() => setMode(option)}
                 className={cn(
-                  "rounded-lg border px-3 py-2 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                  mode === option && "border-primary bg-accent",
+                  "rounded-lg border px-3 py-2 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring",
+                  mode === option && "border-selection bg-accent",
                 )}
               >
                 {t(`modes.${option}`)}
@@ -224,9 +224,9 @@ function DestinationForm({ state, onClose }: { state: DestinationDialogState; on
           </Field>
         </div>
         {profile.videoBitrateKbps > spec.maxVideoBitrateKbps ? (
-          <p className="text-sm text-yellow-600 dark:text-yellow-400">{t("bitrateCapped", { max: spec.maxVideoBitrateKbps })}</p>
+          <p className="text-sm text-yellow-700 dark:text-yellow-400">{t("bitrateCapped", { max: spec.maxVideoBitrateKbps })}</p>
         ) : (
-          <p className={cn("-mt-2 text-xs", fit === "ok" ? "text-muted-foreground" : "text-yellow-600 dark:text-yellow-400")} aria-live="polite">
+          <p className={cn("-mt-2 text-xs", fit === "ok" ? "text-muted-foreground" : "text-yellow-700 dark:text-yellow-400")} aria-live="polite">
             {fit === "ok" ? t("bitrateRange", { min: range.min, max: range.max }) : t(fit === "low" ? "bitrateLow" : "bitrateHigh", { min: range.min, max: range.max })}
           </p>
         )}

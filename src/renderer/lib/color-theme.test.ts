@@ -5,6 +5,7 @@ import {
   CUSTOM_THEME_ID,
   DEFAULT_COLOR_THEME,
   THEME_ROLES,
+  contrastRatio,
   findPreset,
   parseColorThemeChoice,
   presetRoles,
@@ -38,10 +39,39 @@ describe("color presets", () => {
 
 describe("css variables", () => {
   test("primary text is readable on the primary color", () => {
+    const purple = themeCssVariables(presetRoles(findPreset("electricPurple")!, "light"));
+    expect(purple["--primary-foreground"]).toBe("#FFFFFF");
     const red = themeCssVariables(presetRoles(findPreset("red")!, "light"));
-    expect(red["--primary-foreground"]).toBe("#FFFFFF");
+    expect(red["--primary-foreground"]).toBe("#000000");
     const yellow = themeCssVariables(presetRoles(findPreset("cyberYellow")!, "light"));
     expect(yellow["--primary-foreground"]).toBe("#000000");
+  });
+
+  test("every preset meets WCAG AA in both appearances", () => {
+    for (const preset of COLOR_PRESETS) {
+      for (const variant of ["light", "dark"] as const) {
+        const css = themeCssVariables(presetRoles(preset, variant));
+        const where = `${preset.id} ${variant}`;
+        const atLeast = (foreground: string, background: string, minimum: number, what: string) =>
+          expect({ where, what, ok: contrastRatio(css[foreground], css[background]) >= minimum }).toEqual({ where, what, ok: true });
+        atLeast("--primary-foreground", "--primary", 4.5, "button text");
+        atLeast("--foreground", "--background", 4.5, "text");
+        atLeast("--muted-foreground", "--background", 4.5, "muted text");
+        atLeast("--muted-foreground", "--muted", 4.5, "muted text on muted");
+        atLeast("--muted-foreground", "--accent", 4.5, "muted text on accent");
+        atLeast("--ring", "--background", 3, "focus ring");
+        atLeast("--selection", "--background", 3, "selected border");
+        expect({ where, live: contrastRatio("#FFFFFF", css["--live"]) >= 4.5 }).toEqual({ where, live: true });
+      }
+    }
+  });
+
+  test("a color that already stands out keeps its exact value for rings", () => {
+    const indigo = themeCssVariables(presetRoles(findPreset("indigo")!, "light"));
+    expect(indigo["--ring"]).toBe("#6366F1");
+    const mint = themeCssVariables(presetRoles(findPreset("neonMint")!, "light"));
+    expect(mint["--primary"]).toBe("#00FFDE");
+    expect(mint["--ring"]).not.toBe("#00FFDE");
   });
 
   test("covers every variable the stylesheet defines for the theme", () => {

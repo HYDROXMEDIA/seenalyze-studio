@@ -302,7 +302,7 @@ function Wizard({ snapshot, firstRun, onClose }: { snapshot: StudioSnapshot; fir
             </Select>
           </Field>
           {encoder && (
-            <p className={cn("text-sm", encoder.hardware ? "text-brand-green" : "text-muted-foreground")}>
+            <p className={cn("text-sm", encoder.hardware ? "text-emerald-700 dark:text-brand-green" : "text-muted-foreground")}>
               {encoder.hardware ? t("hardwareFound") : t("softwareOnly")}
             </p>
           )}
@@ -349,7 +349,7 @@ function Wizard({ snapshot, firstRun, onClose }: { snapshot: StudioSnapshot; fir
                   )}
                 </div>
                 {account ? (
-                  <CircleCheckIcon aria-label={t("connected")} className="size-5 text-brand-green" />
+                  <CircleCheckIcon aria-label={t("connected")} className="size-5 text-emerald-600 dark:text-brand-green" />
                 ) : configured ? (
                   <Button size="sm" variant="outline" disabled={connecting !== null} onClick={() => void connect(platform)}>
                     {tRoot("destinations.connectAccount", { platform: tRoot(`destinations.platforms.${platform}`) })}
@@ -423,8 +423,8 @@ function Choice({ selected, disabled = false, onSelect, icon, label }: { selecte
       disabled={disabled}
       onClick={onSelect}
       className={cn(
-        "flex min-h-20 flex-col items-center justify-center gap-2 rounded-lg border px-3 py-3 text-center text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50",
-        selected && "border-primary bg-accent font-medium",
+        "flex min-h-20 flex-col items-center justify-center gap-2 rounded-lg border px-3 py-3 text-center text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+        selected && "border-selection bg-accent font-medium",
       )}
     >
       {icon}

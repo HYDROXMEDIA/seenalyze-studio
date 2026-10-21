@@ -175,7 +175,7 @@ function TransitionsPanel({ initialScene }: { initialScene: string | null }) {
                   <li key={entry.name} className="flex items-center gap-2 rounded-md border px-2 py-1">
                     <button
                       type="button"
-                      className="min-w-0 flex-1 truncate rounded-sm py-1 text-left text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                      className="min-w-0 flex-1 truncate rounded-sm py-1 text-left text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
                       onClick={() => setTarget(entry.name)}
                     >
                       <span className="font-medium">{entry.name}</span>
@@ -220,7 +220,7 @@ function PresetRow({ label, selected, onClick }: { label: string; selected: bool
       aria-selected={selected}
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
+        "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring",
         selected && "bg-accent font-medium",
       )}
     >
@@ -294,7 +294,7 @@ function StingerOptionsPanel({ options, onChange, onPickFile }: { options: Sting
                   type="button"
                   aria-pressed={options.point.unit === unit}
                   className={cn(
-                    "rounded-sm px-2 py-0.5 text-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                    "rounded-sm px-2 py-0.5 text-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
                     options.point.unit === unit ? "bg-accent font-semibold" : "text-muted-foreground hover:text-foreground",
                   )}
                   onClick={() => {

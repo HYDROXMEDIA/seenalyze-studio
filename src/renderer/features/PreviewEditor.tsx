@@ -313,6 +313,10 @@ export function PreviewEditor({ width, height, baseWidth, baseHeight }: { width:
       </svg>
       {transform && corners.length === 4 && (
         <svg className="pointer-events-none absolute inset-0 overflow-visible" width={width} height={height}>
+          {/* A background-colored halo keeps the outline visible over any video, in both appearances
+              (a black outline in the light appearance vanished over dark footage). */}
+          <polygon points={corners.map((c) => `${c.x},${c.y}`).join(" ")} fill="none" stroke="var(--background)" strokeOpacity={0.85} strokeWidth={3.5} />
+          {rotateHandle && <line x1={rotateHandle.from.x} y1={rotateHandle.from.y} x2={rotateHandle.to.x} y2={rotateHandle.to.y} stroke="var(--background)" strokeOpacity={0.85} strokeWidth={3.5} />}
           <polygon
             points={corners.map((c) => `${c.x},${c.y}`).join(" ")}
             fill="none"
@@ -371,7 +375,7 @@ export function PreviewEditor({ width, height, baseWidth, baseHeight }: { width:
               onPointerDown={(event) => beginResize(event, handle)}
             >
               <span
-                className="block rounded-[2px] border border-primary bg-background shadow-sm transition-transform duration-100 group-hover:scale-125 motion-reduce:transition-none"
+                className="block rounded-[2px] border border-selection bg-background shadow-sm transition-transform duration-100 group-hover:scale-125 motion-reduce:transition-none"
                 style={{ width: HANDLE_SIZE, height: HANDLE_SIZE }}
               />
             </div>
@@ -389,7 +393,7 @@ export function PreviewEditor({ width, height, baseWidth, baseHeight }: { width:
           }}
         >
           <span
-            className="block rounded-full border border-primary bg-background shadow-sm transition-transform duration-100 group-hover:scale-125 motion-reduce:transition-none"
+            className="block rounded-full border border-selection bg-background shadow-sm transition-transform duration-100 group-hover:scale-125 motion-reduce:transition-none"
             style={{ width: HANDLE_SIZE, height: HANDLE_SIZE }}
           />
         </div>

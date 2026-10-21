@@ -126,7 +126,7 @@ const MixerChannel = memo(function MixerChannel({
             if (volume !== null) void run(() => studio.setVolume(name, volume));
           }}
         />
-        <span className={cn("w-14 shrink-0 truncate text-right text-xs tabular-nums", muted ? "text-red-500" : "text-muted-foreground")}>
+        <span className={cn("w-14 shrink-0 truncate text-right text-xs tabular-nums", muted ? "text-red-600 dark:text-red-500" : "text-muted-foreground")}>
           {muted ? t("muted") : formatDb(deflectionToDb(deflection))}
         </span>
         <Tooltip label={muted ? tt("unmute") : tt("mute")}>

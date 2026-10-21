@@ -173,7 +173,7 @@ function InfoForm({ destination, onClose }: { destination: DestinationConfig; on
                       role="option"
                       aria-selected={category.id === info.categoryId}
                       className={cn(
-                        "w-full px-3 py-1.5 text-left text-sm outline-none hover:bg-accent focus-visible:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                        "w-full px-3 py-1.5 text-left text-sm outline-none hover:bg-accent focus-visible:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring",
                         category.id === info.categoryId && "bg-accent",
                       )}
                       onClick={() => {

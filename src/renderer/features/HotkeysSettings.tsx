@@ -191,8 +191,8 @@ function HotkeyRow({
             setProblem(null);
           }}
           className={cn(
-            "inline-flex h-8 min-w-36 items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
-            capturing && "border-primary ring-[3px] ring-ring/50",
+            "inline-flex h-8 min-w-36 items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring",
+            capturing && "border-selection ring-[3px] ring-ring/50",
             !combo && !capturing && "text-muted-foreground",
           )}
         >

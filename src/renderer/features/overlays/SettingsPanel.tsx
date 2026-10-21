@@ -50,7 +50,7 @@ function Group({ title, defaultOpen, children }: { title: string; defaultOpen: b
         type="button"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between px-3 py-2.5 text-sm font-semibold outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="flex w-full items-center justify-between px-3 py-2.5 text-sm font-semibold outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
       >
         {title}
         <ChevronDownIcon className={cn("size-4 transition-transform", open && "rotate-180")} />

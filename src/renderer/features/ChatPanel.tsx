@@ -13,10 +13,10 @@ import { useStudio } from "@/store/studio";
 type Tab = "all" | string;
 
 const BADGE_ICONS: Record<ChatBadge, { icon: LucideIcon; className: string }> = {
-  owner: { icon: CrownIcon, className: "text-amber-500" },
-  moderator: { icon: ShieldIcon, className: "text-emerald-500" },
+  owner: { icon: CrownIcon, className: "text-amber-600 dark:text-amber-500" },
+  moderator: { icon: ShieldIcon, className: "text-emerald-600 dark:text-emerald-500" },
   vip: { icon: GemIcon, className: "text-pink-500" },
-  member: { icon: StarIcon, className: "text-sky-500" },
+  member: { icon: StarIcon, className: "text-sky-600 dark:text-sky-500" },
   subscriber: { icon: StarIcon, className: "text-violet-500" },
   verified: { icon: BadgeCheckIcon, className: "text-muted-foreground" },
 };
@@ -225,7 +225,7 @@ export function ChatPanel() {
                 <button
                   type="button"
                   onClick={jumpToLatest}
-                  className="animate-chat-in pointer-events-auto flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  className="animate-chat-in pointer-events-auto flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
                 >
                   <ArrowDownIcon className="size-3.5" />
                   {t("newMessages", { count: unseen })}
@@ -260,7 +260,7 @@ function TabButton({
       tabIndex={active ? 0 : -1}
       onClick={onClick}
       className={cn(
-        "relative flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
+        "relative flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring",
         active && "bg-accent font-medium",
       )}
     >

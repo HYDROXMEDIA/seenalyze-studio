@@ -31,7 +31,8 @@ body[data-theme='light'] {
   --text: #171717;
   --secondary: rgba(0, 0, 0, 0.6);
   --separator: rgba(0, 0, 0, 0.1);
-  --accent: #0d9488;
+  /* Deep teal: 4.7:1 or more as text on the selected tint (#0d9488 was 2.8–3.7). */
+  --accent: #0e6b64;
   --accent-ink: #ffffff;
   --selected: rgba(13, 148, 136, 0.12);
   --stage: #ededed;

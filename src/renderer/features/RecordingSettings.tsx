@@ -148,7 +148,7 @@ export function RecordingAutomationCard() {
                   type="button"
                   aria-pressed={prefs.replayBufferSeconds === preset}
                             onClick={() => save({ replayBufferSeconds: preset })}
-                  className="rounded-md border px-3 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50 aria-pressed:border-primary aria-pressed:bg-accent aria-pressed:font-medium"
+                  className="rounded-md border px-3 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring disabled:opacity-50 aria-pressed:border-selection aria-pressed:bg-accent aria-pressed:font-medium"
                 >
                   {t("replaySeconds", { seconds: preset })}
                 </button>

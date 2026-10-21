@@ -35,7 +35,7 @@ export function DestinationAdvancedOptions({
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen(!open)}
-        className="flex w-fit items-center gap-1 rounded-md text-sm font-medium outline-none hover:text-foreground/80 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="flex w-fit items-center gap-1 rounded-md text-sm font-medium outline-none hover:text-foreground/80 focus-visible:ring-[3px] focus-visible:ring-ring"
       >
         <ChevronRightIcon aria-hidden className={cn("size-4 transition-transform", open && "rotate-90")} />
         {t("title")}
@@ -94,8 +94,8 @@ export function DestinationAdvancedOptions({
                   disabled={!presetSupported}
                   onClick={() => onChange({ ...profile, encoderPreset: option })}
                   className={cn(
-                    "rounded-lg border px-3 py-2 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50",
-                    preset === option && "border-primary bg-accent",
+                    "rounded-lg border px-3 py-2 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+                    preset === option && "border-selection bg-accent",
                   )}
                 >
                   {t(`presets.${option}`)}

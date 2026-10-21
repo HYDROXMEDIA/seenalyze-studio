@@ -451,7 +451,8 @@ body[data-mode='screen'] .target-highlight {
   height: 36px;
   padding: 0 16px;
   color: #fff;
-  background: #ff453a;
+  /* Darker than the record dot so the white label reads at 5.5:1 (#ff453a was 3.4). */
+  background: #c9271e;
   border-radius: 12px;
   font-size: 13px;
   font-weight: 700;

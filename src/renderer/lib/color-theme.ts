@@ -51,8 +51,9 @@ export const DEFAULT_COLOR_THEME: ColorThemeChoice = { id: NEUTRAL_PRESET_ID, cu
 
 /** Mixing ratios per appearance. Light surfaces take a faint tint, dark surfaces a slightly stronger one. */
 const TONES: Record<ThemeVariant, { background: string; foreground: string; tint: number; accent: number; border: number; live: string }> = {
-  light: { background: "#FFFFFF", foreground: "#0A0A0A", tint: 0.04, accent: 0.1, border: 0.09, live: "#EF4444" },
-  dark: { background: "#000000", foreground: "#FAFAFA", tint: 0.08, accent: 0.16, border: 0.16, live: "#F87171" },
+  // Live is a fill under white text, so it is a red that keeps 4.8:1 with white in both appearances.
+  light: { background: "#FFFFFF", foreground: "#0A0A0A", tint: 0.04, accent: 0.1, border: 0.09, live: "#DC2626" },
+  dark: { background: "#000000", foreground: "#FAFAFA", tint: 0.08, accent: 0.16, border: 0.16, live: "#DC2626" },
 };
 
 function rgbOf(hex: string): Rgba {
@@ -68,18 +69,42 @@ function mix(from: string, to: string, amount: number): string {
   return toHex({ r: a.r + (b.r - a.r) * t, g: a.g + (b.g - a.g) * t, b: a.b + (b.b - a.b) * t });
 }
 
-/**
- * Black or white text on the given color, by WCAG relative luminance. The cutoff sits above the
- * contrast crossover so mid-tone brand colors keep white text, and only bright colors take black.
- */
-function readableOn(hex: string): string {
+function luminance(hex: string): number {
   const { r, g, b } = rgbOf(hex);
   const [red, green, blue] = [r, g, b].map((channel) => {
     const value = channel / 255;
     return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
   });
-  const luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-  return luminance > 0.35 ? "#000000" : "#FFFFFF";
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+/** WCAG contrast ratio between two opaque colors. */
+export function contrastRatio(a: string, b: string): number {
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light + 0.05) / (dark + 0.05);
+}
+
+/**
+ * Black or white text on the given color. White is kept wherever it reaches 4.5:1 (WCAG AA);
+ * otherwise whichever of the two reads better. A fixed luminance cutoff left white text at
+ * 2.8–4.5:1 on mid-tone colors such as red, orange, blue and pink.
+ */
+function readableOn(hex: string): string {
+  const white = contrastRatio(hex, "#FFFFFF");
+  return white >= 4.5 || white >= contrastRatio(hex, "#000000") ? "#FFFFFF" : "#000000";
+}
+
+/**
+ * The color moved toward the text color, in small steps, until it reaches the given contrast on
+ * every background. Bright colors on light backgrounds need this for focus rings and selection
+ * borders (3:1, WCAG non-text contrast); colors that already contrast are returned unchanged.
+ */
+function contrasting(color: string, backgrounds: string[], foreground: string, minimum: number): string {
+  for (let step = 0; step <= 20; step++) {
+    const candidate = mix(color, foreground, step / 20);
+    if (backgrounds.every((background) => contrastRatio(candidate, background) >= minimum)) return candidate;
+  }
+  return foreground;
 }
 
 /** The role palette a preset produces for one appearance. */
@@ -102,6 +127,9 @@ export function presetRoles(preset: ColorPreset, variant: ThemeVariant): ThemeRo
 export function themeCssVariables(roles: ThemeRoles): Record<string, string> {
   const { background, foreground } = roles;
   const secondary = mix(background, foreground, 0.05);
+  const edge = contrasting(roles.primary, [background], foreground, 3);
+  // Muted text sits on the background, muted and accent surfaces: 4.5:1 on all of them.
+  const mutedForeground = contrasting(mix(foreground, background, 0.4), [background, secondary, roles.accent], foreground, 4.5);
   return {
     "--background": background,
     "--foreground": foreground,
@@ -114,12 +142,13 @@ export function themeCssVariables(roles: ThemeRoles): Record<string, string> {
     "--secondary": secondary,
     "--secondary-foreground": foreground,
     "--muted": secondary,
-    "--muted-foreground": mix(foreground, background, 0.4),
+    "--muted-foreground": mutedForeground,
     "--accent": roles.accent,
     "--accent-foreground": foreground,
     "--border": roles.border,
     "--input": roles.border,
-    "--ring": roles.primary,
+    "--ring": edge,
+    "--selection": edge,
     "--live": roles.live,
     "--surface": roles.card,
   };
