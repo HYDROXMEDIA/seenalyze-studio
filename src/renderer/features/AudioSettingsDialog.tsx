@@ -42,6 +42,8 @@ function AudioSettingsForm({ source, microphone, onClose }: { source: string; mi
   const [loadFailed, setLoadFailed] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [monitorDevices, setMonitorDevices] = useState<MonitoringDevices | null>(null);
+  const [monitorDevicesFailed, setMonitorDevicesFailed] = useState(false);
+  const [monitorAttempt, setMonitorAttempt] = useState(0);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const mounted = useRef(true);
 
@@ -64,12 +66,15 @@ function AudioSettingsForm({ source, microphone, onClose }: { source: string; mi
     if (monitoring === "off" || monitorDevices) return;
     let cancelled = false;
     void run(() => studio.getMonitoringDevices()).then((result) => {
-      if (!cancelled && result) setMonitorDevices(result);
+      if (cancelled) return;
+      // A failed list is not "System default": the picker says so and offers a retry.
+      if (result) setMonitorDevices(result);
+      else setMonitorDevicesFailed(true);
     });
     return () => {
       cancelled = true;
     };
-  }, [monitoring, monitorDevices, run]);
+  }, [monitoring, monitorDevices, run, monitorAttempt]);
 
   /** Changes run one after another; the engine's answer replaces the shown state. */
   const apply = (change: AudioChange) => {
@@ -166,6 +171,22 @@ function AudioSettingsForm({ source, microphone, onClose }: { source: string; mi
                       ))}
                     </SelectContent>
                   </Select>
+                  {monitorDevicesFailed && !monitorDevices && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground" role="alert">
+                      <span className="min-w-0 flex-1">{t("devicesFailed")}</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => {
+                          setMonitorDevicesFailed(false);
+                          setMonitorAttempt((count) => count + 1);
+                        }}
+                      >
+                        {tc("retry")}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
