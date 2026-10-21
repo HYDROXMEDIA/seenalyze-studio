@@ -1359,7 +1359,8 @@
     "cellPreview": "Preview: {scene}",
     "cellProgram": "Program: {scene}",
     "leaveFullscreen": "Umalis sa full screen",
-    "close": "Isara ang projector"
+    "close": "Isara ang projector",
+    "actionFailed": "Hindi gumana. Subukang muli."
   },
   "workspace": {
     "collectionButton": "Scene collection: {name}",

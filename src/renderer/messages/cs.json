@@ -1359,7 +1359,8 @@
     "cellPreview": "Náhled: {scene}",
     "cellProgram": "Program: {scene}",
     "leaveFullscreen": "Ukončit celou obrazovku",
-    "close": "Zavřít projektor"
+    "close": "Zavřít projektor",
+    "actionFailed": "To se nepovedlo. Zkuste to znovu."
   },
   "workspace": {
     "collectionButton": "Kolekce scén: {name}",

@@ -1359,7 +1359,8 @@
     "cellPreview": "Vista previa: {scene}",
     "cellProgram": "Programa: {scene}",
     "leaveFullscreen": "Salir de pantalla completa",
-    "close": "Cerrar proyector"
+    "close": "Cerrar proyector",
+    "actionFailed": "No funcionó. Inténtalo de nuevo."
   },
   "workspace": {
     "collectionButton": "Colección de escenas: {name}",

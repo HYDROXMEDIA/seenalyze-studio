@@ -1359,7 +1359,8 @@
     "cellPreview": "Preview: {scene}",
     "cellProgram": "Program: {scene}",
     "leaveFullscreen": "Leave full screen",
-    "close": "Close projector"
+    "close": "Close projector",
+    "actionFailed": "That didn't work. Try again."
   },
   "workspace": {
     "collectionButton": "Scene collection: {name}",

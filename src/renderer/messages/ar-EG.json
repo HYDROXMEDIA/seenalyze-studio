@@ -1359,7 +1359,8 @@
     "cellPreview": "المعاينة: {scene}",
     "cellProgram": "البرنامج: {scene}",
     "leaveFullscreen": "الخروج من ملء الشاشة",
-    "close": "إغلاق جهاز العرض"
+    "close": "إغلاق جهاز العرض",
+    "actionFailed": "تعذّر تنفيذ ذلك. حاول مرة أخرى."
   },
   "workspace": {
     "collectionButton": "مجموعة المشاهد: {name}",

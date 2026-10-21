@@ -1359,7 +1359,8 @@
     "cellPreview": "Pregled: {scene}",
     "cellProgram": "Program: {scene}",
     "leaveFullscreen": "Izađi iz cijelog zaslona",
-    "close": "Zatvori projektor"
+    "close": "Zatvori projektor",
+    "actionFailed": "To nije uspjelo. Pokušajte ponovno."
   },
   "workspace": {
     "collectionButton": "Zbirka scena: {name}",

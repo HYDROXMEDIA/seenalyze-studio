@@ -1359,7 +1359,8 @@
     "cellPreview": "Vorschau: {scene}",
     "cellProgram": "Programm: {scene}",
     "leaveFullscreen": "Vollbild beenden",
-    "close": "Projektor schließen"
+    "close": "Projektor schließen",
+    "actionFailed": "Das hat nicht geklappt. Versuche es erneut."
   },
   "workspace": {
     "collectionButton": "Szenensammlung: {name}",

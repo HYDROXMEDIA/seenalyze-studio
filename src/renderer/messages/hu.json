@@ -1359,7 +1359,8 @@
     "cellPreview": "Előnézet: {scene}",
     "cellProgram": "Program: {scene}",
     "leaveFullscreen": "Kilépés a teljes képernyőből",
-    "close": "Kivetítő bezárása"
+    "close": "Kivetítő bezárása",
+    "actionFailed": "Ez nem sikerült. Próbáld újra."
   },
   "workspace": {
     "collectionButton": "Jelenetgyűjtemény: {name}",
