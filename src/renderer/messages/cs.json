@@ -1020,7 +1020,8 @@
           "max": "Maximální"
         },
         "protected": "Zvolte jiný název: tento soubor patří k nahrávce.",
-        "revealWindows": "Zobrazit v Průzkumníku souborů"
+        "revealWindows": "Zobrazit v Průzkumníku souborů",
+        "revealFailed": "Exportované video se nepodařilo zobrazit. Najdete ho ve zvolené složce."
       },
       "background": {
         "title": "Pozadí",

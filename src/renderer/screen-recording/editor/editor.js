@@ -1079,14 +1079,22 @@ bindRange(controls.cursorSmoothing, 'cursorSmoothing', { camera: false });
 bindRange($('camera-size'), 'cameraSize', { camera: false, cursor: false });
 bindRange($('click-volume'), 'clickVolume', { camera: false, cursor: false });
 bindRange($('typing-volume'), 'typingVolume', { camera: false, cursor: false });
-// Picking a sound plays it once.
+// Picking a sound plays it once. Without sound effects the choice is still kept; the reason is logged.
+async function previewSound(buffer, volume) {
+  try {
+    await effectSounds().context.resume();
+    playSound(buffer(), volume);
+  } catch (error) {
+    console.warn('Sound effects unavailable', error);
+  }
+}
 $('click-sound').addEventListener('change', (event) => {
   commit((draft) => { draft.look.clickSound = event.target.value; }, { camera: false, cursor: false });
-  void effectSounds().context.resume().then(() => playSound(effectSounds().click, project.look.clickVolume));
+  void previewSound(() => effectSounds().click, project.look.clickVolume);
 });
 $('typing-sound').addEventListener('change', (event) => {
   commit((draft) => { draft.look.typingSound = event.target.value; }, { camera: false, cursor: false });
-  void effectSounds().context.resume().then(() => playSound(effectSounds().keys[0], project.look.typingVolume));
+  void previewSound(() => effectSounds().keys[0], project.look.typingVolume);
 });
 
 // The maximum zoom applies to suggested zooms; they are suggested again for
@@ -1141,7 +1149,13 @@ if (navigator.userAgent.includes('Windows')) {
   $('toast-reveal').dataset.i18n = 'editor.export.revealWindows';
   $('toast-reveal').textContent = t('editor.export.revealWindows');
 }
-$('toast-reveal').addEventListener('click', () => void api.revealExport());
+$('toast-reveal').addEventListener('click', async () => {
+  const shown = await api.revealExport().catch((error) => {
+    console.error('[editor] exported video could not be shown', error);
+    return false;
+  });
+  if (!shown) showToast(t('editor.export.revealFailed'));
+});
 
 // ---- Export ---------------------------------------------------------------
 

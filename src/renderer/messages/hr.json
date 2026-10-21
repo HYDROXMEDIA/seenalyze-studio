@@ -1020,7 +1020,8 @@
           "max": "Najviša"
         },
         "protected": "Odaberi drugi naziv: ta datoteka pripada snimci.",
-        "revealWindows": "Prikaži u File Exploreru"
+        "revealWindows": "Prikaži u File Exploreru",
+        "revealFailed": "Izvezeni video nije se mogao prikazati. Potraži ga u mapi koju si odabrao."
       },
       "background": {
         "title": "Pozadina",

@@ -1020,7 +1020,8 @@
           "max": "Maximum"
         },
         "protected": "Choose another name: that file belongs to a recording.",
-        "revealWindows": "Show in File Explorer"
+        "revealWindows": "Show in File Explorer",
+        "revealFailed": "The exported video could not be shown. Look for it in the folder you chose."
       },
       "background": {
         "title": "Background",

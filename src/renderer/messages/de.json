@@ -1020,7 +1020,8 @@
           "max": "Maximal"
         },
         "protected": "Wählen Sie einen anderen Namen: Diese Datei gehört zu einer Aufnahme.",
-        "revealWindows": "Im Explorer anzeigen"
+        "revealWindows": "Im Explorer anzeigen",
+        "revealFailed": "Das exportierte Video konnte nicht angezeigt werden. Sie finden es im gewählten Ordner."
       },
       "background": {
         "title": "Hintergrund",

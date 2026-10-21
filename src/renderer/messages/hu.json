@@ -1020,7 +1020,8 @@
           "max": "Maximális"
         },
         "protected": "Válassz másik nevet: ez a fájl egy felvételhez tartozik.",
-        "revealWindows": "Megjelenítés a Fájlkezelőben"
+        "revealWindows": "Megjelenítés a Fájlkezelőben",
+        "revealFailed": "Nem sikerült megmutatni az exportált videót. A kiválasztott mappában találod."
       },
       "background": {
         "title": "Háttér",

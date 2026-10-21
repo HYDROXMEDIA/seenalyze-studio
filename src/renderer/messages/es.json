@@ -1020,7 +1020,8 @@
           "max": "Máxima"
         },
         "protected": "Elige otro nombre: ese archivo pertenece a una grabación.",
-        "revealWindows": "Mostrar en el Explorador de archivos"
+        "revealWindows": "Mostrar en el Explorador de archivos",
+        "revealFailed": "No se pudo mostrar el vídeo exportado. Búscalo en la carpeta que elegiste."
       },
       "background": {
         "title": "Fondo",

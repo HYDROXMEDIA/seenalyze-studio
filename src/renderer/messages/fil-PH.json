@@ -1020,7 +1020,8 @@
           "max": "Pinakamataas"
         },
         "protected": "Pumili ng ibang pangalan: pag-aari ng isang recording ang file na iyan.",
-        "revealWindows": "Ipakita sa File Explorer"
+        "revealWindows": "Ipakita sa File Explorer",
+        "revealFailed": "Hindi maipakita ang na-export na video. Hanapin ito sa folder na pinili mo."
       },
       "background": {
         "title": "Background",
