@@ -1,5 +1,5 @@
 import { AudioLinesIcon, CheckIcon, MicIcon, Settings2Icon, SlidersHorizontalIcon, SpeakerIcon, Volume2Icon, VolumeXIcon } from "lucide-react";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "use-intl";
 import type { AudioDeviceChoice } from "../../shared/audio";
 import { Dock, DockEmpty } from "@/components/Dock";
@@ -155,6 +155,20 @@ function DevicePicker({ source, microphone }: { source: string; microphone: bool
   /** undefined while loading; null when the source has no device to pick; "failed" when the list could not be loaded. */
   const [choice, setChoice] = useState<AudioDeviceChoice | null | "failed" | undefined>(undefined);
   const [attempt, setAttempt] = useState(0);
+  const content = useRef<HTMLDivElement>(null);
+  /** Set by Retry, whose button disappears while the list reloads: focus goes to what the reload shows. */
+  const refocus = useRef(false);
+
+  useLayoutEffect(() => {
+    if (!refocus.current || choice === undefined) return;
+    refocus.current = false;
+    const root = content.current;
+    const active = document.activeElement;
+    // Focus the user moved elsewhere stays there.
+    if (!root || (active && active !== document.body && active !== root)) return;
+    const target = root.querySelector<HTMLElement>("[role='option'][aria-selected='true'], [role='option'], button");
+    (target ?? root).focus();
+  }, [choice]);
 
   useEffect(() => {
     if (!open) return;
@@ -172,6 +186,7 @@ function DevicePicker({ source, microphone }: { source: string; microphone: bool
     <Popover
       open={open}
       onOpenChange={(next) => {
+        refocus.current = false;
         if (next) setChoice(undefined);
         setOpen(next);
       }}
@@ -181,7 +196,7 @@ function DevicePicker({ source, microphone }: { source: string; microphone: bool
           <Button variant="ghost" size="icon-sm" aria-label={t("device", { name: source })}><Icon /></Button>
         </PopoverTrigger>
       </Tooltip>
-      <PopoverContent align="end" className="w-72 p-1">
+      <PopoverContent ref={content} align="end" className="w-72 p-1">
         {choice === undefined ? (
           <div className="flex h-16 items-center justify-center">
             <span className="size-4 animate-spin rounded-full border-2 border-muted border-t-foreground" aria-label={t("loadingDevices")} />
@@ -193,6 +208,8 @@ function DevicePicker({ source, microphone }: { source: string; microphone: bool
               size="sm"
               variant="outline"
               onClick={() => {
+                refocus.current = true;
+                content.current?.focus();
                 setChoice(undefined);
                 setAttempt((value) => value + 1);
               }}
