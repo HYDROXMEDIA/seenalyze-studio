@@ -146,9 +146,15 @@ function AudioSettingsForm({ source, microphone, onClose }: { source: string; mi
                   <Select
                     disabled={!monitorDevices}
                     value={monitorDevices?.current}
-                    onValueChange={(id) => {
+                    onValueChange={async (id) => {
+                      const previous = monitorDevices?.current;
                       setMonitorDevices((current) => current && { ...current, current: id });
-                      void run(() => studio.setMonitoringDevice(id));
+                      const saved = await run(async () => {
+                        await studio.setMonitoringDevice(id);
+                        return true;
+                      });
+                      // Shows the device that is really in use again (the error was already shown).
+                      if (!saved && mounted.current) setMonitorDevices((current) => current && current.current === id ? { ...current, current: previous ?? current.current } : current);
                     }}
                   >
                     <SelectTrigger id="audio-headphones">
