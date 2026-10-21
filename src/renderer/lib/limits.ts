@@ -28,3 +28,17 @@ export function isWebUrl(value: unknown): boolean {
   const url = new URL(value.trim());
   return (url.protocol === "http:" || url.protocol === "https:") && url.hostname.length > 0;
 }
+
+/** Overlay width and height range, as the overlay library clamps them. */
+export const OVERLAY_SIZE = { min: 40, max: 3840 } as const;
+
+/**
+ * An overlay width or height typed in the editor, rounded and kept in range,
+ * or null when the field is empty or not a number (the saved size stays).
+ */
+export function overlaySize(text: string): number | null {
+  if (text.trim() === "") return null;
+  const value = Math.round(Number(text));
+  if (!Number.isFinite(value)) return null;
+  return Math.min(OVERLAY_SIZE.max, Math.max(OVERLAY_SIZE.min, value));
+}

@@ -39,6 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/overlays";
+import { OVERLAY_SIZE, overlaySize } from "@/lib/limits";
 import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
 import { useSeenalyzeAccount } from "@/lib/use-seenalyze-account";
@@ -158,13 +159,14 @@ export function OverlaysPage() {
     saveTimer.current = window.setTimeout(() => void flush(), SAVE_DELAY_MS);
   };
 
-  const patchOverlay = async (patch: { name?: string; width?: number; height?: number }) => {
+  /** Saves a name or size typed in `input`; the field shows the saved value again when the change is not usable or fails. */
+  const patchOverlay = async (input: HTMLInputElement, saved: string | number, patch: { name?: string; width?: number; height?: number }) => {
     if (!overlay) return;
     const next = await run(() => studio.updateOverlay(overlay.id, patch));
     if (next) {
       setOverlay(next);
       void refresh();
-    }
+    } else if (input.isConnected) input.value = String(saved);
   };
 
   const select = async (next: Selection) => {
@@ -368,7 +370,10 @@ export function OverlaysPage() {
                     defaultValue={overlay.name}
                     maxLength={60}
                     onBlur={(event) => {
-                      if (event.target.value.trim() && event.target.value !== overlay.name) void patchOverlay({ name: event.target.value });
+                      const input = event.currentTarget;
+                      // An empty name is not saved; show the saved one again instead of an empty field.
+                      if (!input.value.trim()) input.value = overlay.name;
+                      else if (input.value !== overlay.name) void patchOverlay(input, overlay.name, { name: input.value });
                     }}
                   />
                 </Field>
@@ -379,12 +384,15 @@ export function OverlaysPage() {
                         id={`overlay-${dimension}`}
                         key={`${overlay.id}-${dimension}-${overlay[dimension]}`}
                         type="number"
-                        min={40}
-                        max={3840}
+                        min={OVERLAY_SIZE.min}
+                        max={OVERLAY_SIZE.max}
                         defaultValue={overlay[dimension]}
                         onBlur={(event) => {
-                          const value = Number(event.target.value);
-                          if (Number.isFinite(value) && value !== overlay[dimension]) void patchOverlay({ [dimension]: value });
+                          const input = event.currentTarget;
+                          const value = overlaySize(input.value);
+                          // An emptied field keeps the saved size; out-of-range values show the size that is saved.
+                          input.value = String(value ?? overlay[dimension]);
+                          if (value !== null && value !== overlay[dimension]) void patchOverlay(input, overlay[dimension], { [dimension]: value });
                         }}
                       />
                     </Field>

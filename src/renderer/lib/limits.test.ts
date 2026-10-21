@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { broadcastPrivacy, clampVolume, isWebUrl } from "./limits";
+import { broadcastPrivacy, clampVolume, isWebUrl, overlaySize } from "./limits";
 
 describe("limits checked before values go to the main process", () => {
   test("only http(s) addresses with a host count as web page addresses", () => {
@@ -28,5 +28,20 @@ describe("limits checked before values go to the main process", () => {
     expect(clampVolume(1.5)).toBe(1);
     expect(clampVolume(Number.NaN)).toBeNull();
     expect(clampVolume(Number.POSITIVE_INFINITY)).toBeNull();
+  });
+});
+
+describe("overlay size typed in the editor", () => {
+  test("an empty or non-number field keeps the saved size", () => {
+    expect(overlaySize("")).toBeNull();
+    expect(overlaySize("   ")).toBeNull();
+    expect(overlaySize("abc")).toBeNull();
+  });
+
+  test("numbers are rounded and kept in range", () => {
+    expect(overlaySize("1280")).toBe(1280);
+    expect(overlaySize("99.6")).toBe(100);
+    expect(overlaySize("0")).toBe(40);
+    expect(overlaySize("99999")).toBe(3840);
   });
 });
