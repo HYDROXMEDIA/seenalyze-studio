@@ -39,6 +39,8 @@ import {
 import { Tooltip } from "@/components/ui/tooltip";
 import { studio } from "@/lib/studio";
 import { useAction } from "@/lib/use-action";
+import type { MoveDirection } from "@/lib/focus-target";
+import { useMoveFocus } from "@/lib/use-move-focus";
 import { cn } from "@/lib/utils";
 import { PropertyField } from "./SourcePropertiesDialog";
 
@@ -90,9 +92,10 @@ function EffectsPanel({ source, onClose }: { source: string; onClose: () => void
     };
   }, [source, run]);
 
-  const apply = async (call: () => Promise<EffectList>, select?: (next: EffectList) => string | null) => {
+  const apply = async (call: () => Promise<EffectList>, select?: (next: EffectList) => string | null, moved?: { name: string; direction: MoveDirection }) => {
     const next = await run(call);
     if (!next) return;
+    if (moved) moveFocus.expect(moved.name, moved.direction);
     setList(next);
     setSelected((current) => (select ? select(next) : next.effects.some((effect) => effect.name === current) ? current : (next.effects[0]?.name ?? null)));
   };
@@ -105,6 +108,9 @@ function EffectsPanel({ source, onClose }: { source: string; onClose: () => void
     );
 
   const effects = list?.effects ?? [];
+  const detail = useRef<HTMLDivElement>(null);
+  // The Move button pressed keeps focus, or its sibling once the effect reaches an end of the list.
+  const moveFocus = useMoveFocus(detail, effects.map((effect) => effect.name));
   const current = effects.find((effect) => effect.name === selected) ?? null;
   const index = current ? effects.indexOf(current) : -1;
   const available = (list?.available ?? []).filter((kind) => effectSuitsSource(kind, sourceKind));
@@ -187,7 +193,7 @@ function EffectsPanel({ source, onClose }: { source: string; onClose: () => void
             </ActionMenu>
           </div>
           {current && (
-            <div className="grid min-w-0 content-start gap-3">
+            <div ref={detail} className="grid min-w-0 content-start gap-3">
               <div className="flex items-center gap-1">
                 <h3 className="min-w-0 flex-1 truncate font-semibold">{t(`kinds.${current.kind}`)}</h3>
                 <Tooltip label={t("moveUp")}>
@@ -196,7 +202,9 @@ function EffectsPanel({ source, onClose }: { source: string; onClose: () => void
                     size="icon-sm"
                     aria-label={t("moveUp")}
                     disabled={index <= 0}
-                    onClick={() => void apply(() => studio.moveEffect(source, current.name, "up"), () => current.name)}
+                    data-move-key={current.name}
+                    data-move="up"
+                    onClick={() => void apply(() => studio.moveEffect(source, current.name, "up"), () => current.name, { name: current.name, direction: "up" })}
                   >
                     <ArrowUpIcon />
                   </Button>
@@ -207,7 +215,9 @@ function EffectsPanel({ source, onClose }: { source: string; onClose: () => void
                     size="icon-sm"
                     aria-label={t("moveDown")}
                     disabled={index >= effects.length - 1}
-                    onClick={() => void apply(() => studio.moveEffect(source, current.name, "down"), () => current.name)}
+                    data-move-key={current.name}
+                    data-move="down"
+                    onClick={() => void apply(() => studio.moveEffect(source, current.name, "down"), () => current.name, { name: current.name, direction: "down" })}
                   >
                     <ArrowDownIcon />
                   </Button>
