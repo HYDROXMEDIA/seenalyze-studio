@@ -1424,6 +1424,7 @@
       "description": "Átmásolja a jeleneteket, forrásokat, szűrőket és az átmenetet. A streamkulcsokat soha nem másolja.",
       "searching": "Jelenetgyűjtemények keresése…",
       "none": "Ezen a számítógépen nincs OBS Studio- vagy Streamlabs-jelenetgyűjtemény.",
+      "searchFailed": "Nem sikerült megkeresni a jelenetgyűjteményeket. Próbáld újra.",
       "apps": {
         "obs": "OBS Studio",
         "streamlabs": "Streamlabs Desktop"

@@ -1424,6 +1424,7 @@
       "description": "Zkopíruje scény, zdroje, filtry a přechod. Klíče streamu se nikdy nekopírují.",
       "searching": "Hledání kolekcí scén…",
       "none": "V tomto počítači nebyly nalezeny žádné kolekce scén z OBS Studio ani Streamlabs.",
+      "searchFailed": "Kolekce scén se nepodařilo vyhledat. Zkuste to znovu.",
       "apps": {
         "obs": "OBS Studio",
         "streamlabs": "Streamlabs Desktop"

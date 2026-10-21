@@ -1424,6 +1424,7 @@
       "description": "Kinokopya ang mga scene, source, filter at transition. Hindi kailanman kinokopya ang mga stream key.",
       "searching": "Naghahanap ng mga scene collection…",
       "none": "Walang nakitang scene collection ng OBS Studio o Streamlabs sa computer na ito.",
+      "searchFailed": "Hindi mahanap ang mga scene collection. Subukang muli.",
       "apps": {
         "obs": "OBS Studio",
         "streamlabs": "Streamlabs Desktop"

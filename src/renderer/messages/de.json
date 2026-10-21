@@ -1424,6 +1424,7 @@
       "description": "Übernimmt Szenen, Quellen, Filter und den Übergang. Stream-Schlüssel werden nie übernommen.",
       "searching": "Suche nach Szenensammlungen…",
       "none": "Auf diesem Computer wurden keine Szenensammlungen von OBS Studio oder Streamlabs gefunden.",
+      "searchFailed": "Szenensammlungen konnten nicht gesucht werden. Versuche es erneut.",
       "apps": {
         "obs": "OBS Studio",
         "streamlabs": "Streamlabs Desktop"

@@ -136,8 +136,14 @@ export function OverlaysPage() {
     const values = pendingValues.current;
     pendingValues.current = {};
     const id = overlayIdRef.current;
-    if (!id || Object.keys(values).length === 0) return;
-    await run(() => studio.updateOverlay(id, { values }));
+    if (!id || Object.keys(values).length === 0) return true;
+    const saved = await run(() => studio.updateOverlay(id, { values }));
+    if (saved === undefined) {
+      // The toast already said it failed; keep the edits so the next change, Back or a new selection retries them.
+      pendingValues.current = { ...values, ...pendingValues.current };
+      return false;
+    }
+    return true;
   }, [run]);
 
   // Saves what is still waiting when the page closes; `flush` is stable, so this runs on unmount only.
@@ -162,7 +168,7 @@ export function OverlaysPage() {
   };
 
   const select = async (next: Selection) => {
-    await flush();
+    if (!(await flush())) return;
     setSelection(next);
     if (!next) setOverlay(null);
   };
@@ -188,7 +194,7 @@ export function OverlaysPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col animate-ui-fade">
       <div className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
-        <Button variant="ghost" size="sm" onClick={() => void flush().then(() => setView("studio"))}>
+        <Button variant="ghost" size="sm" onClick={() => void flush().then((saved) => saved && setView("studio"))}>
           <ArrowLeftIcon />
           {t("back")}
         </Button>
@@ -403,7 +409,7 @@ export function OverlaysPage() {
                       disabled={!scene}
                       onClick={async () => {
                         if (!scene) return;
-                        await flush();
+                        if (!(await flush())) return;
                         const name = await run(() => studio.addOverlayToScene(overlay.id, scene));
                         if (name) toast.success(t("addedToScene", { name: overlay.name, scene }));
                       }}

@@ -12,6 +12,7 @@ export function useAction() {
         return await call();
       } catch (error) {
         const code = errorCode(error);
+        console.error(`[action] failed (${code})`, error);
         toast.error(t.has(code) ? t(code) : t("generic"));
         return undefined;
       }

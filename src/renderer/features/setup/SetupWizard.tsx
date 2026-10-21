@@ -118,7 +118,10 @@ function Wizard({ snapshot, firstRun, onClose }: { snapshot: StudioSnapshot; fir
       .then((found) => {
         if (!cancelled) setImportable(found.length > 0);
       })
-      .catch(console.error);
+      .catch((error: unknown) => {
+        // The offer stays hidden; importing is still available from the Scenes menu.
+        console.error("[setup] could not look for importable scene collections", error);
+      });
     return () => {
       cancelled = true;
     };

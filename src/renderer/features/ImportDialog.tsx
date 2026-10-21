@@ -21,8 +21,9 @@ function ImportForm({ onDone, onImported }: { onDone: () => void; onImported?: (
   const t = useTranslations("workspace.import");
   const tc = useTranslations("common");
   const run = useAction();
-  const [candidates, setCandidates] = useState<ImportCandidate[] | null>(null);
+  const [candidates, setCandidates] = useState<ImportCandidate[] | "failed" | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [searchAttempt, setSearchAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -32,13 +33,14 @@ function ImportForm({ onDone, onImported }: { onDone: () => void; onImported?: (
         if (!cancelled) setCandidates(found);
       })
       .catch((error: unknown) => {
-        console.error(error);
-        if (!cancelled) setCandidates([]);
+        // A failed search is not "nothing found": say so and offer a retry.
+        console.error("[import] could not look for scene collections", error);
+        if (!cancelled) setCandidates("failed");
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [searchAttempt]);
 
   const importOne = async (candidateId: string | null) => {
     setBusy(candidateId ?? "file");
@@ -64,6 +66,16 @@ function ImportForm({ onDone, onImported }: { onDone: () => void; onImported?: (
         <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground" role="status">
           <Loader2Icon className="size-4 animate-spin" aria-hidden />
           {t("searching")}
+        </div>
+      ) : candidates === "failed" ? (
+        <div className="flex items-center gap-3 py-2" role="alert">
+          <p className="min-w-0 flex-1 text-sm text-muted-foreground">{t("searchFailed")}</p>
+          <Button size="sm" variant="outline" onClick={() => {
+              setCandidates(null);
+              setSearchAttempt((count) => count + 1);
+            }}>
+            {tc("retry")}
+          </Button>
         </div>
       ) : candidates.length === 0 ? (
         <p className="py-2 text-sm text-muted-foreground">{t("none")}</p>

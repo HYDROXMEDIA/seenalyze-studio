@@ -1424,6 +1424,7 @@
       "description": "Copies scenes, sources, filters and the transition. Stream keys are never copied.",
       "searching": "Looking for scene collections…",
       "none": "No OBS Studio or Streamlabs scene collections found on this computer.",
+      "searchFailed": "Couldn't look for scene collections. Try again.",
       "apps": {
         "obs": "OBS Studio",
         "streamlabs": "Streamlabs Desktop"

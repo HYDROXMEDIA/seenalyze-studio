@@ -1424,6 +1424,7 @@
       "description": "Kopira scene, izvore, filtre i prijelaz. Ključevi prijenosa nikad se ne kopiraju.",
       "searching": "Traženje zbirki scena…",
       "none": "Na ovom računalu nisu pronađene zbirke scena iz OBS Studija ni Streamlabsa.",
+      "searchFailed": "Zbirke scena nije bilo moguće pretražiti. Pokušajte ponovno.",
       "apps": {
         "obs": "OBS Studio",
         "streamlabs": "Streamlabs Desktop"

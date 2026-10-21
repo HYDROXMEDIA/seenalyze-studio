@@ -1424,6 +1424,7 @@
       "description": "Copia escenas, fuentes, filtros y la transición. Nunca se copian las claves de transmisión.",
       "searching": "Buscando colecciones de escenas…",
       "none": "No se encontraron colecciones de escenas de OBS Studio ni de Streamlabs en este computador.",
+      "searchFailed": "No se pudieron buscar colecciones de escenas. Inténtalo de nuevo.",
       "apps": {
         "obs": "OBS Studio",
         "streamlabs": "Streamlabs Desktop"

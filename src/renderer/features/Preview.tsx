@@ -1,5 +1,6 @@
 import { ChevronDownIcon } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { toast } from "sonner";
 import { useTranslations } from "use-intl";
 import { Button } from "@/components/ui/button";
 import { ActionMenu } from "@/components/ui/overlays";
@@ -54,6 +55,7 @@ export function Preview() {
   const t = useTranslations("preview");
   const ts = useTranslations("studioMode");
   const tt = useTranslations("transitions");
+  const te = useTranslations("errors.codes");
   const run = useAction();
   const areaRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
@@ -163,13 +165,26 @@ export function Preview() {
   // macOS: a modal whose box was found is cut out instead; anything else still parks the preview.
   const hidden = (overlays > 0 && !(isMac && dialogShown)) || (poppers > 0 && popperCovers);
   useEffect(() => {
-    studio.setPreviewHidden(hidden).catch(console.error);
-  }, [hidden]);
+    let cancelled = false;
+    // A failed hide would leave the native preview drawn over an open dialog: retry once, then say so.
+    const apply = (attempt: number) => {
+      studio.setPreviewHidden(hidden).catch((error: unknown) => {
+        console.error(`[preview] could not ${hidden ? "hide" : "show"} the preview (attempt ${attempt + 1})`, error);
+        if (cancelled) return;
+        if (attempt === 0) window.setTimeout(() => !cancelled && apply(1), 500);
+        else toast.error(te("preview-failed"));
+      });
+    };
+    apply(0);
+    return () => {
+      cancelled = true;
+    };
+  }, [hidden, te]);
 
   useEffect(() => {
     if (layout.width < 2) {
-      studio.setProgramBounds(null).catch(console.error);
-      studio.setPreviewBounds(null).catch(console.error);
+      studio.setProgramBounds(null).catch((error: unknown) => console.error("[preview] program bounds not cleared", error));
+      studio.setPreviewBounds(null).catch((error: unknown) => console.error("[preview] preview bounds not cleared", error));
       return;
     }
     // Wait for resizing to settle: rebuilding the native surface on every frame
@@ -181,8 +196,8 @@ export function Preview() {
       timer = window.setTimeout(() => {
         const ratio = window.devicePixelRatio;
         // The program rect first: the preview call places both.
-        studio.setProgramBounds(studioMode ? measure(programRef.current) : null, ratio).catch(console.error);
-        studio.setPreviewBounds(measure(frameRef.current), ratio).catch(console.error);
+        studio.setProgramBounds(studioMode ? measure(programRef.current) : null, ratio).catch((error: unknown) => console.error("[preview] program bounds not applied", error));
+        studio.setPreviewBounds(measure(frameRef.current), ratio).catch((error: unknown) => console.error("[preview] preview bounds not applied", error));
       }, 80);
     };
     report();
@@ -195,8 +210,8 @@ export function Preview() {
 
   useEffect(
     () => () => {
-      studio.setProgramBounds(null).catch(console.error);
-      studio.setPreviewBounds(null).catch(console.error);
+      studio.setProgramBounds(null).catch((error: unknown) => console.error("[preview] program bounds not cleared", error));
+      studio.setPreviewBounds(null).catch((error: unknown) => console.error("[preview] preview bounds not cleared", error));
     },
     [],
   );
