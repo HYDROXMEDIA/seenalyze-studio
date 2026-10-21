@@ -200,6 +200,7 @@
     "removeTitle": "Ukloniti {name}?",
     "noSettings": "Ovaj efekt nema postavki",
     "unavailable": "Na ovom računalu nema dostupnih efekata.",
+    "loadFailed": "Efekte nije moguće učitati.",
     "kinds": {
       "chromaKey": "Chroma key",
       "colorCorrection": "Korekcija boja",

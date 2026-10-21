@@ -200,6 +200,7 @@
     "removeTitle": "Odebrat {name}?",
     "noSettings": "Tento efekt nemá žádná nastavení",
     "unavailable": "Na tomto počítači nejsou dostupné žádné efekty.",
+    "loadFailed": "Efekty se nepodařilo načíst.",
     "kinds": {
       "chromaKey": "Klíčování barvy (chroma key)",
       "colorCorrection": "Korekce barev",

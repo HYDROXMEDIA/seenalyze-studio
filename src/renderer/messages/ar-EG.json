@@ -200,6 +200,7 @@
     "removeTitle": "إزالة {name}؟",
     "noSettings": "هذا المؤثر ليس له إعدادات",
     "unavailable": "لا توجد مؤثرات متاحة على هذا الكمبيوتر.",
+    "loadFailed": "تعذّر تحميل المؤثرات.",
     "kinds": {
       "chromaKey": "مفتاح الكروما",
       "colorCorrection": "تصحيح الألوان",

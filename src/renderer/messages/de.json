@@ -200,6 +200,7 @@
     "removeTitle": "{name} entfernen?",
     "noSettings": "Dieser Effekt hat keine Einstellungen",
     "unavailable": "Auf diesem Computer sind keine Effekte verfügbar.",
+    "loadFailed": "Die Effekte konnten nicht geladen werden.",
     "kinds": {
       "chromaKey": "Chroma-Key",
       "colorCorrection": "Farbkorrektur",

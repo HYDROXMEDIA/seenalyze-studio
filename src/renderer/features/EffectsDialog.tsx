@@ -78,19 +78,26 @@ function EffectsPanel({ source, onClose }: { source: string; onClose: () => void
   const [list, setList] = useState<EffectList | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [removing, setRemoving] = useState<EffectDTO | null>(null);
+  // A failed list is not "no effects on this computer": it says so and offers a retry.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const sourceKind = useStudio((state) => state.snapshot?.scenes.flatMap((scene) => scene.items).find((item) => item.sourceName === source)?.kind);
 
   useEffect(() => {
     let cancelled = false;
     void run(() => studio.listEffects(source)).then((result) => {
       if (cancelled) return;
-      setList(result ?? { available: [], effects: [] });
-      setSelected(result?.effects[0]?.name ?? null);
+      if (!result) {
+        setLoadFailed(true);
+        return;
+      }
+      setList(result);
+      setSelected(result.effects[0]?.name ?? null);
     });
     return () => {
       cancelled = true;
     };
-  }, [source, run]);
+  }, [source, run, loadAttempt]);
 
   const apply = async (call: () => Promise<EffectList>, select?: (next: EffectList) => string | null, moved?: { name: string; direction: MoveDirection }) => {
     const next = await run(call);
@@ -121,7 +128,21 @@ function EffectsPanel({ source, onClose }: { source: string; onClose: () => void
       <DialogHeader>
         <DialogTitle>{t("title", { name: source })}</DialogTitle>
       </DialogHeader>
-      {list === null ? (
+      {list === null && loadFailed ? (
+        <div className="grid justify-items-center gap-3 py-6 text-center">
+          <p role="alert" className="text-sm text-destructive">{t("loadFailed")}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setLoadFailed(false);
+              setLoadAttempt((value) => value + 1);
+            }}
+          >
+            {tc("retry")}
+          </Button>
+        </div>
+      ) : list === null ? (
         <div className="flex h-40 items-center justify-center">
           <span className="size-5 animate-spin rounded-full border-2 border-muted border-t-foreground" aria-label={tc("loading")} />
         </div>

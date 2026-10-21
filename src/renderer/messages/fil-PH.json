@@ -200,6 +200,7 @@
     "removeTitle": "Alisin ang {name}?",
     "noSettings": "Walang setting ang effect na ito",
     "unavailable": "Walang available na effect sa computer na ito.",
+    "loadFailed": "Hindi ma-load ang mga effect.",
     "kinds": {
       "chromaKey": "Chroma key",
       "colorCorrection": "Pagwawasto ng kulay",

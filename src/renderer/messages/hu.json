@@ -200,6 +200,7 @@
     "removeTitle": "Eltávolítod: {name}?",
     "noSettings": "Ennek az effektnek nincsenek beállításai",
     "unavailable": "Ezen a számítógépen nem érhetők el effektek.",
+    "loadFailed": "Nem sikerült betölteni az effekteket.",
     "kinds": {
       "chromaKey": "Chroma key",
       "colorCorrection": "Színkorrekció",
