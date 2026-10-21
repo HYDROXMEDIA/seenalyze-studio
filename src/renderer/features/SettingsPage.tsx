@@ -421,6 +421,8 @@ export function SettingsPage() {
                     ))}
                   </ul>
                 )}
+                {/* Another platform (or a second channel) can be connected here too, not only from a destination. */}
+                {snapshot.accounts.length > 0 && <ConnectAccountButtons onTwitchPrompt={setTwitchPrompt} />}
               </SettingsCard>
             )}
 
@@ -786,7 +788,7 @@ function LanguageSelect() {
   );
 }
 
-/** Connects a YouTube or Twitch account from where no account exists yet. */
+/** Connects a YouTube or Twitch account from Settings > Accounts. */
 function ConnectAccountButtons({ onTwitchPrompt }: { onTwitchPrompt: (prompt: DeviceCodePrompt) => void }) {
   const td = useTranslations("destinations");
   const run = useAction();
