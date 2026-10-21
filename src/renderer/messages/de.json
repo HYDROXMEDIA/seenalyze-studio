@@ -1037,7 +1037,8 @@
         "removeImage": "Bild entfernen",
         "invalidImage": "Diese Datei ist kein unterstütztes Bild.",
         "imageFailed": "Das Bild konnte nicht hinzugefügt werden. Versuchen Sie es erneut.",
-        "removeFailed": "Das Bild konnte nicht entfernt werden. Versuchen Sie es erneut."
+        "removeFailed": "Das Bild konnte nicht entfernt werden. Versuchen Sie es erneut.",
+        "missingImage": "Ihr Hintergrundbild wurde nicht gefunden. Stattdessen wird der Standardhintergrund verwendet."
       },
       "frame": {
         "title": "Format",
@@ -1114,7 +1115,8 @@
         },
         "preview": "Kameravorschau",
         "smaller": "Kleiner",
-        "larger": "Größer"
+        "larger": "Größer",
+        "unavailable": "Die Kameraaufnahme konnte nicht geöffnet werden. Sie fehlt in der Vorschau und im Export."
       },
       "sounds": {
         "title": "Sounds",

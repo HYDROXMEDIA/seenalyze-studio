@@ -1037,7 +1037,8 @@
         "removeImage": "Kép eltávolítása",
         "invalidImage": "Ez a fájl nem támogatott képformátum.",
         "imageFailed": "Nem sikerült hozzáadni a képet. Próbáld újra.",
-        "removeFailed": "Nem sikerült eltávolítani a képet. Próbáld újra."
+        "removeFailed": "Nem sikerült eltávolítani a képet. Próbáld újra.",
+        "missingImage": "Nem található a háttérképed. Helyette az alapértelmezett háttér látszik."
       },
       "frame": {
         "title": "Képarány",
@@ -1114,7 +1115,8 @@
         },
         "preview": "Kamera előnézete",
         "smaller": "Kisebb",
-        "larger": "Nagyobb"
+        "larger": "Nagyobb",
+        "unavailable": "Nem sikerült megnyitni a kamerafelvételt. Kimarad az előnézetből és az exportból."
       },
       "sounds": {
         "title": "Hangok",

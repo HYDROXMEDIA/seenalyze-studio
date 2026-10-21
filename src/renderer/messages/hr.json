@@ -1037,7 +1037,8 @@
         "removeImage": "Ukloni sliku",
         "invalidImage": "Ta datoteka nije podržana slika.",
         "imageFailed": "Slika se nije mogla dodati. Pokušaj ponovno.",
-        "removeFailed": "Slika se nije mogla ukloniti. Pokušaj ponovno."
+        "removeFailed": "Slika se nije mogla ukloniti. Pokušaj ponovno.",
+        "missingImage": "Tvoja slika pozadine nije pronađena. Umjesto nje koristi se zadana pozadina."
       },
       "frame": {
         "title": "Okvir",
@@ -1114,7 +1115,8 @@
         },
         "preview": "Pregled kamere",
         "smaller": "Manje",
-        "larger": "Veće"
+        "larger": "Veće",
+        "unavailable": "Snimka kamere nije se mogla otvoriti. Izostavljena je iz pregleda i izvoza."
       },
       "sounds": {
         "title": "Zvukovi",

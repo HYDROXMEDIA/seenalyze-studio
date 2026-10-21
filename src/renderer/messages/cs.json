@@ -1037,7 +1037,8 @@
         "removeImage": "Odstranit obrázek",
         "invalidImage": "Tento soubor není podporovaný obrázek.",
         "imageFailed": "Obrázek se nepodařilo přidat. Zkuste to znovu.",
-        "removeFailed": "Obrázek se nepodařilo odstranit. Zkuste to znovu."
+        "removeFailed": "Obrázek se nepodařilo odstranit. Zkuste to znovu.",
+        "missingImage": "Váš obrázek na pozadí se nepodařilo najít. Místo něj se použije výchozí pozadí."
       },
       "frame": {
         "title": "Formát",
@@ -1114,7 +1115,8 @@
         },
         "preview": "Náhled kamery",
         "smaller": "Menší",
-        "larger": "Větší"
+        "larger": "Větší",
+        "unavailable": "Záznam z kamery se nepodařilo otevřít. V náhledu ani v exportu nebude."
       },
       "sounds": {
         "title": "Zvuky",

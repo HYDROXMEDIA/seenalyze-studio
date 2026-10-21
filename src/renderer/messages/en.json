@@ -1037,7 +1037,8 @@
         "removeImage": "Remove image",
         "invalidImage": "That file is not a supported image.",
         "imageFailed": "The image could not be added. Try again.",
-        "removeFailed": "The image could not be removed. Try again."
+        "removeFailed": "The image could not be removed. Try again.",
+        "missingImage": "Your background image could not be found. The default background is used instead."
       },
       "frame": {
         "title": "Frame",
@@ -1114,7 +1115,8 @@
         },
         "preview": "Camera preview",
         "smaller": "Smaller",
-        "larger": "Larger"
+        "larger": "Larger",
+        "unavailable": "The camera recording could not be opened. It is left out of the preview and export."
       },
       "sounds": {
         "title": "Sounds",

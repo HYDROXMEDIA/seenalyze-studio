@@ -65,6 +65,8 @@ const BLUR_FRAME = 1 / 60;
 
 const $ = (id) => document.getElementById(id);
 let captionUIReady = false;
+// The captions the rows currently show; null forces a rebuild (for example after a language change).
+let renderedCaptions = null;
 const canvas = $('canvas');
 const context = canvas.getContext('2d', { alpha: false });
 const playButton = $('play');
@@ -155,6 +157,8 @@ const videoHeight = video.videoHeight;
 
 // The camera track, recorded on the same clock as the screen.
 let cameraVideo = null;
+// Set when a recorded camera track cannot be opened; the user is told once the editor is ready.
+let cameraUnavailable = false;
 if (init.cameraUrl) {
   const element = document.createElement('video');
   element.preload = 'auto';
@@ -162,8 +166,12 @@ if (init.cameraUrl) {
   element.playsInline = true;
   element.crossOrigin = 'anonymous';
   element.src = init.cameraUrl;
-  // The screen recording can still be edited when its camera track cannot be read.
-  cameraVideo = await mediaEvent(element, 'loadeddata').then(() => element, () => null);
+  // The screen recording can still be edited when its camera track cannot be read; the user is told it is left out.
+  cameraVideo = await mediaEvent(element, 'loadeddata').then(() => element, (error) => {
+    console.error('[editor] camera track could not be opened', error);
+    cameraUnavailable = true;
+    return null;
+  });
 }
 const CAMERA_DRIFT = 0.08;
 
@@ -225,9 +233,14 @@ async function loadBackground(url) {
 }
 if (init.backgroundUrl) {
   // A missing or broken image falls back to the default background below.
-  await loadBackground(init.backgroundUrl).catch((error) => console.warn('Background image could not be loaded', error));
+  await loadBackground(init.backgroundUrl).catch((error) => console.error('[editor] saved background image could not be loaded', error));
 }
-if (project.look.background === 'image' && backgroundImage === null) project.look.background = DEFAULT_BACKGROUND;
+// Set when the saved image is missing or broken; the user is told once the editor is ready.
+const backgroundMissing = project.look.background === 'image' && backgroundImage === null;
+if (backgroundMissing) {
+  if (!init.backgroundUrl) console.error('[editor] saved background image no longer exists');
+  project.look.background = DEFAULT_BACKGROUND;
+}
 
 // Values derived from the project, rebuilt when it changes.
 const derived = { offsets: [], total: 0, cameraTrack: new Float32Array(6), cursorTrack: new Float32Array(6), events: { clicks: [], shortcuts: [] } };
@@ -1256,6 +1269,7 @@ api.onExportFailed(() => {
 // ---- Start ----------------------------------------------------------------
 
 function applyLanguage() {
+  renderedCaptions = null;
   buildBackgrounds();
   buildAspects();
   buildCameraChoices();
@@ -1281,13 +1295,22 @@ $('discard').addEventListener('click', async () => {
   cameraVideo?.pause();
   $('discard').disabled = true;
   window.clearTimeout(saveTimer);
-  savePending = false;
+  // The edits are saved first so canceling the confirmation keeps them.
+  const saved = await api.saveProject(projectData()).catch((error) => {
+    console.error('[editor] edits could not be saved before discarding', error);
+    return false;
+  });
+  // Until a save succeeds, closing the window retries it.
+  savePending = !saved;
   try {
-    await api.saveProject(projectData());
     const result = await api.discard();
     if (!result.ok && !result.canceled) showToast(t('editor.discard.failed'));
-  } catch {
+    // Kept recording with unsaved edits: retry the save (it reports its own failure).
+    else if (!saved && result.canceled) saveProject();
+  } catch (error) {
+    console.error('[editor] recording could not be discarded', error);
     showToast(t('editor.discard.failed'));
+    if (!saved) saveProject();
   } finally {
     $('discard').disabled = false;
   }
@@ -1306,13 +1329,28 @@ const CAPTION_ERROR_KEYS = {
 const captionRows = $('caption-rows');
 function renderCaptions() {
   $('captions-enabled').checked = project.captionsEnabled;
+  // Rows are rebuilt only when the captions changed elsewhere (undo, redo, generate). Unrelated edits,
+  // drag frames and a row's own edit keep them, so focus stays where the user moved it.
+  const key = JSON.stringify(project.captions);
+  if (key === renderedCaptions) return;
+  renderedCaptions = key;
   captionRows.replaceChildren();
   for (const [index, caption] of project.captions.entries()) {
-    const row = document.createElement('label'); const label = document.createElement('span'); label.textContent = `${formatTime(caption.start)}–${formatTime(caption.end)}`;
-    const text = document.createElement('textarea'); text.value = caption.text; text.rows = 2; text.maxLength = 2000; text.setAttribute('aria-label', `${t('editor.captions.text')} ${label.textContent}`);
+    const row = document.createElement('label'); const label = document.createElement('span');
+    const text = document.createElement('textarea'); text.value = caption.text; text.rows = 2; text.maxLength = 2000;
     const start = document.createElement('input'); start.type = 'number'; start.step = '0.05'; start.min = '0'; start.max = String(duration); start.value = String(caption.start); start.setAttribute('aria-label', `${t('editor.captions.start')} ${index + 1}`);
     const end = document.createElement('input'); end.type = 'number'; end.step = '0.05'; end.min = '0'; end.max = String(duration); end.value = String(caption.end); end.setAttribute('aria-label', `${t('editor.captions.end')} ${index + 1}`);
-    const change = () => { const first = Number(start.value), last = Number(end.value); if (first < 0 || last > duration || last <= first || first < (project.captions[index - 1]?.end ?? 0) || last > (project.captions[index + 1]?.start ?? duration)) { showToast(t('editor.captions.invalidTiming')); return; } commit(draft => { draft.captions[index] = { start: first, end: last, text: text.value }; }); };
+    const showTiming = (first, last) => { label.textContent = `${formatTime(first)}–${formatTime(last)}`; text.setAttribute('aria-label', `${t('editor.captions.text')} ${label.textContent}`); };
+    showTiming(caption.start, caption.end);
+    const change = () => {
+      const first = Number(start.value), last = Number(end.value);
+      if (first < 0 || last > duration || last <= first || first < (project.captions[index - 1]?.end ?? 0) || last > (project.captions[index + 1]?.start ?? duration)) { showToast(t('editor.captions.invalidTiming')); return; }
+      const next = { start: first, end: last, text: text.value };
+      // This row already shows the new value; the other rows are unchanged.
+      showTiming(first, last);
+      renderedCaptions = JSON.stringify(project.captions.map((entry, i) => (i === index ? next : entry)));
+      commit(draft => { draft.captions[index] = next; });
+    };
     text.addEventListener('change', change); start.addEventListener('change', change); end.addEventListener('change', change); row.append(label, start, end, text); captionRows.append(row);
   }
 }
@@ -1407,7 +1445,13 @@ $('remove-preset-dialog').addEventListener('close', async () => {
   await loadPresets();
 });
 captionUIReady = true; renderCaptions(); void loadPresets();
-if (init.projectRecovered) showToast(t('editor.captions.recovered'));
+// One toast slot: startup notices are shown together so none replaces another.
+const startupNotices = [
+  init.projectRecovered && 'editor.captions.recovered',
+  cameraUnavailable && 'editor.camera.unavailable',
+  backgroundMissing && 'editor.background.missingImage'
+].filter(Boolean);
+if (startupNotices.length > 0) showToast(startupNotices.map((key) => t(key)).join(' '));
 if (init.exportChoice) applyExportChoice(init.exportChoice);
 
 function applyExportChoice(value) { if (RESOLUTIONS.some(x => x.id === value.resolution)) exportChoice.resolution = value.resolution; if ([24, 30, 60].includes(value.fps)) exportChoice.fps = value.fps; if (QUALITIES.includes(value.quality)) exportChoice.quality = value.quality; }

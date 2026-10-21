@@ -1037,7 +1037,8 @@
         "removeImage": "Alisin ang larawan",
         "invalidImage": "Hindi suportadong larawan ang file na iyan.",
         "imageFailed": "Hindi maidagdag ang larawan. Subukan muli.",
-        "removeFailed": "Hindi maalis ang larawan. Subukan ulit."
+        "removeFailed": "Hindi maalis ang larawan. Subukan ulit.",
+        "missingImage": "Hindi mahanap ang iyong background image. Ang default na background ang ginagamit."
       },
       "frame": {
         "title": "Frame",
@@ -1114,7 +1115,8 @@
         },
         "preview": "Preview ng camera",
         "smaller": "Mas maliit",
-        "larger": "Mas malaki"
+        "larger": "Mas malaki",
+        "unavailable": "Hindi mabuksan ang recording ng camera. Hindi ito kasama sa preview at sa export."
       },
       "sounds": {
         "title": "Mga tunog",

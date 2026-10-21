@@ -1037,7 +1037,8 @@
         "removeImage": "Quitar imagen",
         "invalidImage": "Ese archivo no es una imagen compatible.",
         "imageFailed": "No se pudo agregar la imagen. Inténtalo de nuevo.",
-        "removeFailed": "No se pudo quitar la imagen. Inténtalo de nuevo."
+        "removeFailed": "No se pudo quitar la imagen. Inténtalo de nuevo.",
+        "missingImage": "No se encontró tu imagen de fondo. Se usa el fondo predeterminado."
       },
       "frame": {
         "title": "Formato",
@@ -1114,7 +1115,8 @@
         },
         "preview": "Vista previa de la cámara",
         "smaller": "Más pequeña",
-        "larger": "Más grande"
+        "larger": "Más grande",
+        "unavailable": "No se pudo abrir la grabación de la cámara. Queda fuera de la vista previa y de la exportación."
       },
       "sounds": {
         "title": "Sonidos",
