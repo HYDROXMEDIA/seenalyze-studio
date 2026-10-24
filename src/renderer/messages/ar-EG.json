@@ -28,6 +28,25 @@
     "studioMode": "وضع الاستوديو",
     "projectors": "أجهزة العرض"
   },
+  "signIn": {
+    "headline": {
+      "first": "بث واحد.",
+      "second": "كل المنصات."
+    },
+    "features": {
+      "multistream": "YouTube وTwitch في الوقت نفسه",
+      "chat": "دردشة واحدة للمنصتين",
+      "overlays": "طبقات مصمَّمة بالذكاء الاصطناعي"
+    },
+    "continue": "المتابعة باستخدام SEENALYZE",
+    "openBrowserAgain": "افتح المتصفح مرة أخرى",
+    "waiting": "في انتظار المتصفح…",
+    "checkFailed": "تعذّر التحقق من حساب SEENALYZE. تحقق من اتصالك وحاول مرة أخرى.",
+    "footer": {
+      "studio": "جهّز المشهد وابدأ البث المباشر من تطبيق واحد.",
+      "privacy": "يصل الفيديو مباشرةً من جهازك إلى كل منصة."
+    }
+  },
   "engine": {
     "failedTitle": "تعذّر تشغيل الاستوديو",
     "restart": "إعادة التشغيل"

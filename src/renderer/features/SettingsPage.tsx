@@ -750,8 +750,8 @@ function ResolutionField({
   );
 }
 
-/** Interface language: saved on this device and, when signed in, on the SEENALYZE account. */
-function LanguageSelect() {
+/** Interface language: saved on this device and, when signed in, on the SEENALYZE account. Also on the sign-in screen. */
+export function LanguageSelect({ className }: { className?: string }) {
   const t = useTranslations("settings");
   const language = useLanguage();
   const [busy, setBusy] = useState(false);
@@ -774,7 +774,7 @@ function LanguageSelect() {
 
   return (
     <Select value={language} disabled={busy} onValueChange={(next) => void choose(next)}>
-      <SelectTrigger aria-label={t("language")}>
+      <SelectTrigger aria-label={t("language")} className={className}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

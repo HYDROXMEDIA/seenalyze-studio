@@ -22,6 +22,7 @@ import { Preview } from "@/features/Preview";
 import { ScenesDock } from "@/features/ScenesDock";
 import { SettingsPage } from "@/features/SettingsPage";
 import { SetupWizard } from "@/features/setup/SetupWizard";
+import { SignInGate } from "@/features/signin/SignInGate";
 import { OverlaysPage } from "@/features/overlays/OverlaysPage";
 import { SourcesDock } from "@/features/SourcesDock";
 import { errorCode, studio } from "@/lib/studio";
@@ -45,8 +46,6 @@ export function App() {
   /** The first state never arrived after the spaced retries; the user can try again. */
   const [loadFailed, setLoadFailed] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
-  useCanvasUndo();
-  useArrowNudge();
 
   useEffect(() => {
     let cancelled = false;
@@ -96,69 +95,73 @@ export function App() {
 
   return (
     <div className="flex h-full flex-col">
-      <Header />
-      {!snapshot && loadFailed ? (
-        <div role="alert" className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-          <UnplugIcon aria-hidden className="size-16 text-muted-foreground" strokeWidth={1.5} />
-          <h2 className="text-xl font-bold">{t("engine.failedTitle")}</h2>
-          <p className="max-w-md text-sm text-muted-foreground">{t("errors.codes.generic")}</p>
-          <Button
-            onClick={() => {
-              setLoadFailed(false);
-              setLoadAttempt((value) => value + 1);
-            }}
-          >
-            {t("common.retry")}
-          </Button>
-        </div>
-      ) : !snapshot || (!snapshot.ready && !snapshot.engineErrorKey) ? (
-        <div className="flex flex-1 items-center justify-center">
-          <span className="size-6 animate-spin rounded-full border-2 border-muted border-t-foreground" aria-label={t("common.loading")} />
-        </div>
-      ) : snapshot.engineErrorKey ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-          <UnplugIcon aria-hidden className="size-16 text-muted-foreground" strokeWidth={1.5} />
-          <h2 className="text-xl font-bold">{t("engine.failedTitle")}</h2>
-          <p className="max-w-md text-sm text-muted-foreground">
-            {t.has(snapshot.engineErrorKey) ? t(snapshot.engineErrorKey) : t("errors.codes.engine-init-failed")}
-          </p>
-          <Button
-            disabled={restarting}
-            onClick={async () => {
-              setRestarting(true);
-              try {
-                await studio.restartEngine();
-              } catch (error) {
-                console.error("[app] engine restart failed", error);
-                const code = errorCode(error);
-                toast.error(t.has(`errors.codes.${code}`) ? t(`errors.codes.${code}`) : t("errors.codes.generic"));
-              } finally {
-                setRestarting(false);
-              }
-            }}
-          >
-            {t("engine.restart")}
-          </Button>
-        </div>
-      ) : view === "settings" ? (
-        <SettingsPage />
-      ) : view === "overlays" ? (
-        <OverlaysPage />
-      ) : (
-        <main className="flex min-h-0 flex-1 flex-col gap-3 p-3 animate-ui-fade">
-          <div className="flex min-h-0 flex-1 gap-3">
-            <Preview />
-            {chatOpen && <ChatPanel />}
+      <SignInGate>
+        <StudioKeyboard />
+        <Header />
+        {!snapshot && loadFailed ? (
+          <div role="alert" className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+            <UnplugIcon aria-hidden className="size-16 text-muted-foreground" strokeWidth={1.5} />
+            <h2 className="text-xl font-bold">{t("engine.failedTitle")}</h2>
+            <p className="max-w-md text-sm text-muted-foreground">{t("errors.codes.generic")}</p>
+            <Button
+              onClick={() => {
+                setLoadFailed(false);
+                setLoadAttempt((value) => value + 1);
+              }}
+            >
+              {t("common.retry")}
+            </Button>
           </div>
-          <div className="dock-grid shrink-0">
-            <ScenesDock />
-            <SourcesDock />
-            <MixerDock />
-            <DestinationsDock />
-            <ControlsDock />
+        ) : !snapshot || (!snapshot.ready && !snapshot.engineErrorKey) ? (
+          <div className="flex flex-1 items-center justify-center">
+            <span className="size-6 animate-spin rounded-full border-2 border-muted border-t-foreground" aria-label={t("common.loading")} />
           </div>
-        </main>
-      )}
+        ) : snapshot.engineErrorKey ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+            <UnplugIcon aria-hidden className="size-16 text-muted-foreground" strokeWidth={1.5} />
+            <h2 className="text-xl font-bold">{t("engine.failedTitle")}</h2>
+            <p className="max-w-md text-sm text-muted-foreground">
+              {t.has(snapshot.engineErrorKey) ? t(snapshot.engineErrorKey) : t("errors.codes.engine-init-failed")}
+            </p>
+            <Button
+              disabled={restarting}
+              onClick={async () => {
+                setRestarting(true);
+                try {
+                  await studio.restartEngine();
+                } catch (error) {
+                  console.error("[app] engine restart failed", error);
+                  const code = errorCode(error);
+                  toast.error(t.has(`errors.codes.${code}`) ? t(`errors.codes.${code}`) : t("errors.codes.generic"));
+                } finally {
+                  setRestarting(false);
+                }
+              }}
+            >
+              {t("engine.restart")}
+            </Button>
+          </div>
+        ) : view === "settings" ? (
+          <SettingsPage />
+        ) : view === "overlays" ? (
+          <OverlaysPage />
+        ) : (
+          <main className="flex min-h-0 flex-1 flex-col gap-3 p-3 animate-ui-fade">
+            <div className="flex min-h-0 flex-1 gap-3">
+              <Preview />
+              {chatOpen && <ChatPanel />}
+            </div>
+            <div className="dock-grid shrink-0">
+              <ScenesDock />
+              <SourcesDock />
+              <MixerDock />
+              <DestinationsDock />
+              <ControlsDock />
+            </div>
+          </main>
+        )}
+        <SetupWizard />
+      </SignInGate>
 
       <AlertDialog open={quitRequested} onOpenChange={setQuitRequested}>
         {quitRequested && (
@@ -183,8 +186,14 @@ export function App() {
           </AlertDialogContent>
         )}
       </AlertDialog>
-      <SetupWizard />
       <Toaster position="bottom-right" theme={dark ? "dark" : "light"} richColors closeButton />
     </div>
   );
+}
+
+/** Canvas shortcuts (undo, arrow-key nudging) work only while the studio is open, never behind the sign-in screen. */
+function StudioKeyboard() {
+  useCanvasUndo();
+  useArrowNudge();
+  return null;
 }

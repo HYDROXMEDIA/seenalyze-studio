@@ -1,7 +1,7 @@
 {
   "name": "seenalyze-studio",
   "productName": "SEENALYZE STUDIO",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Desktop live-streaming studio with native multistreaming",
   "license": "GPL-2.0-or-later",

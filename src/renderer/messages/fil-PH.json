@@ -28,6 +28,25 @@
     "studioMode": "Studio mode",
     "projectors": "Mga projector"
   },
+  "signIn": {
+    "headline": {
+      "first": "Isang stream.",
+      "second": "Lahat ng platform."
+    },
+    "features": {
+      "multistream": "YouTube at Twitch nang sabay",
+      "chat": "Iisang chat para sa dalawa",
+      "overlays": "Mga overlay na dinisenyo gamit ang AI"
+    },
+    "continue": "Magpatuloy gamit ang SEENALYZE",
+    "openBrowserAgain": "Buksan ulit ang browser",
+    "waiting": "Hinihintay ang iyong browser…",
+    "checkFailed": "Hindi ma-check ang iyong SEENALYZE account. Tingnan ang iyong koneksyon at subukan ulit.",
+    "footer": {
+      "studio": "Buuin ang iyong scene at mag-live mula sa iisang app.",
+      "privacy": "Diretso mula sa iyong computer papunta sa bawat platform ang iyong video."
+    }
+  },
   "engine": {
     "failedTitle": "Hindi makapagsimula ang studio",
     "restart": "I-restart"

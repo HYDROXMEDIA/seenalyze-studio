@@ -449,3 +449,360 @@
     animation-delay: -1.05s !important;
   }
 }
+
+/*
+ * Required sign-in screen (features/signin/SignInGate.tsx): one full-window hero. A dot grid masked to an
+ * ellipse, a canvas lighting dots under wandering glows and the pointer, a two-line headline whose second
+ * line carries the studio's purple, a feature row, the sign-in button and two footer notes. Its own fixed
+ * palette in both appearances, like the website's sign-in, independent of the studio color theme.
+ */
+.signin-gate {
+  --signin-bg: #ecebe7;
+  /* Opaque, so overlapping joined glyphs (Arabic) don't paint visible seams. */
+  --signin-ink: #212120;
+  --signin-muted: rgba(0, 0, 0, 0.6);
+  --signin-dot: rgba(15, 23, 42, 0.12);
+  /* RGB triple read by the canvas (DotGridBackdrop.tsx). */
+  --signin-lit: 124, 58, 237;
+  --signin-accent: #6528d3;
+  --signin-accent-text: linear-gradient(100deg, #7c3aed 10%, #6528d3 55%, #5b21b6 100%);
+  --signin-button: #c9a6ff;
+  --signin-button-ink: #1e0b3d;
+  --signin-error-bg: rgba(220, 38, 38, 0.1);
+  --signin-error-ink: #b91c1c;
+  --signin-dot-pitch: 22px;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+  overflow: hidden;
+  background: var(--signin-bg);
+  color: var(--signin-ink);
+  color-scheme: light;
+}
+
+.dark .signin-gate {
+  --signin-bg: #050505;
+  --signin-ink: #e1e1e1;
+  --signin-muted: rgba(255, 255, 255, 0.58);
+  --signin-dot: rgba(255, 255, 255, 0.1);
+  --signin-lit: 181, 148, 255;
+  --signin-accent: #c9a6ff;
+  --signin-accent-text: linear-gradient(100deg, #efe4ff 10%, #c9a6ff 55%, #a87bff 100%);
+  --signin-error-bg: rgba(248, 113, 113, 0.12);
+  --signin-error-ink: #fca5a5;
+  color-scheme: dark;
+}
+
+.signin-dots {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(circle, var(--signin-dot) 1px, transparent 1.5px);
+  background-size: var(--signin-dot-pitch) var(--signin-dot-pitch);
+  -webkit-mask-image: radial-gradient(ellipse 75% 70% at 50% 45%, #000 40%, transparent 100%);
+  mask-image: radial-gradient(ellipse 75% 70% at 50% 45%, #000 40%, transparent 100%);
+}
+
+.signin-light {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+/* Short windows scroll the content; the backdrop stays put behind it. */
+.signin-scroll {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Same height as the studio header, so the macOS window buttons sit centred beside the lockup. */
+.signin-bar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-sizing: content-box;
+  min-block-size: var(--titlebar-height, 48px);
+  /* Physical sides: the macOS window buttons stay on the left in right-to-left languages too. */
+  padding-left: max(32px, var(--traffic-light-reserve, 0px));
+  padding-right: 32px;
+}
+
+.signin-brand {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.signin-main {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  gap: 28px;
+  padding: 32px 24px;
+  text-align: center;
+}
+
+.signin-headline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+  font-size: clamp(34px, min(7.4vw, 10.5vh), 76px);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  text-wrap: balance;
+}
+
+/* Joined scripts keep their natural spacing (tightening breaks the joins) and room for their marks. */
+.signin-headline:lang(ar) {
+  letter-spacing: normal;
+  line-height: 1.3;
+}
+
+/* Each line rises out of its own mask. */
+.signin-line {
+  display: block;
+  overflow: clip;
+  overflow-clip-margin: 0.1em;
+  padding-block-end: 0.12em;
+  margin-block-end: -0.06em;
+}
+
+.signin-line > span {
+  display: block;
+  animation: signin-rise 1s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--line-index, 0) * 110ms + 80ms);
+}
+
+@keyframes signin-rise {
+  from {
+    transform: translateY(105%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.signin-accent {
+  background: var(--signin-accent-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.signin-features {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.signin-feature {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--signin-muted);
+  font-size: 14px;
+}
+
+.signin-feature svg {
+  flex: none;
+  color: var(--signin-accent);
+}
+
+.signin-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  inline-size: min(100%, 316px);
+}
+
+.signin-cta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: 44px;
+  padding: 10px 24px;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--signin-button);
+  color: var(--signin-button-ink);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  cursor: pointer;
+  outline: none;
+  transition: scale 120ms ease;
+}
+
+.signin-cta:active {
+  scale: 0.98;
+}
+
+.signin-cta:focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 3px;
+}
+
+/* Hover and keyboard-focus glow: a separate layer that only fades in. */
+.signin-cta::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.92),
+    inset 28px 0 34px -28px rgba(255, 255, 255, 0.6),
+    inset -28px 0 34px -28px rgba(255, 255, 255, 0.6),
+    inset 0 0 18px rgba(255, 255, 255, 0.08);
+  opacity: 0;
+  transition: opacity 500ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.signin-cta:focus-visible::after {
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  .signin-cta:hover::after {
+    opacity: 1;
+  }
+}
+
+.signin-waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--signin-muted);
+  font-size: 14px;
+}
+
+.signin-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--signin-error-bg);
+  color: var(--signin-error-ink);
+  font-size: 14px;
+  text-align: start;
+}
+
+.signin-footer {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 24px;
+  padding-block: 0 28px;
+  padding-inline: 40px;
+  color: var(--signin-muted);
+  font-size: 12px;
+}
+
+/* Small windows: tighter insets, and the footer notes stack centred. */
+@media (max-width: 640px), (max-height: 620px) {
+  .signin-bar {
+    padding-inline-end: 20px;
+  }
+  .signin-main {
+    gap: 20px;
+    padding-block: 20px;
+  }
+  .signin-footer {
+    flex-direction: column;
+    align-items: center;
+    padding-inline: 20px;
+    text-align: center;
+  }
+}
+
+/*
+ * Label swap (components/SwapLabel.tsx): on hover or keyboard focus each character slides up out of its
+ * box while an identical copy rises into place, one after another. Transform only; every box keeps the
+ * label's line height, so nothing around it moves.
+ */
+.swap-word {
+  display: inline-flex;
+  white-space: nowrap;
+}
+
+.swap-piece {
+  display: inline-grid;
+  /* A little room past the box so accents and descenders are never cut, still hiding the copies. */
+  overflow: clip;
+  overflow-clip-margin: 0.2em;
+}
+
+.swap-piece > span {
+  grid-area: 1 / 1;
+  white-space: pre;
+  transition: transform 450ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--swap-delay, 0ms);
+}
+
+.swap-piece > span + span {
+  transform: translateY(130%);
+}
+
+@media (hover: hover) {
+  button:hover:not(:disabled) .swap-piece > span:first-child {
+    transform: translateY(-130%);
+  }
+  button:hover:not(:disabled) .swap-piece > span + span {
+    transform: none;
+  }
+}
+
+button:focus-visible .swap-piece > span:first-child {
+  transform: translateY(-130%);
+}
+
+button:focus-visible .swap-piece > span + span {
+  transform: none;
+}
+
+/* Reduced motion: no light, no rising lines, and the label stays put (the copy never shows). */
+@media (prefers-reduced-motion: reduce) {
+  .signin-line > span {
+    animation: none;
+  }
+  .signin-cta,
+  .signin-cta::after {
+    transition: none;
+  }
+  .swap-piece > span {
+    transition: none;
+    transform: none !important;
+  }
+  .swap-piece > span + span {
+    visibility: hidden;
+  }
+}

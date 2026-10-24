@@ -28,6 +28,25 @@
     "studioMode": "Studiový režim",
     "projectors": "Projektory"
   },
+  "signIn": {
+    "headline": {
+      "first": "Jeden stream.",
+      "second": "Každá platforma."
+    },
+    "features": {
+      "multistream": "YouTube a Twitch najednou",
+      "chat": "Jeden chat pro obě",
+      "overlays": "Překryvy navržené s AI"
+    },
+    "continue": "Pokračovat přes SEENALYZE",
+    "openBrowserAgain": "Znovu otevřít prohlížeč",
+    "waiting": "Čeká se na prohlížeč…",
+    "checkFailed": "Účet SEENALYZE se nepodařilo ověřit. Zkontrolujte připojení a zkuste to znovu.",
+    "footer": {
+      "studio": "Sestavte scénu a vysílejte živě z jedné aplikace.",
+      "privacy": "Vaše video jde z počítače přímo na každou platformu."
+    }
+  },
   "engine": {
     "failedTitle": "Studio se nepodařilo spustit",
     "restart": "Restartovat"

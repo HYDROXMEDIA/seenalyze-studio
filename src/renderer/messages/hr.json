@@ -28,6 +28,25 @@
     "studioMode": "Studijski način",
     "projectors": "Projektori"
   },
+  "signIn": {
+    "headline": {
+      "first": "Jedan stream.",
+      "second": "Svaka platforma."
+    },
+    "features": {
+      "multistream": "YouTube i Twitch istodobno",
+      "chat": "Jedan chat za oba",
+      "overlays": "Prekrivanja dizajnirana pomoću AI-ja"
+    },
+    "continue": "Nastavi uz SEENALYZE",
+    "openBrowserAgain": "Ponovno otvori preglednik",
+    "waiting": "Čeka se preglednik…",
+    "checkFailed": "SEENALYZE račun nije se mogao provjeriti. Provjerite vezu i pokušajte ponovno.",
+    "footer": {
+      "studio": "Složite scenu i krenite uživo iz jedne aplikacije.",
+      "privacy": "Vaš videozapis ide izravno s vašeg računala na svaku platformu."
+    }
+  },
   "engine": {
     "failedTitle": "Studio se nije uspio pokrenuti",
     "restart": "Ponovno pokreni"

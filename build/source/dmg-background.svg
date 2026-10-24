@@ -1,31 +1,60 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="660" height="400" viewBox="0 0 660 400">
-  <!-- SEENALYZE STUDIO DMG window background (scripts/render-installer-art.sh). Light surface so
-       Finder's dark icon labels stay legible; violet accents from the app icon. The app icon sits
-       at (180, 210) and the Applications link at (480, 210), both 112 px. Only the product name,
-       so the background works in every language. -->
+  <!-- SEENALYZE STUDIO DMG window background (scripts/render-installer-art.sh, 1x and @2x).
+       Near-black ground with a 22 px dot grid, lit purple dots around the app icon (180, 210)
+       fading toward the Applications link (480, 210), and a row of rising dots with a chevron
+       as the arrow. Both icons are 112 px. No text, so it works in every language.
+       Finder can't recolor icon labels (electron-builder has no label color option) and draws
+       them black in light mode, so each label sits on a neutral plate (relative luminance
+       ~0.18) that keeps black and white labels alike at about 4.5:1 contrast. -->
   <defs>
-    <linearGradient id="surface" x1="0" y1="0" x2="1" y2="1">
+    <pattern id="grid" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="11" cy="11" r="1.1" fill="#ffffff" fill-opacity="0.1"/>
+    </pattern>
+    <pattern id="lit" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="11" cy="11" r="1.9" fill="#b594ff" fill-opacity="0.9"/>
+    </pattern>
+    <!-- The grid fades out toward the window edges (ellipse 528 x 300 around 330, 208). -->
+    <radialGradient id="gridFade" gradientUnits="userSpaceOnUse" cx="330" cy="208" r="528"
+                    gradientTransform="translate(330 208) scale(1 0.5682) translate(-330 -208)">
+      <stop offset="0.45" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="litApp" gradientUnits="userSpaceOnUse" cx="180" cy="210" r="120">
       <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="0.55" stop-color="#f8f6ff"/>
-      <stop offset="1" stop-color="#efe9ff"/>
-    </linearGradient>
-    <radialGradient id="violet" cx="0.5" cy="0" r="0.7">
-      <stop offset="0" stop-color="#8b5cf6" stop-opacity="0.2"/>
-      <stop offset="1" stop-color="#8b5cf6" stop-opacity="0"/>
+      <stop offset="0.75" stop-color="#ffffff" stop-opacity="0"/>
     </radialGradient>
-    <radialGradient id="pink" cx="0.95" cy="1" r="0.55">
-      <stop offset="0" stop-color="#e879f9" stop-opacity="0.14"/>
-      <stop offset="1" stop-color="#e879f9" stop-opacity="0"/>
+    <radialGradient id="litMid" gradientUnits="userSpaceOnUse" cx="330" cy="210" r="70">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.7"/>
+      <stop offset="0.8" stop-color="#ffffff" stop-opacity="0"/>
     </radialGradient>
+    <radialGradient id="litApps" gradientUnits="userSpaceOnUse" cx="480" cy="210" r="120">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="0.75" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <mask id="gridMask" maskUnits="userSpaceOnUse" x="0" y="0" width="660" height="400">
+      <rect width="660" height="400" fill="url(#gridFade)"/>
+    </mask>
+    <mask id="litMask" maskUnits="userSpaceOnUse" x="0" y="0" width="660" height="400">
+      <rect width="660" height="400" fill="url(#litApp)"/>
+      <rect width="660" height="400" fill="url(#litMid)"/>
+      <rect width="660" height="400" fill="url(#litApps)"/>
+    </mask>
   </defs>
-  <rect width="660" height="400" fill="url(#surface)"/>
-  <rect width="660" height="400" fill="url(#violet)"/>
-  <rect width="660" height="400" fill="url(#pink)"/>
-  <text x="330" y="62" text-anchor="middle" font-family="SF Pro Display, Helvetica Neue, Arial, sans-serif" font-weight="800" font-size="24" letter-spacing="1.5" fill="#1e1433">SEENALYZE <tspan fill="#6d28d9">STUDIO</tspan></text>
-  <!-- Soft wells behind the two icons -->
-  <circle cx="180" cy="210" r="86" fill="#6d28d9" fill-opacity="0.05"/>
-  <circle cx="480" cy="210" r="86" fill="#6d28d9" fill-opacity="0.05"/>
-  <!-- Arrow from the app to Applications -->
-  <path d="M282 210 H356" stroke="#6d28d9" stroke-opacity="0.55" stroke-width="5" stroke-linecap="round" stroke-dasharray="1 13"/>
-  <path d="M360 197 L378 210 L360 223" fill="none" stroke="#6d28d9" stroke-opacity="0.9" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect width="660" height="400" fill="#050505"/>
+  <rect width="660" height="400" fill="url(#grid)" mask="url(#gridMask)"/>
+  <rect width="660" height="400" fill="url(#lit)" mask="url(#litMask)"/>
+  <!-- Arrow: five dots with rising opacity, then a chevron. -->
+  <g fill="#c9a6ff">
+    <circle cx="262.5" cy="210" r="2.5" fill-opacity="0.35"/>
+    <circle cx="276.5" cy="210" r="2.5" fill-opacity="0.5"/>
+    <circle cx="290.5" cy="210" r="2.5" fill-opacity="0.65"/>
+    <circle cx="304.5" cy="210" r="2.5" fill-opacity="0.8"/>
+    <circle cx="318.5" cy="210" r="2.5" fill-opacity="0.95"/>
+  </g>
+  <path d="M333 203 L341 210 L333 217" fill="none" stroke="#c9a6ff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Plates under the Finder icon labels (the icons end at y 266). -->
+  <g fill="#7a7384">
+    <rect x="108" y="270" width="144" height="20" rx="10"/>
+    <rect x="408" y="270" width="144" height="20" rx="10"/>
+  </g>
 </svg>

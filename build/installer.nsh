@@ -1,6 +1,7 @@
 ﻿# SEENALYZE STUDIO Windows installer: one compact window instead of the standard wizard, in the
-# same layout as Seenalyze Input's and Clipper's installers with this app's colors
-# (build/source/installer-hero.svg). Welcome -> (optional Options) -> Installing -> Done. Everything is drawn
+# same layout as Seenalyze Input's and Clipper's installers: near-black pages under a dot-grid
+# hero (build/source/installer-hero.svg) with this app's purple accent on the primary pill.
+# Welcome -> (optional Options) -> Installing -> Done. Everything is drawn
 # on the stock window with nsDialogs; the stock buttons, header and branding are hidden. Silent
 # installs and in-app updates never show these pages. Always installs for the current user, so
 # no administrator prompt. Picture: build/installer/hero.bmp (scripts/render-installer-art.sh).
@@ -21,22 +22,50 @@
   !insertmacro MUI_LANGUAGEEX "${NSISDIR}\Contrib\Language files" "${NLFID}"
 !macroend
 
+# Palette (RRGGBB for SetCtlColors). The progress bar takes COLORREF values (0x00BBGGRR) in stInstShow.
+!define ST_PAGE "0B0B0C"
+!define ST_TEXT "FFFFFF"
+!define ST_MUTED "9B9B9F"
+!define ST_LINK "A0A0A4"
+!define ST_ACCENT "C9A6FF"
+!define ST_INK "1E0B3D"
+!define ST_SECONDARY "232327"
+!define ST_SECONDARY_TEXT "E0E0E2"
+!define ST_FIELD "17171A"
+!define ST_FIELD_TEXT "D9D9DB"
+!define ST_CHECK_TEXT "D3D3D6"
+
 !macro stLabel X Y W H TEXT FONT FG
   ${NSD_CreateLabel} ${X}px ${Y}px ${W}px ${H}px "${TEXT}"
   Pop $R1
-  SetCtlColors $R1 "${FG}" "F8F6FF"
+  SetCtlColors $R1 "${FG}" "${ST_PAGE}"
   SendMessage $R1 ${WM_SETFONT} ${FONT} 1
   ${NSD_AddStyle} $R1 0x1
 !macroend
 
-# A flat, clickable "button": a centered static control that notifies on click.
-!macro stButton X Y W H TEXT BG FG FONT HANDLER
+# Clips a control to a rounded rectangle (RADIUS = half the height gives a pill). If Windows
+# can't create the region, the control just keeps square corners: cosmetic only, so the
+# result is intentionally not checked.
+!macro stRound HWND W H RADIUS
+  IntOp $R3 ${W} + 1
+  IntOp $R4 ${H} + 1
+  IntOp $R5 ${RADIUS} * 2
+  System::Call 'gdi32::CreateRoundRectRgn(i 0, i 0, i $R3, i $R4, i $R5, i $R5)p .R5'
+  System::Call 'user32::SetWindowRgn(p ${HWND}, p $R5, i 1)'
+!macroend
+
+# A flat, clickable "button": a centered static control that notifies on click, with rounded
+# corners when RADIUS is above 0.
+!macro stButton X Y W H TEXT BG FG FONT HANDLER RADIUS
   ${NSD_CreateLabel} ${X}px ${Y}px ${W}px ${H}px "${TEXT}"
   Pop $R2
   SetCtlColors $R2 "${FG}" "${BG}"
   SendMessage $R2 ${WM_SETFONT} ${FONT} 1
   ${NSD_AddStyle} $R2 0x301
   ${NSD_OnClick} $R2 ${HANDLER}
+  !if ${RADIUS} > 0
+    !insertmacro stRound $R2 ${W} ${H} ${RADIUS}
+  !endif
 !macroend
 
 !macro customInstallMode
@@ -225,7 +254,11 @@
         IntOp $R5 $R5 - $R3
         IntOp $R5 $R5 / 2
         System::Call 'user32::SetWindowPos(p $HWNDPARENT, p 0, i $R4, i $R5, i $R2, i $R3, i 0x0004)'
-        SetCtlColors $HWNDPARENT "" "F8F6FF"
+        SetCtlColors $HWNDPARENT "" "${ST_PAGE}"
+        # Dark title bar to match the dark window (DWMWA_USE_IMMERSIVE_DARK_MODE). Windows
+        # versions without it keep their standard title bar: cosmetic only, so the result is
+        # intentionally not checked.
+        System::Call 'dwmapi::DwmSetWindowAttribute(p $HWNDPARENT, i 20, *i 1, i 4)'
         # The picture sits across the top of the window; pages use the area below it.
         System::Call 'user32::CreateWindowEx(i 0, t "STATIC", t "", i 0x5000000E, i 0, i 0, i 500, i 160, p $HWNDPARENT, p 0, p 0, p 0)p .R6'
         System::Call 'user32::LoadImage(p 0, t "$PLUGINSDIR\hero.bmp", i 0, i 0, i 0, i 0x10)p .R7'
@@ -263,11 +296,11 @@
       ${If} $stDlg == error
         Abort
       ${EndIf}
-      SetCtlColors $stDlg "" "F8F6FF"
-      !insertmacro stLabel 30 6 440 32 $stTitle $stFontTitle 1E1433
-      !insertmacro stLabel 40 44 420 36 $stTagline $stFontBody 5F5675
-      !insertmacro stButton 150 96 200 38 $stInstallText 6D28D9 FFFFFF $stFontButton stWelcomeInstall
-      !insertmacro stButton 150 148 200 22 $stOptionsText F8F6FF 6D28D9 $stFontBody stWelcomeOptions
+      SetCtlColors $stDlg "" "${ST_PAGE}"
+      !insertmacro stLabel 30 8 440 32 $stTitle $stFontTitle ${ST_TEXT}
+      !insertmacro stLabel 50 46 400 36 $stTagline $stFontBody ${ST_MUTED}
+      !insertmacro stButton 165 92 170 38 $stInstallText ${ST_ACCENT} ${ST_INK} $stFontButton stWelcomeInstall 19
+      !insertmacro stButton 165 142 170 22 $stOptionsText ${ST_PAGE} ${ST_LINK} $stFontBody stWelcomeOptions 0
       nsDialogs::Show
     FunctionEnd
 
@@ -304,24 +337,29 @@
       ${If} $stDlg == error
         Abort
       ${EndIf}
-      SetCtlColors $stDlg "" "F8F6FF"
-      !insertmacro stLabel 30 0 440 20 $stLocationText $stFontBody 5F5675
-      ${NSD_CreateText} 30px 24px 330px 24px "$INSTDIR"
+      SetCtlColors $stDlg "" "${ST_PAGE}"
+      !insertmacro stLabel 30 0 440 20 $stLocationText $stFontBody ${ST_MUTED}
+      ${NSD_CreateText} 30px 24px 330px 26px "$INSTDIR"
       Pop $stDirField
+      SetCtlColors $stDirField "${ST_FIELD_TEXT}" "${ST_FIELD}"
       SendMessage $stDirField ${WM_SETFONT} $stFontBody 1
-      !insertmacro stButton 370 24 100 24 $stBrowseText ECE7FA 1E1433 $stFontBody stOptionsBrowse
-      ${NSD_CreateCheckbox} 30px 66px 440px 22px "$stDesktopText"
+      !insertmacro stButton 370 24 100 26 $stBrowseText ${ST_SECONDARY} ${ST_SECONDARY_TEXT} $stFontBody stOptionsBrowse 8
+      # Themed checkboxes ignore SetCtlColors for their text, so draw them unthemed to keep the
+      # light text readable on the dark page (as the progress bar does in stInstShow).
+      ${NSD_CreateCheckbox} 30px 68px 440px 22px "$stDesktopText"
       Pop $stDesktopBox
-      SetCtlColors $stDesktopBox "1E1433" "F8F6FF"
+      System::Call 'uxtheme::SetWindowTheme(p $stDesktopBox, w "", w "")'
+      SetCtlColors $stDesktopBox "${ST_CHECK_TEXT}" "${ST_PAGE}"
       SendMessage $stDesktopBox ${WM_SETFONT} $stFontBody 1
       ${NSD_SetState} $stDesktopBox $stDesktop
-      ${NSD_CreateCheckbox} 30px 94px 440px 22px "$stStartText"
+      ${NSD_CreateCheckbox} 30px 96px 440px 22px "$stStartText"
       Pop $stStartBox
-      SetCtlColors $stStartBox "1E1433" "F8F6FF"
+      System::Call 'uxtheme::SetWindowTheme(p $stStartBox, w "", w "")'
+      SetCtlColors $stStartBox "${ST_CHECK_TEXT}" "${ST_PAGE}"
       SendMessage $stStartBox ${WM_SETFONT} $stFontBody 1
       ${NSD_SetState} $stStartBox $stStart
-      !insertmacro stButton 30 168 100 34 $stBackText ECE7FA 1E1433 $stFontButton stOptionsBack
-      !insertmacro stButton 370 168 100 34 $stInstallText 6D28D9 FFFFFF $stFontButton stOptionsInstall
+      !insertmacro stButton 30 160 100 34 $stBackText ${ST_SECONDARY} ${ST_SECONDARY_TEXT} $stFontButton stOptionsBack 17
+      !insertmacro stButton 360 160 110 34 $stInstallText ${ST_ACCENT} ${ST_INK} $stFontButton stOptionsInstall 17
       nsDialogs::Show
     FunctionEnd
 
@@ -350,13 +388,13 @@
     FunctionEnd
 
     # The installing screen: the stock page with its list and buttons hidden, a title
-    # and a slim purple progress bar.
+    # and a slim rounded progress bar in the accent color on a dark track.
     Function stInstShow
       Call stFrame
       SetDetailsPrint none
       SetAutoClose true
       FindWindow $R0 "#32770" "" $HWNDPARENT
-      SetCtlColors $R0 "" "F8F6FF"
+      SetCtlColors $R0 "" "${ST_PAGE}"
       GetDlgItem $R1 $R0 1016
       ShowWindow $R1 ${SW_HIDE}
       GetDlgItem $R1 $R0 1027
@@ -365,13 +403,15 @@
       System::Call 'user32::SetWindowPos(p $R1, p 0, i 30, i 40, i 440, i 32, i 0x0014)'
       SendMessage $R1 ${WM_SETTEXT} 0 "STR:$stInstallingText"
       SendMessage $R1 ${WM_SETFONT} $stFontTitle 1
-      SetCtlColors $R1 "1E1433" "F8F6FF"
+      SetCtlColors $R1 "${ST_TEXT}" "${ST_PAGE}"
       ${NSD_AddStyle} $R1 0x1
       GetDlgItem $R1 $R0 1004
-      System::Call 'user32::SetWindowPos(p $R1, p 0, i 60, i 100, i 380, i 8, i 0x0014)'
+      System::Call 'user32::SetWindowPos(p $R1, p 0, i 60, i 100, i 380, i 6, i 0x0014)'
       System::Call 'uxtheme::SetWindowTheme(p $R1, w "", w "")'
-      SendMessage $R1 0x409 0 0xED3A7C
-      SendMessage $R1 0x2001 0 0xF7DCE4
+      # PBM_SETBARCOLOR / PBM_SETBKCOLOR take COLORREF (0x00BBGGRR): accent C9A6FF, track 232327.
+      SendMessage $R1 0x409 0 0xFFA6C9
+      SendMessage $R1 0x2001 0 0x272323
+      !insertmacro stRound $R1 380 6 3
     FunctionEnd
 
     Function stDoneCreate
@@ -381,10 +421,10 @@
       ${If} $stDlg == error
         Abort
       ${EndIf}
-      SetCtlColors $stDlg "" "F8F6FF"
-      !insertmacro stLabel 30 6 440 32 $stDoneText $stFontTitle 1E1433
-      !insertmacro stLabel 40 44 420 36 $stDoneSubText $stFontBody 5F5675
-      !insertmacro stButton 150 96 200 38 $stOpenText 6D28D9 FFFFFF $stFontButton stDoneOpen
+      SetCtlColors $stDlg "" "${ST_PAGE}"
+      !insertmacro stLabel 30 8 440 32 $stDoneText $stFontTitle ${ST_TEXT}
+      !insertmacro stLabel 50 46 400 36 $stDoneSubText $stFontBody ${ST_MUTED}
+      !insertmacro stButton 155 92 190 38 $stOpenText ${ST_ACCENT} ${ST_INK} $stFontButton stDoneOpen 19
       nsDialogs::Show
     FunctionEnd
 

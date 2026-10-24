@@ -28,6 +28,25 @@
     "studioMode": "Studio-Modus",
     "projectors": "Projektoren"
   },
+  "signIn": {
+    "headline": {
+      "first": "Ein Stream.",
+      "second": "Jede Plattform."
+    },
+    "features": {
+      "multistream": "YouTube und Twitch gleichzeitig",
+      "chat": "Ein Chat für beide",
+      "overlays": "Overlays, mit KI gestaltet"
+    },
+    "continue": "Weiter mit SEENALYZE",
+    "openBrowserAgain": "Browser erneut öffnen",
+    "waiting": "Warte auf deinen Browser…",
+    "checkFailed": "Dein SEENALYZE-Konto konnte nicht geprüft werden. Prüfe deine Verbindung und versuche es erneut.",
+    "footer": {
+      "studio": "Baue deine Szene und geh aus einer App heraus live.",
+      "privacy": "Dein Video geht direkt von deinem Computer zu jeder Plattform."
+    }
+  },
   "engine": {
     "failedTitle": "Das Studio konnte nicht gestartet werden",
     "restart": "Neu starten"

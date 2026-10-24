@@ -28,6 +28,25 @@
     "studioMode": "Stúdió mód",
     "projectors": "Kivetítők"
   },
+  "signIn": {
+    "headline": {
+      "first": "Egy stream.",
+      "second": "Minden platform."
+    },
+    "features": {
+      "multistream": "YouTube és Twitch egyszerre",
+      "chat": "Egy chat mindkettőhöz",
+      "overlays": "AI-jal tervezett overlayek"
+    },
+    "continue": "Tovább a SEENALYZE-zal",
+    "openBrowserAgain": "Böngésző megnyitása újra",
+    "waiting": "Várakozás a böngészőre…",
+    "checkFailed": "Nem sikerült ellenőrizni a SEENALYZE-fiókodat. Ellenőrizd a kapcsolatot, és próbáld újra.",
+    "footer": {
+      "studio": "Állítsd össze a jelenetet, és indulj élőben egyetlen alkalmazásból.",
+      "privacy": "A videód közvetlenül a számítógépedről jut el minden platformra."
+    }
+  },
   "engine": {
     "failedTitle": "A stúdió nem tudott elindulni",
     "restart": "Újraindítás"

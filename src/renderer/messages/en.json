@@ -28,6 +28,25 @@
     "studioMode": "Studio mode",
     "projectors": "Projectors"
   },
+  "signIn": {
+    "headline": {
+      "first": "One stream.",
+      "second": "Every platform."
+    },
+    "features": {
+      "multistream": "YouTube and Twitch at once",
+      "chat": "One chat for both",
+      "overlays": "Overlays designed with AI"
+    },
+    "continue": "Continue with SEENALYZE",
+    "openBrowserAgain": "Open browser again",
+    "waiting": "Waiting for your browser…",
+    "checkFailed": "Your SEENALYZE account couldn't be checked. Check your connection and try again.",
+    "footer": {
+      "studio": "Build your scene and go live from one app.",
+      "privacy": "Your video goes straight from your computer to each platform."
+    }
+  },
   "engine": {
     "failedTitle": "The studio couldn't start",
     "restart": "Restart"

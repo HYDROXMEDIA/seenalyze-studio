@@ -18,5 +18,6 @@ rsvg-convert -w 660 -h 400 "$work/dmg-background.svg" -o "$res/dmg-background.pn
 rsvg-convert -w 1320 -h 800 "$work/dmg-background.svg" -o "$res/dmg-background@2x.png"
 rsvg-convert -w 500 -h 160 "$work/installer-hero.svg" -o "$work/hero.png"
 mkdir -p "$res/installer"
-magick "$work/hero.png" -background "#ffffff" -alpha remove -alpha off -type TrueColor "BMP3:$res/installer/hero.bmp"
+# Flatten onto the hero's own ground color so the icon's transparent corners blend in.
+magick "$work/hero.png" -background "#050505" -alpha remove -alpha off -type TrueColor "BMP3:$res/installer/hero.bmp"
 echo "Wrote build/dmg-background.png, build/dmg-background@2x.png and build/installer/hero.bmp"
