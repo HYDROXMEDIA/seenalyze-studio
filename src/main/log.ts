@@ -4,7 +4,7 @@
 // file is kept as main.old.log once it grows past the size limit.
 
 import { appendFileSync, mkdirSync, renameSync, statSync } from "node:fs";
-import { appendFile } from "node:fs/promises";
+import { appendFile, rm, truncate } from "node:fs/promises";
 import path from "node:path";
 import { format } from "node:util";
 import { app } from "electron";
@@ -77,6 +77,31 @@ export function appendLog(level: string, text: string): void {
   // A crash may end the process before an asynchronous write finishes.
   if (level === "fatal") flushAppLog();
   else if (!writing) setImmediate(flush);
+}
+
+/** The current and previous log file; empty when the log could not be opened. */
+export function appLogFiles(): string[] {
+  return file ? [file, path.join(path.dirname(file), "main.old.log")] : [];
+}
+
+/** The folder holding the log files; null when the log could not be opened. */
+export function appLogFolder(): string | null {
+  return file ? path.dirname(file) : null;
+}
+
+/** Empties the log files. Throws when a file could not be cleared. */
+export async function clearAppLogs(): Promise<void> {
+  const [current, previous] = appLogFiles();
+  if (!current) throw new Error("storage-clean-failed");
+  pending = [];
+  await rm(previous, { force: true });
+  try {
+    await truncate(current, 0);
+  } catch (error) {
+    // A log not written yet has nothing to clear.
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  size = 0;
 }
 
 /** Mirrors console warnings and errors into the log file. Call once, before anything else logs. */

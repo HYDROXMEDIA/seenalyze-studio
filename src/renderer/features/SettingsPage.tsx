@@ -2,17 +2,20 @@ import {
   ArrowLeftIcon,
   CircleDotIcon,
   FolderOpenIcon,
+  HardDriveIcon,
+  InfoIcon,
   KeyboardIcon,
   Loader2Icon,
-  LogInIcon,
   LogOutIcon,
   MonitorIcon,
   MoonIcon,
   PaletteIcon,
   RefreshCwIcon,
+  ScrollTextIcon,
   ShieldCheckIcon,
   SlidersHorizontalIcon,
   SunIcon,
+  UserRoundIcon,
   UsersIcon,
   VideoIcon,
   WandSparklesIcon,
@@ -58,6 +61,9 @@ import { RecordingAutomationCard, RecordingQualityField } from "./RecordingSetti
 import { recommendEncoder } from "../../shared/setup";
 import { AdvancedSettingsCard } from "./settings/AdvancedSettingsCard";
 import { SettingsCard, ToggleRow } from "./settings/parts";
+import { AccountCard, DangerZone, NavAccount } from "./settings/AccountCard";
+import { AboutCard, DiagnosticsCard } from "./settings/AppInfoCards";
+import { StorageCard } from "./settings/StorageCard";
 import { useSetupWizard } from "./setup/SetupWizard";
 import { AudioFormatCard, RecordingTracksField, VideoFormatFields } from "./settings/FormatSettings";
 import { ProfileCard } from "./settings/ProfileCard";
@@ -69,6 +75,7 @@ const CANVAS_PRESETS = [
 ];
 const FPS_OPTIONS = [24, 25, 30, 48, 50, 60];
 const SECTIONS = [
+  ["account", UserRoundIcon],
   ["general", SlidersHorizontalIcon],
   ["video", VideoIcon],
   ["recording", CircleDotIcon],
@@ -76,7 +83,10 @@ const SECTIONS = [
   ["accounts", UsersIcon],
   ["permissions", ShieldCheckIcon],
   ["appearance", PaletteIcon],
+  ["storage", HardDriveIcon],
+  ["diagnostics", ScrollTextIcon],
   ["advanced", WrenchIcon],
+  ["about", InfoIcon],
 ] as const;
 const PERMISSION_KINDS = ["camera", "microphone", "screen"] as const;
 type Section = (typeof SECTIONS)[number][0];
@@ -121,6 +131,13 @@ export function SettingsPage() {
   useEffect(() => {
     if (requestedSection !== null) useStudio.setState({ settingsSection: null });
   }, [requestedSection]);
+  // One account lookup for the nav footer, the Account section and the danger zone.
+  const accountApi = useSeenalyzeAccount();
+  // A language saved on the account is the source of truth while signed in.
+  const accountLanguage = accountApi.state.status === "ready" ? accountApi.state.account?.language : undefined;
+  useEffect(() => {
+    if (isUiLocale(accountLanguage)) saveLanguage(accountLanguage);
+  }, [accountLanguage]);
   const [video, setVideo] = useState<VideoSettings | null>(snapshot?.video ?? null);
   const [encoder, setEncoder] = useState(snapshot?.selectedEncoder ?? "");
   const [pending, setPending] = useState(false);
@@ -186,8 +203,8 @@ export function SettingsPage() {
       </div>
 
       <div className="flex min-h-0 flex-1">
-        <nav className="w-44 shrink-0 border-r p-3 lg:w-56" aria-label={t("title")}>
-          <ul className="grid gap-1">
+        <nav className="flex w-44 shrink-0 flex-col gap-3 overflow-y-auto border-r p-3 lg:w-56" aria-label={t("title")}>
+          <ul className="grid flex-1 content-start gap-1">
             {SECTIONS.map(([entry, Icon]) => (
               <li key={entry}>
                 <button
@@ -205,10 +222,18 @@ export function SettingsPage() {
               </li>
             ))}
           </ul>
+          <div className="border-t pt-3">
+            <NavAccount api={accountApi} active={section === "account"} onOpen={() => setSection("account")} />
+          </div>
         </nav>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-6">
-          <div key={section} className="mx-auto grid max-w-2xl gap-6 animate-ui-rise">
+          <div key={section} className="mx-auto grid max-w-[720px] gap-6 animate-ui-rise">
+            {section === "account" && <AccountCard api={accountApi} />}
+            {section === "account" && <DangerZone locked={locked} signedIn={accountApi.state.status === "ready" && accountApi.state.account !== null} />}
+            {section === "storage" && <StorageCard locked={locked} />}
+            {section === "diagnostics" && <DiagnosticsCard />}
+            {section === "about" && <AboutCard />}
             {section === "general" && <ProfileCard locked={locked || snapshot.virtualCamera.active} dirty={dirty} />}
 
             {section === "general" && (
@@ -375,7 +400,6 @@ export function SettingsPage() {
 
             {section === "accounts" && (
               <SettingsCard title={t("accounts")}>
-                <SeenalyzeAccountRow />
                 {snapshot.accounts.length === 0 ? (
                   <div className="grid gap-2">
                     <p className="text-sm text-muted-foreground">{t("noAccounts")}</p>
@@ -816,61 +840,6 @@ function ConnectAccountButtons({ onTwitchPrompt }: { onTwitchPrompt: (prompt: De
           {td("connectAccount", { platform: td(`platforms.${platform}`) })}
         </Button>
       ))}
-    </div>
-  );
-}
-
-/** The SEENALYZE account used for the AI overlay designer and credits. */
-function SeenalyzeAccountRow() {
-  const t = useTranslations("settings");
-  const tc = useTranslations("common");
-  const { state, retry, signIn, cancelSignIn, signingIn, signOut } = useSeenalyzeAccount();
-  const account = state.status === "ready" ? state.account : null;
-
-  // A language saved on the account is the source of truth while signed in.
-  const accountLanguage = account?.language;
-  useEffect(() => {
-    if (isUiLocale(accountLanguage)) saveLanguage(accountLanguage);
-  }, [accountLanguage]);
-
-  const detail =
-    state.status === "loading"
-      ? ""
-      : state.status === "failed"
-        ? t("seenalyzeCheckFailed")
-        : account
-          ? (account.email ?? account.displayName ?? "")
-          : signingIn
-            ? t("seenalyzeWaiting")
-            : t("seenalyzeSignedOut");
-
-  return (
-    <div className="flex items-center gap-3 rounded-lg border px-3 py-2">
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-medium">{t("seenalyzeAccount")}</span>
-        <span className="block truncate text-xs text-muted-foreground">{detail}</span>
-      </span>
-      {state.status === "loading" ? (
-        <Loader2Icon className="size-4 animate-spin text-muted-foreground" aria-label={tc("loading")} />
-      ) : state.status === "failed" ? (
-        <Button variant="outline" size="sm" onClick={retry}>
-          {tc("retry")}
-        </Button>
-      ) : account ? (
-        <Button variant="ghost" size="sm" onClick={() => void signOut()}>
-          <LogOutIcon />
-          {t("signOut")}
-        </Button>
-      ) : signingIn ? (
-        <Button variant="ghost" size="sm" onClick={cancelSignIn}>
-          {tc("cancel")}
-        </Button>
-      ) : (
-        <Button variant="outline" size="sm" onClick={() => void signIn()}>
-          <LogInIcon />
-          {t("signIn")}
-        </Button>
-      )}
     </div>
   );
 }

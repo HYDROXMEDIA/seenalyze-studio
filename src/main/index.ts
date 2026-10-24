@@ -9,6 +9,7 @@ import { PREVIEW_EDITOR_HASH, PREVIEW_EDITOR_METHODS, PreviewEditorWindow } from
 import { PROJECTOR_HASH } from "./projectors";
 import { registerMediaScheme } from "./screen-recording";
 import { STUDIO_SCHEME } from "./seenalyze/account";
+import { applyPendingErase, type EraseResult } from "./storage";
 import { errorKey, Studio, vendorRoot } from "./studio";
 import { releaseTrafficLightRoomInFullScreen } from "./window-chrome";
 import { initialBounds, keepWindowOnScreen, minimumSizeFor } from "./window-fit";
@@ -172,8 +173,16 @@ if (!hasInstanceLock) {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   if (!hasInstanceLock) return;
+  // A reset requested from Settings is carried out before anything reads saved data.
+  let eraseResult: EraseResult;
+  try {
+    eraseResult = await applyPendingErase(app.getPath("userData"));
+  } catch (error) {
+    console.error("[app] pending erase of local data could not be carried out", error);
+    eraseResult = { erased: false, failed: ["erase-request"] };
+  }
   setVendorRoot(vendorRoot());
   lockDownPermissions();
   registerIpc();
@@ -207,6 +216,7 @@ app.whenReady().then(() => {
       isAppUrl,
     },
   );
+  if (eraseResult.erased || eraseResult.failed.length > 0) studio.reportErase(eraseResult);
   mainWindow.webContents.once("did-finish-load", () => void studio?.start());
   for (const link of pendingLinks.splice(0)) handleAppLink(link);
 
@@ -218,6 +228,11 @@ app.whenReady().then(() => {
   });
   // Recording editors may still be open; the studio window going away ends the app.
   mainWindow.on("closed", () => app.quit());
+}).catch((error: unknown) => {
+  // Fail loudly: a half-started app would show an empty window.
+  console.error("[app] startup failed", error);
+  flushAppLog();
+  app.exit(1);
 });
 
 app.on("before-quit", (event) => {

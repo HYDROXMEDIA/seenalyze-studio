@@ -632,7 +632,82 @@
     "replayLengthRange": "Usa un valor entre {min} y {max} segundos.",
     "seenalyzeCheckFailed": "No se pudo revisar tu cuenta. Revisa tu conexión.",
     "seenalyzeWaiting": "Termina de iniciar sesión en el navegador.",
-    "noEncoders": "No se encontró ningún codificador de video. Reinicia la app o actualiza los drivers gráficos."
+    "noEncoders": "No se encontró ningún codificador de video. Reinicia la app o actualiza los drivers gráficos.",
+    "account": "Cuenta",
+    "storage": "Almacenamiento",
+    "diagnostics": "Privacidad y diagnóstico",
+    "about": "Acerca de",
+    "accountCard": {
+      "designer": "Diseñador de overlays con IA",
+      "designerIncluded": "Incluido en tu plan",
+      "designerNotIncluded": "No incluido en tu plan",
+      "managePlan": "Administrar plan"
+    },
+    "dangerZone": {
+      "title": "Zona de peligro",
+      "eraseTitle": "Borrar datos locales",
+      "eraseDetail": "Restablece esta app en este computador. Tus grabaciones se mantienen.",
+      "eraseLocked": "No disponible durante una transmisión en vivo o una grabación.",
+      "erase": "Borrar",
+      "eraseConfirmTitle": "¿Borrar los datos locales?",
+      "eraseConfirmDescription": "Se cerrará tu sesión, se quitarán tus cuentas conectadas, claves de transmisión y ajustes, y la app se reiniciará. Tus grabaciones no se borran.",
+      "eraseAction": "Borrar y reiniciar",
+      "deleteTitle": "Eliminar cuenta",
+      "deleteDetail": "Continúa en el sitio web de SEENALYZE.",
+      "delete": "Eliminar",
+      "deleteConfirmTitle": "¿Eliminar tu cuenta?",
+      "deleteConfirmDescription": "Se abre el sitio web de SEENALYZE, donde puedes eliminar tu cuenta y sus datos. No se puede deshacer.",
+      "deleteAction": "Abrir sitio web"
+    },
+    "storageCard": {
+      "loadFailed": "No se pudo leer el almacenamiento.",
+      "diskApp": "App",
+      "diskRecordings": "Grabaciones",
+      "diskUnavailable": "No se pudo leer el espacio en disco.",
+      "diskSummary": "{free} libres de {total}",
+      "unknownSize": "Desconocido",
+      "clean": "Limpiar",
+      "cleaned": "Limpiado",
+      "locked": "No disponible durante una transmisión en vivo, una grabación, una exportación o la edición.",
+      "openFolder": "Abrir carpeta",
+      "recordingsTitle": "Grabaciones",
+      "recordingsDetail": "Videos de tu carpeta de grabaciones. Nunca se borran desde aquí.",
+      "categories": {
+        "editorData": {
+          "title": "Datos del editor",
+          "detail": "Ajustes de zoom y edición guardados para tus grabaciones.",
+          "confirmTitle": "¿Limpiar los datos del editor?",
+          "confirmDescription": "Se quitan los ajustes de zoom, puntero y edición guardados para tus grabaciones. Los videos se mantienen."
+        },
+        "captionModels": {
+          "title": "Modelos de subtítulos",
+          "detail": "Se usan para crear subtítulos en este computador.",
+          "confirmTitle": "¿Limpiar los modelos de subtítulos?",
+          "confirmDescription": "Se quitan los modelos de subtítulos. Se vuelven a preparar la próxima vez que crees subtítulos, lo que puede demorar un rato."
+        },
+        "logs": {
+          "title": "Registros",
+          "detail": "Errores y avisos de esta app.",
+          "confirmTitle": "¿Limpiar los registros?",
+          "confirmDescription": "Se borran los registros guardados."
+        }
+      }
+    },
+    "diagnosticsCard": {
+      "logsTitle": "Registros",
+      "logsDetail": "Los errores y los informes de fallas se quedan en este computador.",
+      "openLogs": "Abrir carpeta de registros"
+    },
+    "aboutCard": {
+      "version": "Versión",
+      "loadFailed": "No se pudo leer la versión.",
+      "open": "Abrir",
+      "links": {
+        "privacy": "Política de privacidad",
+        "terms": "Términos del servicio",
+        "source": "Código fuente y licencias"
+      }
+    }
   },
   "quit": {
     "title": "¿Salir mientras transmites?",
@@ -655,7 +730,9 @@
       "noMicrophone": "El micrófono elegido no está disponible, así que esta grabación no tiene sonido del micrófono."
     },
     "youtubeCleanupFailed": "No se pudo quitar una transmisión de YouTube sin usar. Puedes eliminarla en YouTube Studio.",
-    "dataReset": "Algunos ajustes guardados no se pudieron leer y se restablecieron. El archivo anterior se guardó como {file}."
+    "dataReset": "Algunos ajustes guardados no se pudieron leer y se restablecieron. El archivo anterior se guardó como {file}.",
+    "localDataErased": "Se borraron los datos locales.",
+    "localDataEraseFailed": "No se pudieron borrar algunos datos locales. Se volverá a intentar en el próximo inicio."
   },
   "errors": {
     "output": {
@@ -674,6 +751,9 @@
       "recordingEncoder": "El codificador de la grabación se detuvo."
     },
     "codes": {
+      "storage-busy": "Termina primero tu transmisión, grabación o exportación.",
+      "storage-clean-failed": "No se pudieron quitar algunos archivos. Inténtalo de nuevo.",
+      "folder-open-failed": "No se pudo abrir la carpeta.",
       "generic": "Algo salió mal. Vuelve a intentarlo.",
       "engine-init-failed": "Es posible que tus drivers de gráficos estén desactualizados o no sean compatibles. Actualízalos y reinicia la app.",
       "engine-graphics-missing": "Faltan componentes gráficos necesarios. Actualiza tu sistema y reinicia la app.",

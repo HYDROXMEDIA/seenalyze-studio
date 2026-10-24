@@ -632,7 +632,82 @@
     "replayLengthRange": "Unesite vrijednost od {min} do {max} sekundi.",
     "seenalyzeCheckFailed": "Račun se nije mogao provjeriti. Provjerite vezu.",
     "seenalyzeWaiting": "Dovršite prijavu u pregledniku.",
-    "noEncoders": "Nije pronađen nijedan video koder. Ponovno pokrenite aplikaciju ili ažurirajte grafičke upravljačke programe."
+    "noEncoders": "Nije pronađen nijedan video koder. Ponovno pokrenite aplikaciju ili ažurirajte grafičke upravljačke programe.",
+    "account": "Račun",
+    "storage": "Pohrana",
+    "diagnostics": "Privatnost i dijagnostika",
+    "about": "O aplikaciji",
+    "accountCard": {
+      "designer": "AI dizajner preklapanja",
+      "designerIncluded": "Uključeno u vaš paket",
+      "designerNotIncluded": "Nije uključeno u vaš paket",
+      "managePlan": "Upravljaj paketom"
+    },
+    "dangerZone": {
+      "title": "Opasna zona",
+      "eraseTitle": "Izbriši lokalne podatke",
+      "eraseDetail": "Vraća ovu aplikaciju na ovom računalu na početno stanje. Vaši snimci ostaju.",
+      "eraseLocked": "Nedostupno tijekom prijenosa uživo ili snimanja.",
+      "erase": "Izbriši",
+      "eraseConfirmTitle": "Izbrisati lokalne podatke?",
+      "eraseConfirmDescription": "Bit ćete odjavljeni, povezani računi, ključevi prijenosa i postavke bit će uklonjeni, a aplikacija će se ponovno pokrenuti. Vaši snimci se ne brišu.",
+      "eraseAction": "Izbriši i ponovno pokreni",
+      "deleteTitle": "Izbriši račun",
+      "deleteDetail": "Nastavite na web-mjestu SEENALYZE.",
+      "delete": "Izbriši",
+      "deleteConfirmTitle": "Izbrisati vaš račun?",
+      "deleteConfirmDescription": "Otvara se web-mjesto SEENALYZE na kojem možete izbrisati svoj račun i njegove podatke. To se ne može poništiti.",
+      "deleteAction": "Otvori web-mjesto"
+    },
+    "storageCard": {
+      "loadFailed": "Pohranu nije moguće pročitati.",
+      "diskApp": "Aplikacija",
+      "diskRecordings": "Snimke",
+      "diskUnavailable": "Prostor na disku nije moguće pročitati.",
+      "diskSummary": "{free} slobodno od {total}",
+      "unknownSize": "Nepoznato",
+      "clean": "Očisti",
+      "cleaned": "Očišćeno",
+      "locked": "Nedostupno tijekom prijenosa uživo, snimanja, izvoza ili uređivanja.",
+      "openFolder": "Otvori mapu",
+      "recordingsTitle": "Snimke",
+      "recordingsDetail": "Videozapisi u vašoj mapi snimaka. Ovdje se nikad ne brišu.",
+      "categories": {
+        "editorData": {
+          "title": "Podaci uređivača",
+          "detail": "Postavke zumiranja i uređivanja spremljene za vaše snimke.",
+          "confirmTitle": "Očistiti podatke uređivača?",
+          "confirmDescription": "Postavke zumiranja, pokazivača i uređivanja spremljene za vaše snimke bit će uklonjene. Videozapisi ostaju."
+        },
+        "captionModels": {
+          "title": "Modeli titlova",
+          "detail": "Koriste se za izradu titlova na ovom računalu.",
+          "confirmTitle": "Očistiti modele titlova?",
+          "confirmDescription": "Modeli titlova bit će uklonjeni. Ponovno se pripremaju pri sljedećoj izradi titlova, što može potrajati."
+        },
+        "logs": {
+          "title": "Zapisnici",
+          "detail": "Pogreške i upozorenja ove aplikacije.",
+          "confirmTitle": "Očistiti zapisnike?",
+          "confirmDescription": "Spremljeni zapisnici bit će izbrisani."
+        }
+      }
+    },
+    "diagnosticsCard": {
+      "logsTitle": "Zapisnici",
+      "logsDetail": "Pogreške i izvješća o rušenju ostaju na ovom računalu.",
+      "openLogs": "Otvori mapu zapisnika"
+    },
+    "aboutCard": {
+      "version": "Verzija",
+      "loadFailed": "Verziju nije moguće pročitati.",
+      "open": "Otvori",
+      "links": {
+        "privacy": "Pravila privatnosti",
+        "terms": "Uvjeti korištenja",
+        "source": "Izvorni kod i licence"
+      }
+    }
   },
   "quit": {
     "title": "Izaći tijekom prijenosa?",
@@ -655,7 +730,9 @@
       "noMicrophone": "Odabrani mikrofon nije dostupan, pa ova snimka nema zvuk mikrofona."
     },
     "youtubeCleanupFailed": "Neiskorišteno YouTube emitiranje nije se moglo ukloniti. Možete ga izbrisati u YouTube Studiju.",
-    "dataReset": "Neke spremljene postavke nisu se mogle pročitati pa su vraćene na zadano. Stara datoteka sačuvana je kao {file}."
+    "dataReset": "Neke spremljene postavke nisu se mogle pročitati pa su vraćene na zadano. Stara datoteka sačuvana je kao {file}.",
+    "localDataErased": "Lokalni podaci su izbrisani.",
+    "localDataEraseFailed": "Neke lokalne podatke nije bilo moguće izbrisati. Pokušat će se ponovno pri sljedećem pokretanju."
   },
   "errors": {
     "output": {
@@ -674,6 +751,9 @@
       "recordingEncoder": "Koder snimanja se zaustavio."
     },
     "codes": {
+      "storage-busy": "Prvo završite prijenos, snimanje ili izvoz.",
+      "storage-clean-failed": "Neke datoteke nije bilo moguće ukloniti. Pokušajte ponovno.",
+      "folder-open-failed": "Mapu nije moguće otvoriti.",
       "generic": "Nešto nije u redu. Pokušaj ponovno.",
       "engine-init-failed": "Upravljački programi grafičke kartice možda su zastarjeli ili nisu podržani. Ažuriraj ih i ponovno pokreni aplikaciju.",
       "engine-graphics-missing": "Nedostaju potrebne grafičke komponente. Ažuriraj sustav i ponovno pokreni aplikaciju.",

@@ -523,3 +523,34 @@ export interface ScreenChoice {
   label: string;
   primary: boolean;
 }
+
+/** App data the user can clear from Settings › Storage. Recordings are never listed here. */
+export const STORAGE_CATEGORIES = ["editorData", "captionModels", "logs"] as const;
+export type StorageCategoryId = (typeof STORAGE_CATEGORIES)[number];
+
+export interface StorageCategoryUsage {
+  id: StorageCategoryId;
+  /** Bytes used; null when the folder could not be read (the failure is logged). */
+  bytes: number | null;
+  /** Cleaning is blocked right now (live, recording, exporting, captions running or an editor open). */
+  locked: boolean;
+}
+
+export interface StorageUsage {
+  /** The drive holding the app's data; null when it could not be read. */
+  disk: { totalBytes: number; freeBytes: number } | null;
+  categories: StorageCategoryUsage[];
+  /** Video files directly inside the recordings folder; null when the folder could not be read. */
+  recordings: { bytes: number | null };
+  /** Live, recording or exporting: nothing can be cleaned and local data cannot be erased. */
+  busy: boolean;
+}
+
+/** Pages of the SEENALYZE website and the public source repository that Settings can open. */
+export const APP_LINKS = ["privacy", "terms", "source"] as const;
+export type AppLink = (typeof APP_LINKS)[number];
+
+export interface AppInfo {
+  version: string;
+  platform: string;
+}

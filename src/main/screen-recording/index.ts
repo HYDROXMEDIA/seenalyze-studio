@@ -194,6 +194,16 @@ export class ScreenRecorder {
     this.recordings.stop();
   }
 
+  /** What blocks cleaning the app's stored data right now. */
+  get storageLocks(): { exporting: boolean; captioning: boolean; editorsOpen: boolean } {
+    return { exporting: this.editors.exporting, captioning: this.speech.busy, editorsOpen: this.editors.hasOpenWindows };
+  }
+
+  /** Stops the caption recognizer so its files can be removed. */
+  releaseCaptionRuntime(): Promise<void> {
+    return this.speech.release();
+  }
+
   setTheme(theme: 'dark' | 'light'): void {
     this.theme = theme;
   }

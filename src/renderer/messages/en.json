@@ -632,7 +632,82 @@
     "replayLengthRange": "Use a value from {min} to {max} seconds.",
     "seenalyzeCheckFailed": "Your account couldn't be checked. Check your connection.",
     "seenalyzeWaiting": "Finish signing in in your browser.",
-    "noEncoders": "No video encoder was found. Restart the app, or update your graphics drivers."
+    "noEncoders": "No video encoder was found. Restart the app, or update your graphics drivers.",
+    "account": "Account",
+    "storage": "Storage",
+    "diagnostics": "Privacy & diagnostics",
+    "about": "About",
+    "accountCard": {
+      "designer": "AI overlay designer",
+      "designerIncluded": "Included in your plan",
+      "designerNotIncluded": "Not included in your plan",
+      "managePlan": "Manage plan"
+    },
+    "dangerZone": {
+      "title": "Danger zone",
+      "eraseTitle": "Erase local data",
+      "eraseDetail": "Resets this app on this computer. Your recordings stay.",
+      "eraseLocked": "Unavailable while live or recording.",
+      "erase": "Erase",
+      "eraseConfirmTitle": "Erase local data?",
+      "eraseConfirmDescription": "You'll be signed out, your connected accounts, stream keys and settings are removed, and the app restarts. Your recordings are not deleted.",
+      "eraseAction": "Erase and restart",
+      "deleteTitle": "Delete account",
+      "deleteDetail": "Continue on the SEENALYZE website.",
+      "delete": "Delete",
+      "deleteConfirmTitle": "Delete your account?",
+      "deleteConfirmDescription": "The SEENALYZE website opens, where you can delete your account and its data. This can't be undone.",
+      "deleteAction": "Open website"
+    },
+    "storageCard": {
+      "loadFailed": "Storage couldn't be read.",
+      "diskApp": "App",
+      "diskRecordings": "Recordings",
+      "diskUnavailable": "Disk space couldn't be read.",
+      "diskSummary": "{free} free of {total}",
+      "unknownSize": "Unknown",
+      "clean": "Clean",
+      "cleaned": "Cleaned",
+      "locked": "Unavailable while live, recording, exporting or editing.",
+      "openFolder": "Open folder",
+      "recordingsTitle": "Recordings",
+      "recordingsDetail": "Videos in your recordings folder. They're never deleted here.",
+      "categories": {
+        "editorData": {
+          "title": "Editor data",
+          "detail": "Zoom and edit settings saved for your recordings.",
+          "confirmTitle": "Clean editor data?",
+          "confirmDescription": "Zoom, pointer and edit settings saved for your recordings are removed. The videos stay."
+        },
+        "captionModels": {
+          "title": "Caption models",
+          "detail": "Used to create captions on this computer.",
+          "confirmTitle": "Clean caption models?",
+          "confirmDescription": "The caption models are removed. They're set up again the next time you create captions, which can take a while."
+        },
+        "logs": {
+          "title": "Logs",
+          "detail": "Errors and warnings from this app.",
+          "confirmTitle": "Clean logs?",
+          "confirmDescription": "The saved logs are deleted."
+        }
+      }
+    },
+    "diagnosticsCard": {
+      "logsTitle": "Logs",
+      "logsDetail": "Errors and crash reports stay on this computer.",
+      "openLogs": "Open logs folder"
+    },
+    "aboutCard": {
+      "version": "Version",
+      "loadFailed": "The version couldn't be read.",
+      "open": "Open",
+      "links": {
+        "privacy": "Privacy policy",
+        "terms": "Terms of service",
+        "source": "Source code and licenses"
+      }
+    }
   },
   "quit": {
     "title": "Quit while live?",
@@ -655,7 +730,9 @@
       "noMicrophone": "The chosen microphone isn't available, so this recording has no microphone sound."
     },
     "youtubeCleanupFailed": "An unused YouTube broadcast couldn't be removed. You can delete it in YouTube Studio.",
-    "dataReset": "Some saved settings couldn't be read and were reset. The old file was kept as {file}."
+    "dataReset": "Some saved settings couldn't be read and were reset. The old file was kept as {file}.",
+    "localDataErased": "Local data was erased.",
+    "localDataEraseFailed": "Some local data couldn't be erased. It will be tried again on the next start."
   },
   "errors": {
     "output": {
@@ -674,6 +751,9 @@
       "recordingEncoder": "The recording encoder stopped."
     },
     "codes": {
+      "storage-busy": "Finish your stream, recording or export first.",
+      "storage-clean-failed": "Some files couldn't be removed. Try again.",
+      "folder-open-failed": "The folder couldn't be opened.",
       "generic": "Something went wrong. Please try again.",
       "engine-init-failed": "Your graphics drivers may be out of date or unsupported. Update them and restart the app.",
       "engine-graphics-missing": "Required graphics components are missing. Update your system and restart the app.",

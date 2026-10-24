@@ -632,7 +632,82 @@
     "replayLengthRange": "{min} és {max} másodperc közötti értéket adj meg.",
     "seenalyzeCheckFailed": "Nem sikerült ellenőrizni a fiókodat. Ellenőrizd a kapcsolatot.",
     "seenalyzeWaiting": "Fejezd be a bejelentkezést a böngészőben.",
-    "noEncoders": "Nem található videókódoló. Indítsd újra az alkalmazást, vagy frissítsd a grafikus illesztőprogramokat."
+    "noEncoders": "Nem található videókódoló. Indítsd újra az alkalmazást, vagy frissítsd a grafikus illesztőprogramokat.",
+    "account": "Fiók",
+    "storage": "Tárhely",
+    "diagnostics": "Adatvédelem és diagnosztika",
+    "about": "Névjegy",
+    "accountCard": {
+      "designer": "AI-átfedéstervező",
+      "designerIncluded": "A csomagod tartalmazza",
+      "designerNotIncluded": "A csomagod nem tartalmazza",
+      "managePlan": "Csomag kezelése"
+    },
+    "dangerZone": {
+      "title": "Veszélyzóna",
+      "eraseTitle": "Helyi adatok törlése",
+      "eraseDetail": "Visszaállítja az alkalmazást ezen a számítógépen. A felvételeid megmaradnak.",
+      "eraseLocked": "Élő adás vagy felvétel közben nem érhető el.",
+      "erase": "Törlés",
+      "eraseConfirmTitle": "Törlöd a helyi adatokat?",
+      "eraseConfirmDescription": "Kijelentkeztetünk, a csatlakoztatott fiókjaid, adásulcsaid és beállításaid törlődnek, az alkalmazás pedig újraindul. A felvételeid nem törlődnek.",
+      "eraseAction": "Törlés és újraindítás",
+      "deleteTitle": "Fiók törlése",
+      "deleteDetail": "Folytasd a SEENALYZE weboldalán.",
+      "delete": "Törlés",
+      "deleteConfirmTitle": "Törlöd a fiókodat?",
+      "deleteConfirmDescription": "Megnyílik a SEENALYZE weboldala, ahol törölheted a fiókodat és az adatait. Ez nem vonható vissza.",
+      "deleteAction": "Weboldal megnyitása"
+    },
+    "storageCard": {
+      "loadFailed": "A tárhely adatai nem olvashatók.",
+      "diskApp": "Alkalmazás",
+      "diskRecordings": "Felvételek",
+      "diskUnavailable": "A lemezterület nem olvasható le.",
+      "diskSummary": "{free} szabad ennyiből: {total}",
+      "unknownSize": "Ismeretlen",
+      "clean": "Törlés",
+      "cleaned": "Törölve",
+      "locked": "Élő adás, felvétel, exportálás vagy szerkesztés közben nem érhető el.",
+      "openFolder": "Mappa megnyitása",
+      "recordingsTitle": "Felvételek",
+      "recordingsDetail": "A felvételi mappádban lévő videók. Itt soha nem törlődnek.",
+      "categories": {
+        "editorData": {
+          "title": "Szerkesztő adatai",
+          "detail": "A felvételeidhez mentett nagyítási és szerkesztési beállítások.",
+          "confirmTitle": "Törlöd a szerkesztő adatait?",
+          "confirmDescription": "A felvételeidhez mentett nagyítási, mutató- és szerkesztési beállítások törlődnek. A videók megmaradnak."
+        },
+        "captionModels": {
+          "title": "Feliratmodellek",
+          "detail": "Feliratok készítésére szolgálnak ezen a számítógépen.",
+          "confirmTitle": "Törlöd a feliratmodelleket?",
+          "confirmDescription": "A feliratmodellek törlődnek. A következő feliratkészítéskor újra beállítja őket az alkalmazás, ami eltarthat egy ideig."
+        },
+        "logs": {
+          "title": "Naplók",
+          "detail": "Az alkalmazás hibái és figyelmeztetései.",
+          "confirmTitle": "Törlöd a naplókat?",
+          "confirmDescription": "A mentett naplók törlődnek."
+        }
+      }
+    },
+    "diagnosticsCard": {
+      "logsTitle": "Naplók",
+      "logsDetail": "A hibák és az összeomlási jelentések ezen a számítógépen maradnak.",
+      "openLogs": "Naplómappa megnyitása"
+    },
+    "aboutCard": {
+      "version": "Verzió",
+      "loadFailed": "A verzió nem olvasható le.",
+      "open": "Megnyitás",
+      "links": {
+        "privacy": "Adatvédelmi irányelvek",
+        "terms": "Szolgáltatási feltételek",
+        "source": "Forráskód és licencek"
+      }
+    }
   },
   "quit": {
     "title": "Kilépsz élő adás közben?",
@@ -655,7 +730,9 @@
       "noMicrophone": "A kiválasztott mikrofon nem érhető el, ezért ezen a felvételen nincs mikrofonhang."
     },
     "youtubeCleanupFailed": "Egy fel nem használt YouTube-közvetítést nem sikerült eltávolítani. A YouTube Studióban törölheted.",
-    "dataReset": "Néhány mentett beállítást nem sikerült beolvasni, ezért visszaálltak. A régi fájl {file} néven megmaradt."
+    "dataReset": "Néhány mentett beállítást nem sikerült beolvasni, ezért visszaálltak. A régi fájl {file} néven megmaradt.",
+    "localDataErased": "A helyi adatok törölve lettek.",
+    "localDataEraseFailed": "Néhány helyi adatot nem sikerült törölni. A következő indításkor újra megpróbáljuk."
   },
   "errors": {
     "output": {
@@ -674,6 +751,9 @@
       "recordingEncoder": "A felvétel kódolója leállt."
     },
     "codes": {
+      "storage-busy": "Előbb fejezd be az adást, a felvételt vagy az exportálást.",
+      "storage-clean-failed": "Néhány fájlt nem sikerült eltávolítani. Próbáld újra.",
+      "folder-open-failed": "A mappa nem nyitható meg.",
       "generic": "Hiba történt. Próbáld újra.",
       "engine-init-failed": "Lehet, hogy a grafikus illesztőprogramjaid elavultak vagy nem támogatottak. Frissítsd őket, és indítsd újra az alkalmazást.",
       "engine-graphics-missing": "Hiányoznak szükséges grafikus összetevők. Frissítsd a rendszert, és indítsd újra az alkalmazást.",

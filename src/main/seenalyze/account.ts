@@ -43,6 +43,17 @@ export function seenalyzeOrigin(): string {
   return url.origin;
 }
 
+/** The profile picture address, only when it is a plain https address. */
+function httpsUrlOrNull(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > 2048) return null;
+  try {
+    return new URL(value).protocol === "https:" ? value : null;
+  } catch {
+    // Not an address: the account is shown with initials instead.
+    return null;
+  }
+}
+
 export class SeenalyzeAccountService {
   private pending: PendingSignIn | null = null;
   private refreshing: Promise<Session> | null = null;
@@ -159,7 +170,7 @@ export class SeenalyzeAccountService {
     this.profile = {
       email: body.user?.email ?? null,
       displayName: body.user?.displayName ?? null,
-      avatarUrl: body.user?.avatarUrl ?? null,
+      avatarUrl: httpsUrlOrNull(body.user?.avatarUrl),
       canUseDesigner: body.canUseDesigner === true,
       language: body.user?.language ?? null,
     };

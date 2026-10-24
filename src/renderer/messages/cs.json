@@ -632,7 +632,82 @@
     "replayLengthRange": "Zadejte hodnotu od {min} do {max} sekund.",
     "seenalyzeCheckFailed": "Účet se nepodařilo ověřit. Zkontrolujte připojení.",
     "seenalyzeWaiting": "Dokončete přihlášení v prohlížeči.",
-    "noEncoders": "Nebyl nalezen žádný video enkodér. Restartujte aplikaci nebo aktualizujte grafické ovladače."
+    "noEncoders": "Nebyl nalezen žádný video enkodér. Restartujte aplikaci nebo aktualizujte grafické ovladače.",
+    "account": "Účet",
+    "storage": "Úložiště",
+    "diagnostics": "Soukromí a diagnostika",
+    "about": "O aplikaci",
+    "accountCard": {
+      "designer": "AI návrhář překryvů",
+      "designerIncluded": "Součást vašeho tarifu",
+      "designerNotIncluded": "Není součástí vašeho tarifu",
+      "managePlan": "Spravovat tarif"
+    },
+    "dangerZone": {
+      "title": "Nebezpečná zóna",
+      "eraseTitle": "Smazat místní data",
+      "eraseDetail": "Obnoví tuto aplikaci v tomto počítači do výchozího stavu. Vaše nahrávky zůstanou.",
+      "eraseLocked": "Nedostupné při živém vysílání nebo nahrávání.",
+      "erase": "Smazat",
+      "eraseConfirmTitle": "Smazat místní data?",
+      "eraseConfirmDescription": "Budete odhlášeni, připojené účty, klíče streamu a nastavení se odeberou a aplikace se restartuje. Vaše nahrávky se nesmažou.",
+      "eraseAction": "Smazat a restartovat",
+      "deleteTitle": "Smazat účet",
+      "deleteDetail": "Pokračujte na webu SEENALYZE.",
+      "delete": "Smazat",
+      "deleteConfirmTitle": "Smazat váš účet?",
+      "deleteConfirmDescription": "Otevře se web SEENALYZE, kde můžete smazat svůj účet a jeho data. Nelze to vrátit zpět.",
+      "deleteAction": "Otevřít web"
+    },
+    "storageCard": {
+      "loadFailed": "Úložiště se nepodařilo načíst.",
+      "diskApp": "Aplikace",
+      "diskRecordings": "Nahrávky",
+      "diskUnavailable": "Místo na disku se nepodařilo načíst.",
+      "diskSummary": "Volných {free} z {total}",
+      "unknownSize": "Neznámé",
+      "clean": "Vyčistit",
+      "cleaned": "Vyčištěno",
+      "locked": "Nedostupné při živém vysílání, nahrávání, exportu nebo úpravách.",
+      "openFolder": "Otevřít složku",
+      "recordingsTitle": "Nahrávky",
+      "recordingsDetail": "Videa ve vaší složce nahrávek. Zde se nikdy nemažou.",
+      "categories": {
+        "editorData": {
+          "title": "Data editoru",
+          "detail": "Nastavení zoomu a úprav uložená pro vaše nahrávky.",
+          "confirmTitle": "Vyčistit data editoru?",
+          "confirmDescription": "Nastavení zoomu, kurzoru a úprav uložená pro vaše nahrávky se odeberou. Videa zůstanou."
+        },
+        "captionModels": {
+          "title": "Modely titulků",
+          "detail": "Používají se k vytváření titulků v tomto počítači.",
+          "confirmTitle": "Vyčistit modely titulků?",
+          "confirmDescription": "Modely titulků se odeberou. Při dalším vytváření titulků se připraví znovu, což může chvíli trvat."
+        },
+        "logs": {
+          "title": "Protokoly",
+          "detail": "Chyby a upozornění z této aplikace.",
+          "confirmTitle": "Vyčistit protokoly?",
+          "confirmDescription": "Uložené protokoly se smažou."
+        }
+      }
+    },
+    "diagnosticsCard": {
+      "logsTitle": "Protokoly",
+      "logsDetail": "Chyby a hlášení o pádech zůstávají v tomto počítači.",
+      "openLogs": "Otevřít složku protokolů"
+    },
+    "aboutCard": {
+      "version": "Verze",
+      "loadFailed": "Verzi se nepodařilo načíst.",
+      "open": "Otevřít",
+      "links": {
+        "privacy": "Zásady ochrany osobních údajů",
+        "terms": "Podmínky služby",
+        "source": "Zdrojový kód a licence"
+      }
+    }
   },
   "quit": {
     "title": "Ukončit během vysílání?",
@@ -655,7 +730,9 @@
       "noMicrophone": "Vybraný mikrofon není dostupný, proto tato nahrávka nemá zvuk z mikrofonu."
     },
     "youtubeCleanupFailed": "Nepoužitý přenos na YouTube se nepodařilo odstranit. Můžete ho smazat v YouTube Studiu.",
-    "dataReset": "Některá uložená nastavení se nepodařilo načíst, a byla proto obnovena. Původní soubor byl zachován jako {file}."
+    "dataReset": "Některá uložená nastavení se nepodařilo načíst, a byla proto obnovena. Původní soubor byl zachován jako {file}.",
+    "localDataErased": "Místní data byla smazána.",
+    "localDataEraseFailed": "Některá místní data se nepodařilo smazat. Při dalším spuštění se to zkusí znovu."
   },
   "errors": {
     "output": {
@@ -674,6 +751,9 @@
       "recordingEncoder": "Enkodér nahrávání se zastavil."
     },
     "codes": {
+      "storage-busy": "Nejdřív dokončete stream, nahrávání nebo export.",
+      "storage-clean-failed": "Některé soubory se nepodařilo odebrat. Zkuste to znovu.",
+      "folder-open-failed": "Složku se nepodařilo otevřít.",
       "generic": "Něco se pokazilo. Zkuste to prosím znovu.",
       "engine-init-failed": "Ovladače grafiky mohou být zastaralé nebo nepodporované. Aktualizujte je a restartujte aplikaci.",
       "engine-graphics-missing": "Chybí potřebné grafické komponenty. Aktualizujte systém a restartujte aplikaci.",

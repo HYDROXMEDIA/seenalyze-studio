@@ -258,6 +258,11 @@ export class EditorWindows {
 
   get hasOpenWindows(): boolean { return this.entries.size > 0; }
 
+  /** An export is running, or its save dialog is open. */
+  get exporting(): boolean {
+    return [...this.entries.values()].some((entry) => entry.job !== null || entry.beginning);
+  }
+
   closeAll(): void {
     for (const entry of this.entries.values()) {
       if (!entry.window.isDestroyed()) entry.window.close();

@@ -158,6 +158,11 @@ export class SpeechService {
     this.setup?.abort();
   }
 
+  /** Stops the recognizer so its files can be removed; it starts again on demand. */
+  async release(): Promise<void> {
+    await this.stopServer();
+  }
+
   async shutdown(): Promise<void> {
     this.shuttingDown = true;
     for (const job of this.jobs.values()) job.abort();

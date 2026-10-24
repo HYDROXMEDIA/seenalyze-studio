@@ -12,6 +12,8 @@ import type {
 } from "./overlays";
 import type {
   AdvancedStreamSettings,
+  AppInfo,
+  AppLink,
   AudioLevel,
   ChatEvent,
   ChatState,
@@ -34,6 +36,8 @@ import type {
   SourceChoiceDTO,
   SourceTransform,
   SourceTransformDTO,
+  StorageCategoryId,
+  StorageUsage,
   StreamCheck,
   StudioSnapshot,
   TransformPreset,
@@ -292,6 +296,21 @@ export interface StudioApi {
   /** Saves the interface language to the signed-in account. */
   setSeenalyzeLanguage(language: string): Promise<void>;
 
+  // About, storage and diagnostics
+  getAppInfo(): Promise<AppInfo>;
+  /** Opens a fixed page (privacy, terms, public source) in the browser. */
+  openAppLink(link: AppLink): Promise<void>;
+  /** Opens the folder holding the app's log files. */
+  openLogsFolder(): Promise<void>;
+  /** Opens the recordings folder (never a single file). */
+  openRecordingsFolder(): Promise<void>;
+  /** Sizes of the app's data and the free space on its drive. */
+  getStorageUsage(): Promise<StorageUsage>;
+  /** Clears one kind of app data and returns the new sizes. Refused while live, recording or exporting. */
+  cleanStorage(category: StorageCategoryId): Promise<StorageUsage>;
+  /** Signs out, forgets connected accounts and stream keys, and resets settings and caches; restarts the app. Recordings stay. */
+  eraseLocalData(): Promise<void>;
+
   // Events
   onSnapshot(listener: (snapshot: StudioSnapshot) => void): () => void;
   onStats(listener: (stats: EngineStats) => void): () => void;
@@ -478,6 +497,13 @@ export const STUDIO_METHODS: readonly StudioMethod[] = [
   "openSeenalyzeDashboard",
   "signOutSeenalyze",
   "setSeenalyzeLanguage",
+  "getAppInfo",
+  "openAppLink",
+  "openLogsFolder",
+  "openRecordingsFolder",
+  "getStorageUsage",
+  "cleanStorage",
+  "eraseLocalData",
 ];
 
 /** Errors crossing IPC carry a translation key instead of English text. */

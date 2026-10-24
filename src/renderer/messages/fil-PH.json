@@ -632,7 +632,82 @@
     "replayLengthRange": "Gumamit ng value mula {min} hanggang {max} segundo.",
     "seenalyzeCheckFailed": "Hindi ma-check ang account mo. Tingnan ang iyong koneksyon.",
     "seenalyzeWaiting": "Tapusin ang pag-sign in sa iyong browser.",
-    "noEncoders": "Walang nakitang video encoder. I-restart ang app, o i-update ang iyong graphics drivers."
+    "noEncoders": "Walang nakitang video encoder. I-restart ang app, o i-update ang iyong graphics drivers.",
+    "account": "Account",
+    "storage": "Storage",
+    "diagnostics": "Privacy at diagnostics",
+    "about": "Tungkol",
+    "accountCard": {
+      "designer": "AI overlay designer",
+      "designerIncluded": "Kasama sa plan mo",
+      "designerNotIncluded": "Hindi kasama sa plan mo",
+      "managePlan": "Pamahalaan ang plan"
+    },
+    "dangerZone": {
+      "title": "Danger zone",
+      "eraseTitle": "I-erase ang lokal na data",
+      "eraseDetail": "Nire-reset ang app na ito sa computer na ito. Mananatili ang mga recording mo.",
+      "eraseLocked": "Hindi available habang live o nagre-record.",
+      "erase": "I-erase",
+      "eraseConfirmTitle": "I-erase ang lokal na data?",
+      "eraseConfirmDescription": "Isa-sign out ka, aalisin ang mga nakakonektang account, stream key at setting mo, at magre-restart ang app. Hindi buburahin ang mga recording mo.",
+      "eraseAction": "I-erase at i-restart",
+      "deleteTitle": "I-delete ang account",
+      "deleteDetail": "Magpatuloy sa website ng SEENALYZE.",
+      "delete": "I-delete",
+      "deleteConfirmTitle": "I-delete ang account mo?",
+      "deleteConfirmDescription": "Magbubukas ang website ng SEENALYZE kung saan mo maaaring i-delete ang account mo at ang data nito. Hindi na ito mababawi.",
+      "deleteAction": "Buksan ang website"
+    },
+    "storageCard": {
+      "loadFailed": "Hindi nabasa ang storage.",
+      "diskApp": "App",
+      "diskRecordings": "Mga recording",
+      "diskUnavailable": "Hindi nabasa ang disk space.",
+      "diskSummary": "{free} ang libre sa {total}",
+      "unknownSize": "Hindi alam",
+      "clean": "Linisin",
+      "cleaned": "Nalinis na",
+      "locked": "Hindi available habang live, nagre-record, nag-e-export o nag-e-edit.",
+      "openFolder": "Buksan ang folder",
+      "recordingsTitle": "Mga recording",
+      "recordingsDetail": "Mga video sa recordings folder mo. Hindi kailanman binubura rito.",
+      "categories": {
+        "editorData": {
+          "title": "Data ng editor",
+          "detail": "Mga setting ng zoom at edit na naka-save para sa mga recording mo.",
+          "confirmTitle": "Linisin ang data ng editor?",
+          "confirmDescription": "Aalisin ang mga setting ng zoom, pointer at edit na naka-save para sa mga recording mo. Mananatili ang mga video."
+        },
+        "captionModels": {
+          "title": "Mga caption model",
+          "detail": "Ginagamit sa paggawa ng mga caption sa computer na ito.",
+          "confirmTitle": "Linisin ang mga caption model?",
+          "confirmDescription": "Aalisin ang mga caption model. Ihahanda ulit ang mga ito sa susunod na gagawa ka ng mga caption, na maaaring tumagal."
+        },
+        "logs": {
+          "title": "Mga log",
+          "detail": "Mga error at babala mula sa app na ito.",
+          "confirmTitle": "Linisin ang mga log?",
+          "confirmDescription": "Buburahin ang mga naka-save na log."
+        }
+      }
+    },
+    "diagnosticsCard": {
+      "logsTitle": "Mga log",
+      "logsDetail": "Nananatili sa computer na ito ang mga error at crash report.",
+      "openLogs": "Buksan ang logs folder"
+    },
+    "aboutCard": {
+      "version": "Bersyon",
+      "loadFailed": "Hindi nabasa ang bersyon.",
+      "open": "Buksan",
+      "links": {
+        "privacy": "Patakaran sa privacy",
+        "terms": "Mga tuntunin ng serbisyo",
+        "source": "Source code at mga lisensya"
+      }
+    }
   },
   "quit": {
     "title": "Mag-quit habang live?",
@@ -655,7 +730,9 @@
       "noMicrophone": "Hindi available ang napiling mikropono, kaya walang tunog ng mikropono ang recording na ito."
     },
     "youtubeCleanupFailed": "Hindi maalis ang isang hindi nagamit na YouTube broadcast. Maaari mo itong burahin sa YouTube Studio.",
-    "dataReset": "Hindi mabasa ang ilang naka-save na setting kaya na-reset ang mga ito. Naitago ang lumang file bilang {file}."
+    "dataReset": "Hindi mabasa ang ilang naka-save na setting kaya na-reset ang mga ito. Naitago ang lumang file bilang {file}.",
+    "localDataErased": "Naerase na ang lokal na data.",
+    "localDataEraseFailed": "May ilang lokal na data na hindi naerase. Susubukan ulit ito sa susunod na pagsisimula."
   },
   "errors": {
     "output": {
@@ -674,6 +751,9 @@
       "recordingEncoder": "Huminto ang encoder ng recording."
     },
     "codes": {
+      "storage-busy": "Tapusin muna ang stream, recording o export mo.",
+      "storage-clean-failed": "May ilang file na hindi naalis. Subukan ulit.",
+      "folder-open-failed": "Hindi mabuksan ang folder.",
       "generic": "Nagkaproblema. Pakisubukan muli.",
       "engine-init-failed": "Maaaring luma o hindi suportado ang iyong mga graphics driver. I-update ang mga ito at i-restart ang app.",
       "engine-graphics-missing": "Kulang ang mga kailangang bahagi ng graphics. I-update ang iyong system at i-restart ang app.",

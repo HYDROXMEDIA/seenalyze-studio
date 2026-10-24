@@ -27,7 +27,7 @@ import type {
   StudioSnapshot,
   VideoSettings,
 } from "../shared/types";
-import { ADVANCED_STREAM_RANGES, DEFAULT_ADVANCED_STREAM, RECORDING_BITRATE_RANGE, RECORDING_FORMATS, SCALE_FILTERS } from "../shared/types";
+import { ADVANCED_STREAM_RANGES, APP_LINKS, DEFAULT_ADVANCED_STREAM, RECORDING_BITRATE_RANGE, RECORDING_FORMATS, SCALE_FILTERS, STORAGE_CATEGORIES, type AppLink, type StorageUsage } from "../shared/types";
 import { OutputStatsProbe } from "./output-stats";
 import { EngineClient } from "./engine/client";
 import { PREVIEW_DISPLAY_NAME } from "./engine/preview";
@@ -53,6 +53,8 @@ import { Projectors, screenChoices, type ProjectorHost } from "./projectors";
 import { sanitizeProjectorTarget } from "../shared/projector";
 import { ScreenRecorder } from "./screen-recording";
 import { SeenalyzeAccountService, seenalyzeOrigin } from "./seenalyze/account";
+import { appLogFiles, appLogFolder, clearAppLogs } from "./log";
+import { categoryFolders, diskSpace, isStorageCategory, pathsSize, recordingsSize, removePaths, requestErase, type EraseResult } from "./storage";
 import * as twitch from "./platforms/twitch";
 import { forgetToken, readToken } from "./platforms/tokens";
 import * as youtube from "./platforms/youtube";
@@ -254,6 +256,7 @@ export class Studio {
     onNotice: (kind) => this.notify({ kind: "info", key: `notices.screenRecording.${kind}` }),
   });
   private shuttingDown = false;
+  private eraseResult: EraseResult | null = null;
   // Told once per run of failed saves; the next successful save resets it.
   private saveFailureShown = false;
   private readonly persist = debounced(() => {
@@ -399,6 +402,9 @@ export class Studio {
       console.error("[studio] engine failed to start", error);
       this.engineErrorKey = errorKey(error) === "generic" ? "engine-init-failed" : errorKey(error);
     }
+    if (this.eraseResult?.erased) this.notify({ kind: "info", key: "notices.localDataErased" });
+    else if (this.eraseResult && this.eraseResult.failed.length > 0) this.notify({ kind: "error", key: "notices.localDataEraseFailed" });
+    this.eraseResult = null;
     // Saved settings that could not be read were reset; the user learns where the old file was kept.
     for (const backup of takeMovedAsideFiles()) this.notify({ kind: "error", key: "notices.dataReset", values: { file: path.basename(backup) } });
     this.pushSnapshot();
@@ -1159,6 +1165,36 @@ export class Studio {
       if (!this.account.signedIn) return;
       await this.account.saveLanguage(String(language));
     },
+    getAppInfo: async () => ({ version: app.getVersion(), platform: process.platform }),
+    openAppLink: async (link) => {
+      if (typeof link !== "string" || !(APP_LINKS as readonly string[]).includes(link)) throw new Error("invalid-request");
+      await shell.openExternal(appLinkUrl(link as AppLink));
+    },
+    openLogsFolder: async () => openFolder(appLogFolder()),
+    openRecordingsFolder: async () => openFolder(this.recordingFolder()),
+    getStorageUsage: async () => this.storageUsage(),
+    cleanStorage: async (category) => {
+      if (!isStorageCategory(category)) throw new Error("invalid-request");
+      if (this.storageLocked(category)) throw new Error("storage-busy");
+      if (category === "logs") await clearAppLogs();
+      else {
+        if (category === "captionModels") await this.screenRecorder.releaseCaptionRuntime();
+        await removePaths(categoryFolders(app.getPath("userData"))[category]);
+      }
+      return this.storageUsage();
+    },
+    eraseLocalData: async () => {
+      if (this.storageLocked("editorData")) throw new Error("storage-busy");
+      try {
+        await this.account.signOut();
+      } catch (error) {
+        // The saved sign-in is wiped by the reset either way; only the online sign-out was skipped.
+        console.warn("[studio] sign-out before erasing local data failed", error instanceof Error ? error.message : "unknown error");
+      }
+      await requestErase(app.getPath("userData"));
+      app.relaunch();
+      this.quit();
+    },
     setChatActive: async (active) => this.chat.setActive(Boolean(active)),
     restartEngine: async () => {
       if (this.engine.running && this.engineState) return;
@@ -1171,6 +1207,53 @@ export class Studio {
       this.projectors?.reapply();
     },
   };
+
+  // ----- storage --------------------------------------------------------------
+
+  /** Live, recording (stream or screen), exporting or generating captions. */
+  private storageBusy(): boolean {
+    const locks = this.screenRecorder.storageLocks;
+    return this.busy || this.screenRecorder.state.active || locks.exporting || locks.captioning;
+  }
+
+  /** Cleaning a category is blocked; an open recording editor also holds the editor data and caption files. */
+  private storageLocked(category: (typeof STORAGE_CATEGORIES)[number]): boolean {
+    if (this.storageBusy()) return true;
+    return category !== "logs" && this.screenRecorder.storageLocks.editorsOpen;
+  }
+
+  private async storageUsage(): Promise<StorageUsage> {
+    const userData = app.getPath("userData");
+    const folders = categoryFolders(userData);
+    // A folder that cannot be read shows as unknown (with a log line) instead of failing the whole page.
+    const measure = async <T>(label: string, read: () => Promise<T>): Promise<T | null> => {
+      try {
+        return await read();
+      } catch (error) {
+        console.error(`[storage] could not read ${label}`, error);
+        return null;
+      }
+    };
+    const [editorData, captionModels, logs, recordings, disk] = await Promise.all([
+      measure("editor data", () => pathsSize(folders.editorData)),
+      measure("caption models", () => pathsSize(folders.captionModels)),
+      measure("logs", () => pathsSize(appLogFiles())),
+      measure("recordings", () => recordingsSize(this.recordingFolder())),
+      measure("disk", () => diskSpace(userData)),
+    ]);
+    const bytes = { editorData, captionModels, logs };
+    return {
+      disk,
+      categories: STORAGE_CATEGORIES.map((id) => ({ id, bytes: bytes[id], locked: this.storageLocked(id) })),
+      recordings: { bytes: recordings },
+      busy: this.storageBusy(),
+    };
+  }
+
+  /** Told once after a start that carried out (or failed to carry out) an erase request. */
+  reportErase(result: EraseResult): void {
+    this.eraseResult = result;
+  }
 
   // ----- overlay designer ---------------------------------------------------
 
@@ -2200,6 +2283,22 @@ interface CanvasEdit {
   itemId: number;
   before: ItemPlacement;
   after: ItemPlacement;
+}
+
+/** The page a Settings link opens: the SEENALYZE website, or the public source repository. */
+function appLinkUrl(link: AppLink): string {
+  if (link === "source") return "https://github.com/HYDROXMEDIA/seenalyze-studio";
+  return `${seenalyzeOrigin()}/${link}`;
+}
+
+/** Opens a folder in the file manager; a missing folder or a failed open is an error the page shows. */
+async function openFolder(folder: string | null): Promise<void> {
+  if (!folder) throw new Error("folder-open-failed");
+  const failure = await shell.openPath(folder);
+  if (failure) {
+    console.error("[studio] folder could not be opened", failure);
+    throw new Error("folder-open-failed");
+  }
 }
 
 export function errorKey(error: unknown): string {

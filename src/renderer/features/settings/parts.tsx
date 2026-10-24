@@ -37,3 +37,16 @@ export function ToggleRow({
     </div>
   );
 }
+
+/** A row inside a settings card: title and detail on the left, the control on the right. */
+export function SettingRow({ title, detail, children }: { title: string; detail?: string; children?: ReactNode }) {
+  return (
+    <div className="flex items-center gap-4 rounded-lg border px-4 py-3">
+      <div className="grid min-w-0 flex-1 gap-0.5">
+        <span className="text-sm font-medium">{title}</span>
+        {detail && <span className="text-xs text-muted-foreground">{detail}</span>}
+      </div>
+      {children && <div className="flex shrink-0 items-center gap-2">{children}</div>}
+    </div>
+  );
+}

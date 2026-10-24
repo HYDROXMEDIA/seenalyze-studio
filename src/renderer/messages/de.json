@@ -632,7 +632,82 @@
     "replayLengthRange": "Gib einen Wert von {min} bis {max} Sekunden ein.",
     "seenalyzeCheckFailed": "Dein Konto konnte nicht geprüft werden. Prüfe deine Verbindung.",
     "seenalyzeWaiting": "Schließe die Anmeldung in deinem Browser ab.",
-    "noEncoders": "Es wurde kein Video-Encoder gefunden. Starte die App neu oder aktualisiere deine Grafiktreiber."
+    "noEncoders": "Es wurde kein Video-Encoder gefunden. Starte die App neu oder aktualisiere deine Grafiktreiber.",
+    "account": "Konto",
+    "storage": "Speicher",
+    "diagnostics": "Datenschutz & Diagnose",
+    "about": "Info",
+    "accountCard": {
+      "designer": "KI-Overlay-Designer",
+      "designerIncluded": "In deinem Tarif enthalten",
+      "designerNotIncluded": "In deinem Tarif nicht enthalten",
+      "managePlan": "Tarif verwalten"
+    },
+    "dangerZone": {
+      "title": "Gefahrenbereich",
+      "eraseTitle": "Lokale Daten löschen",
+      "eraseDetail": "Setzt diese App auf diesem Computer zurück. Deine Aufnahmen bleiben erhalten.",
+      "eraseLocked": "Nicht verfügbar während Live-Übertragung oder Aufnahme.",
+      "erase": "Löschen",
+      "eraseConfirmTitle": "Lokale Daten löschen?",
+      "eraseConfirmDescription": "Du wirst abgemeldet, deine verbundenen Konten, Stream-Schlüssel und Einstellungen werden entfernt und die App startet neu. Deine Aufnahmen werden nicht gelöscht.",
+      "eraseAction": "Löschen und neu starten",
+      "deleteTitle": "Konto löschen",
+      "deleteDetail": "Weiter auf der SEENALYZE-Website.",
+      "delete": "Löschen",
+      "deleteConfirmTitle": "Dein Konto löschen?",
+      "deleteConfirmDescription": "Die SEENALYZE-Website öffnet sich, dort kannst du dein Konto und seine Daten löschen. Das lässt sich nicht rückgängig machen.",
+      "deleteAction": "Website öffnen"
+    },
+    "storageCard": {
+      "loadFailed": "Speicher konnte nicht gelesen werden.",
+      "diskApp": "App",
+      "diskRecordings": "Aufnahmen",
+      "diskUnavailable": "Der Speicherplatz konnte nicht gelesen werden.",
+      "diskSummary": "{free} frei von {total}",
+      "unknownSize": "Unbekannt",
+      "clean": "Leeren",
+      "cleaned": "Geleert",
+      "locked": "Nicht verfügbar während Live-Übertragung, Aufnahme, Export oder Bearbeitung.",
+      "openFolder": "Ordner öffnen",
+      "recordingsTitle": "Aufnahmen",
+      "recordingsDetail": "Videos in deinem Aufnahmeordner. Sie werden hier nie gelöscht.",
+      "categories": {
+        "editorData": {
+          "title": "Editor-Daten",
+          "detail": "Zoom- und Bearbeitungseinstellungen deiner Aufnahmen.",
+          "confirmTitle": "Editor-Daten leeren?",
+          "confirmDescription": "Zoom-, Zeiger- und Bearbeitungseinstellungen deiner Aufnahmen werden entfernt. Die Videos bleiben erhalten."
+        },
+        "captionModels": {
+          "title": "Untertitelmodelle",
+          "detail": "Zum Erstellen von Untertiteln auf diesem Computer.",
+          "confirmTitle": "Untertitelmodelle leeren?",
+          "confirmDescription": "Die Untertitelmodelle werden entfernt. Sie werden beim nächsten Erstellen von Untertiteln neu eingerichtet, was eine Weile dauern kann."
+        },
+        "logs": {
+          "title": "Protokolle",
+          "detail": "Fehler und Warnungen dieser App.",
+          "confirmTitle": "Protokolle leeren?",
+          "confirmDescription": "Die gespeicherten Protokolle werden gelöscht."
+        }
+      }
+    },
+    "diagnosticsCard": {
+      "logsTitle": "Protokolle",
+      "logsDetail": "Fehler und Absturzberichte bleiben auf diesem Computer.",
+      "openLogs": "Protokollordner öffnen"
+    },
+    "aboutCard": {
+      "version": "Version",
+      "loadFailed": "Die Version konnte nicht gelesen werden.",
+      "open": "Öffnen",
+      "links": {
+        "privacy": "Datenschutzerklärung",
+        "terms": "Nutzungsbedingungen",
+        "source": "Quellcode und Lizenzen"
+      }
+    }
   },
   "quit": {
     "title": "Während des Livestreams beenden?",
@@ -655,7 +730,9 @@
       "noMicrophone": "Das gewählte Mikrofon ist nicht verfügbar, daher hat diese Aufnahme keinen Mikrofonton."
     },
     "youtubeCleanupFailed": "Eine ungenutzte YouTube-Übertragung konnte nicht entfernt werden. Du kannst sie in YouTube Studio löschen.",
-    "dataReset": "Einige gespeicherte Einstellungen konnten nicht gelesen werden und wurden zurückgesetzt. Die alte Datei wurde als {file} behalten."
+    "dataReset": "Einige gespeicherte Einstellungen konnten nicht gelesen werden und wurden zurückgesetzt. Die alte Datei wurde als {file} behalten.",
+    "localDataErased": "Lokale Daten wurden gelöscht.",
+    "localDataEraseFailed": "Einige lokale Daten konnten nicht gelöscht werden. Beim nächsten Start wird es erneut versucht."
   },
   "errors": {
     "output": {
@@ -674,6 +751,9 @@
       "recordingEncoder": "Der Aufnahme-Encoder wurde gestoppt."
     },
     "codes": {
+      "storage-busy": "Beende zuerst deinen Stream, deine Aufnahme oder deinen Export.",
+      "storage-clean-failed": "Einige Dateien konnten nicht entfernt werden. Versuche es erneut.",
+      "folder-open-failed": "Der Ordner konnte nicht geöffnet werden.",
       "generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
       "engine-init-failed": "Ihre Grafiktreiber sind möglicherweise veraltet oder werden nicht unterstützt. Aktualisieren Sie sie und starten Sie die App neu.",
       "engine-graphics-missing": "Erforderliche Grafikkomponenten fehlen. Aktualisieren Sie Ihr System und starten Sie die App neu.",
